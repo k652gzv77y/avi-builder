@@ -49,7 +49,10 @@ import AirtableSyncButton from './AirtableSyncButton';
 import CollectionItemContextMenu from './CollectionItemContextMenu';
 import FieldFormDialog from './FieldFormDialog';
 import type { FieldFormData } from './FieldFormDialog';
-import GlobalsManager from './GlobalsManager';
+import VariablesSpreadsheet from './VariablesSpreadsheet';
+import { VARIABLE_COLLECTIONS, getVariableCollectionItemCount, type VariableCollectionId } from '@/lib/variable-collections';
+import { useColorVariablesStore } from '@/stores/useColorVariablesStore';
+import { useGlobalsStore } from '@/stores/useGlobalsStore';
 import CollectionItemSheet from './CollectionItemSheet';
 import CSVImportDialog from './CSVImportDialog';
 import { CollaboratorBadge } from '@/components/collaboration/CollaboratorBadge';
@@ -442,9 +445,12 @@ const CMS = React.memo(function CMS() {
   const [hoveredCollectionId, setHoveredCollectionId] = useState<string | null>(null);
   const [collectionDropdownId, setCollectionDropdownId] = useState<string | null>(null);
   const [loadingSampleCollectionId, setLoadingSampleCollectionId] = useState<string | null>(null);
-  // Which CMS section the right panel shows: the selected collection or the
-  // site-wide Global variables manager.
-  const [cmsSection, setCmsSection] = useState<'collections' | 'globals'>('collections');
+  // Which CMS section the right panel shows: a collection or a Figma-style variables table.
+  const [cmsSection, setCmsSection] = useState<'collections' | 'variables'>('collections');
+  const [selectedVariableCollection, setSelectedVariableCollection] = useState<VariableCollectionId>('colors');
+  const [variableCreateRequestId, setVariableCreateRequestId] = useState(0);
+  const colorVariables = useColorVariablesStore((state) => state.colorVariables);
+  const globals = useGlobalsStore((state) => state.globals);
 
   // Confirm dialog state
   const [deleteItemDialogOpen, setDeleteItemDialogOpen] = useState(false);
@@ -2096,21 +2102,53 @@ const CMS = React.memo(function CMS() {
   // Collections sidebar component
   const collectionsSidebar = (
     <div className="w-64 shrink-0 bg-background border-r flex flex-col overflow-hidden px-4">
-      {/* Global variables - distinct site-wide section, set apart from collections */}
-      <div className="py-4 shrink-0">
-        <button
-          type="button"
-          onClick={() => setCmsSection('globals')}
-          className={cn(
-            'px-3 h-8 rounded-lg flex gap-2 items-center text-left w-full',
-            cmsSection === 'globals'
-              ? 'bg-primary text-primary-foreground'
-              : 'hover:bg-secondary/50 text-secondary-foreground/80 dark:text-muted-foreground'
-          )}
-        >
-          <Icon name="globe" className="size-3.5 shrink-0" />
-          <span className="font-medium">Global variables</span>
-        </button>
+      <header className="py-5 flex items-center justify-between shrink-0">
+        <span className="font-medium">Global variables</span>
+        {canManageSchema && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="xs" variant="secondary">
+                <Icon name="plus" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                onClick={() => {
+                  setCmsSection('variables');
+                  setVariableCreateRequestId((id) => id + 1);
+                }}
+              >
+                New variable
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </header>
+      <div className="flex flex-col pb-2 shrink-0">
+        {VARIABLE_COLLECTIONS.map((collection) => (
+          <button
+            key={collection.id}
+            type="button"
+            onClick={() => {
+              setCmsSection('variables');
+              setSelectedVariableCollection(collection.id);
+            }}
+            className={cn(
+              'px-3 h-8 rounded-lg flex gap-2 items-center justify-between text-left w-full',
+              cmsSection === 'variables' && selectedVariableCollection === collection.id
+                ? 'bg-primary text-primary-foreground'
+                : 'hover:bg-secondary/50 text-secondary-foreground/80 dark:text-muted-foreground'
+            )}
+          >
+            <div className="flex gap-2 items-center min-w-0">
+              <Icon name={collection.icon} className="size-3 shrink-0" />
+              <span className="truncate">{collection.name}</span>
+            </div>
+            <span className="block text-xs opacity-50">
+              {getVariableCollectionItemCount(collection.id, colorVariables.length, globals)}
+            </span>
+          </button>
+        ))}
       </div>
       <div className="border-t -mx-4 shrink-0" />
       <header className="py-5 flex items-center justify-between shrink-0">
@@ -2200,12 +2238,17 @@ const CMS = React.memo(function CMS() {
     </div>
   );
 
-  // Global variables section takes over the right panel
-  if (cmsSection === 'globals') {
+  if (cmsSection === 'variables') {
     return (
       <div className="flex-1 bg-background flex min-w-0">
         {collectionsSidebar}
-        <GlobalsManager canManageSchema={canManageSchema} timezone={timezone} />
+        <VariablesSpreadsheet
+          collectionId={selectedVariableCollection}
+          canManageSchema={canManageSchema}
+          timezone={timezone}
+          createRequestId={variableCreateRequestId}
+          onCreateRequestHandled={() => setVariableCreateRequestId(0)}
+        />
       </div>
     );
   }

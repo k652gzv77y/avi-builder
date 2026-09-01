@@ -1120,6 +1120,8 @@ export interface CollectionFieldData {
   options?: { id: string; name: string }[]; // For option fields - selectable values
   // For count fields: which child collection / reference field to count back from
   count?: { collectionId: string; fieldId: string };
+  /** Extra mode values for Figma-style variable tables (mode id → value). Default mode uses `GlobalVariable.value`. */
+  valuesByMode?: Record<string, string | null>;
 }
 
 export interface CreateCollectionFieldData {
