@@ -25,6 +25,29 @@ const PUBLIC_API_EXACT = [
   '/ycode/api/oauth/token',    // OAuth token exchange — auth is via PKCE/refresh
 ];
 
+const BUILDER_HOSTNAME = process.env.YCODE_BUILDER_HOSTNAME || 'ycode.kolboschool.com';
+const PUBLIC_SITE_HOSTNAME = process.env.YCODE_PUBLIC_SITE_HOSTNAME || 'beta.kolboschool.com';
+
+function getRequestHostname(request: NextRequest): string {
+  const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || '';
+  return host.split(',')[0].trim().split(':')[0].toLowerCase();
+}
+
+function redirectToHost(request: NextRequest, hostname: string): NextResponse {
+  const url = request.nextUrl.clone();
+  url.protocol = 'https:';
+  url.host = hostname;
+  return NextResponse.redirect(url);
+}
+
+function isBuilderInfrastructurePath(pathname: string): boolean {
+  return pathname.startsWith('/ycode')
+    || pathname.startsWith('/_next')
+    || pathname.startsWith('/a/')
+    || pathname === '/favicon.ico'
+    || pathname.startsWith('/.well-known/');
+}
+
 /**
  * Derive the Supabase project URL and anon key from environment variables.
  * Returns null if env vars are not set (pre-setup or local dev without .env.local).
@@ -128,6 +151,18 @@ async function verifyApiAuth(request: NextRequest): Promise<NextResponse | null>
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const hostname = getRequestHostname(request);
+
+  // Keep the public site and editor on distinct origins. Builder infrastructure
+  // remains on the editor origin so MCP OAuth metadata, assets, and API calls
+  // never redirect to the public site.
+  if (hostname === BUILDER_HOSTNAME && !isBuilderInfrastructurePath(pathname)) {
+    return redirectToHost(request, PUBLIC_SITE_HOSTNAME);
+  }
+
+  if (hostname === PUBLIC_SITE_HOSTNAME && pathname.startsWith('/ycode')) {
+    return redirectToHost(request, BUILDER_HOSTNAME);
+  }
 
   // MCP endpoints use their own token-based authentication — skip session auth.
   // Cloud overlay proxies MUST also exempt these paths to avoid login redirects.

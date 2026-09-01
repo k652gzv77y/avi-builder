@@ -23,6 +23,7 @@ import { useEditorStore } from '@/stores/useEditorStore';
 import { usePagesStore } from '@/stores/usePagesStore';
 import { useCollectionsStore } from '@/stores/useCollectionsStore';
 import { useLocalisationStore } from '@/stores/useLocalisationStore';
+import { useSettingsStore } from '@/stores/useSettingsStore';
 
 import { buildSlugPath, buildDynamicPageUrl, buildLocalizedSlugPath, buildLocalizedDynamicPageUrl } from '@/lib/page-utils';
 
@@ -107,6 +108,7 @@ export default function HeaderBar({
   const collections = useCollectionsStore((s) => s.collections);
   const storeSelectedCollectionId = useCollectionsStore((s) => s.selectedCollectionId);
   const setSelectedCollectionId = useCollectionsStore((s) => s.setSelectedCollectionId);
+  const globalCanonicalUrl = useSettingsStore((s) => s.settingsByKey.global_canonical_url as string | null | undefined);
 
   const locales = useLocalisationStore((s) => s.locales);
   const selectedLocaleId = useLocalisationStore((s) => s.selectedLocaleId);
@@ -163,10 +165,13 @@ export default function HeaderBar({
   const [hasUpdate, setHasUpdate] = useState(false);
   const [showTransferDialog, setShowTransferDialog] = useState(false);
 
-  // Get current host after mount
+  // The editor can live on a different host than the published website. Prefer
+  // the configured canonical URL so publish links never point visitors back to
+  // the builder origin.
   useEffect(() => {
-    setBaseUrl(window.location.protocol + '//' + window.location.host);
-  }, []);
+    const configuredUrl = globalCanonicalUrl?.trim().replace(/\/$/, '');
+    setBaseUrl(configuredUrl || window.location.protocol + '//' + window.location.host);
+  }, [globalCanonicalUrl]);
 
   // Check for updates on mount
   useEffect(() => {
