@@ -2236,26 +2236,31 @@ export default function YCodeBuilder({ children }: YCodeBuilderProps = {} as YCo
               {isLoggingIn ? <Spinner /> : 'Sign In'}
             </Button>
 
-            <div className="grid grid-cols-2 gap-3">
-              <Button
+            <div className="flex flex-col items-center gap-3">
+              <button
                 type="button"
-                size="sm"
-                variant="secondary"
+                className="h-10 w-[180px] overflow-hidden rounded-[4px] disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={isLoggingIn}
                 onClick={() => handleOAuthLogin('google')}
+                aria-label="Sign in with Google"
               >
-                Google
-              </Button>
-              <Button
+                <img
+                  src="/auth/google-sign-in-dark.svg"
+                  alt=""
+                  width={180}
+                  height={40}
+                  className="block size-full"
+                />
+              </button>
+              <button
                 type="button"
-                size="sm"
-                variant="secondary"
+                className="flex h-10 w-[180px] items-center justify-center gap-2 rounded-[4px] bg-black px-3 text-sm font-medium text-white ring-1 ring-white/30 transition-colors hover:bg-neutral-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={isLoggingIn}
                 onClick={() => handleOAuthLogin('apple')}
               >
                 <Apple className="size-4" aria-hidden="true" />
-                Apple
-              </Button>
+                Sign in with Apple
+              </button>
             </div>
           </form>
 
