@@ -7,7 +7,7 @@
 import { create } from 'zustand';
 import { createBrowserClient } from '../lib/supabase-browser';
 import { extractRoleFromUser } from '@/lib/roles';
-import type { User, Session } from '@supabase/supabase-js';
+import type { Provider, User, Session } from '@supabase/supabase-js';
 
 interface AuthState {
   user: User | null;
@@ -22,6 +22,7 @@ interface AuthActions {
   initialize: () => Promise<void>;
   signUp: (email: string, password: string) => Promise<{ error: string | null }>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
+  signInWithOAuth: (provider: Provider) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   checkSession: () => Promise<void>;
   setError: (error: string | null) => void;
@@ -176,6 +177,39 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       return { error: null };
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Sign in failed';
+      set({ loading: false, error: message });
+      return { error: message };
+    }
+  },
+
+  /** Start a hosted Supabase OAuth flow and return to the builder afterwards. */
+  signInWithOAuth: async (provider) => {
+    set({ loading: true, error: null });
+
+    try {
+      const supabase = await createBrowserClient();
+
+      if (!supabase) {
+        const error = 'Supabase not configured. Please complete setup first.';
+        set({ loading: false, error });
+        return { error };
+      }
+
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: `${window.location.origin}/ycode`,
+        },
+      });
+
+      if (error) {
+        set({ loading: false, error: error.message });
+        return { error: error.message };
+      }
+
+      return { error: null };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'OAuth sign in failed';
       set({ loading: false, error: message });
       return { error: message };
     }

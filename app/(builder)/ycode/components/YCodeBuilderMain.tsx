@@ -99,6 +99,8 @@ import { Field } from '@/components/ui/field';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
 import { Alert, AlertTitle } from '@/components/ui/alert';
+import AviBuilderMark from '@/components/branding/AviBuilderMark';
+import { Apple } from 'lucide-react';
 
 interface YCodeBuilderProps {
   children?: React.ReactNode;
@@ -751,6 +753,19 @@ export default function YCodeBuilder({ children }: YCodeBuilderProps = {} as YCo
       setIsLoggingIn(false);
     }
     // If successful, user state will update and component will re-render with builder
+  };
+
+  const handleOAuthLogin = async (provider: 'google' | 'apple') => {
+    setIsLoggingIn(true);
+    setLoginError(null);
+
+    const { signInWithOAuth } = useAuthStore.getState();
+    const result = await signInWithOAuth(provider);
+
+    if (result.error) {
+      setLoginError(result.error);
+      setIsLoggingIn(false);
+    }
   };
 
   // Track initial data load completion
@@ -2170,33 +2185,7 @@ export default function YCodeBuilder({ children }: YCodeBuilderProps = {} as YCo
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-neutral-950 py-10">
 
-        <svg
-          className="size-5 fill-current absolute bottom-10"
-          viewBox="0 0 24 24"
-          version="1.1" xmlns="http://www.w3.org/2000/svg"
-        >
-          <g
-            id="Symbols" stroke="none"
-            strokeWidth="1" fill="none"
-            fillRule="evenodd"
-          >
-            <g id="Sidebar" transform="translate(-30.000000, -30.000000)">
-              <g id="Ycode">
-                <g transform="translate(30.000000, 30.000000)">
-                  <rect
-                    id="Rectangle" x="0"
-                    y="0" width="24"
-                    height="24"
-                  />
-                  <path
-                    id="CurrentFill" d="M11.4241533,0 L11.4241533,5.85877951 L6.024,8.978 L12.6155735,12.7868008 L10.951,13.749 L23.0465401,6.75101349 L23.0465401,12.6152717 L3.39516096,23.9856666 L3.3703726,24 L3.34318129,23.9827156 L0.96,22.4713365 L0.96,16.7616508 L3.36417551,18.1393242 L7.476,15.76 L0.96,11.9090099 L0.96,6.05375516 L11.4241533,0 Z"
-                    className="fill-current"
-                  />
-                </g>
-              </g>
-            </g>
-          </g>
-        </svg>
+        <AviBuilderMark className="size-6 absolute bottom-10" />
 
         <div className="w-full max-w-sm animate-in fade-in slide-in-from-bottom-1 duration-700" style={{ animationFillMode: 'both' }}>
 
@@ -2246,6 +2235,28 @@ export default function YCodeBuilder({ children }: YCodeBuilderProps = {} as YCo
             >
               {isLoggingIn ? <Spinner /> : 'Sign In'}
             </Button>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                disabled={isLoggingIn}
+                onClick={() => handleOAuthLogin('google')}
+              >
+                Google
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                disabled={isLoggingIn}
+                onClick={() => handleOAuthLogin('apple')}
+              >
+                <Apple className="size-4" aria-hidden="true" />
+                Apple
+              </Button>
+            </div>
           </form>
 
           <div className="mt-4 text-center">

@@ -3,27 +3,27 @@ import type { Metadata, Viewport } from 'next';
 import DarkModeProvider from '@/components/DarkModeProvider';
 
 export const defaultMetadata: Metadata = {
-  title: 'AVI Builder - Advanced Visual Interface Builder',
+  title: 'AVI Builder',
   description: 'Advanced Visual Interface Builder',
   metadataBase: new URL('https://avibuilder.com'),
   applicationName: 'AVI Builder',
   manifest: '/avi-builder.webmanifest',
   openGraph: {
     type: 'website',
-    title: 'AVI Builder - Advanced Visual Interface Builder',
+    title: 'AVI Builder',
     description: 'Advanced Visual Interface Builder',
     images: [
       {
         url: '/brand/avi-social-light.png',
         width: 1200,
         height: 640,
-        alt: 'AVI Builder - Advanced Visual Interface Builder',
+        alt: 'AVI Builder',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'AVI Builder - Advanced Visual Interface Builder',
+    title: 'AVI Builder',
     description: 'Advanced Visual Interface Builder',
     images: ['/brand/avi-social-light.png'],
   },
