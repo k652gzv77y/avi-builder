@@ -5,10 +5,10 @@ import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
 const INTEGRATIONS_ITEMS = [
-  { id: 'apps', label: 'Apps', path: '/ycode/integrations/apps' },
-  { id: 'webhooks', label: 'Webhooks', path: '/ycode/integrations/webhooks' },
-  { id: 'api', label: 'Ycode API', path: '/ycode/integrations/api' },
-  { id: 'mcp', label: 'MCP', path: '/ycode/integrations/mcp' },
+  { id: 'apps', label: 'Apps', path: '/projects/kolbo-school/integrations/apps' },
+  { id: 'webhooks', label: 'Webhooks', path: '/projects/kolbo-school/integrations/webhooks' },
+  { id: 'api', label: 'Ycode API', path: '/projects/kolbo-school/integrations/api' },
+  { id: 'mcp', label: 'MCP', path: '/projects/kolbo-school/integrations/mcp' },
 ];
 
 interface IntegrationsContentProps {

@@ -87,7 +87,7 @@ export default function AcceptInvitePage() {
 
         if (session?.user) {
           // User is already authenticated, redirect to app
-          router.push('/ycode');
+          router.push('/projects/kolbo-school');
           return;
         }
 
@@ -147,7 +147,7 @@ export default function AcceptInvitePage() {
       }
 
       // Success! Redirect to the app
-      router.push('/ycode');
+      router.push('/projects/kolbo-school');
     } catch (err) {
       console.error('Error setting password:', err);
       setError('Failed to set password. Please try again.');

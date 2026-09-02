@@ -328,7 +328,7 @@ export default function AppsPage() {
 
   const fetchApps = async () => {
     try {
-      const response = await fetch('/ycode/api/apps');
+      const response = await fetch('/projects/kolbo-school/api/apps');
       const result = await response.json();
       if (result.data) {
         const enriched = (result.data as AppWithStatus[]).map((app) => {
@@ -387,7 +387,7 @@ export default function AppsPage() {
   const loadMailerLiteSettings = async () => {
     setIsLoadingSettings(true);
     try {
-      const response = await fetch('/ycode/api/apps/mailerlite/settings');
+      const response = await fetch('/projects/kolbo-school/api/apps/mailerlite/settings');
       const result = await response.json();
 
       if (result.data) {
@@ -412,7 +412,7 @@ export default function AppsPage() {
 
     setIsTesting(true);
     try {
-      const response = await fetch('/ycode/api/apps/mailerlite/test', {
+      const response = await fetch('/projects/kolbo-school/api/apps/mailerlite/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ api_key: apiKey.trim() }),
@@ -437,7 +437,7 @@ export default function AppsPage() {
 
     setIsSavingKey(true);
     try {
-      const response = await fetch('/ycode/api/apps/mailerlite/settings', {
+      const response = await fetch('/projects/kolbo-school/api/apps/mailerlite/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ api_key: apiKey.trim() }),
@@ -462,7 +462,7 @@ export default function AppsPage() {
 
   const handleDisconnect = async () => {
     try {
-      await fetch('/ycode/api/apps/mailerlite/settings', {
+      await fetch('/projects/kolbo-school/api/apps/mailerlite/settings', {
         method: 'DELETE',
       });
 
@@ -498,7 +498,7 @@ export default function AppsPage() {
 
     updateTokenAppState(appId, { isLoading: true });
     try {
-      const response = await fetch(`/ycode/api/apps/${appId}/settings`);
+      const response = await fetch(`/projects/kolbo-school/api/apps/${appId}/settings`);
       const result = await response.json();
       const value = result.data?.[config.tokenKey];
 
@@ -519,7 +519,7 @@ export default function AppsPage() {
 
     updateTokenAppState(appId, { isSaving: true });
     try {
-      const response = await fetch(`/ycode/api/apps/${appId}/settings`, {
+      const response = await fetch(`/projects/kolbo-school/api/apps/${appId}/settings`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ [config.tokenKey]: state.token.trim() }),
@@ -547,7 +547,7 @@ export default function AppsPage() {
     if (!config) return;
 
     try {
-      await fetch(`/ycode/api/apps/${appId}/settings`, { method: 'DELETE' });
+      await fetch(`/projects/kolbo-school/api/apps/${appId}/settings`, { method: 'DELETE' });
       updateTokenAppState(appId, {
         token: '',
         savedToken: '',
@@ -571,8 +571,8 @@ export default function AppsPage() {
 
     try {
       const [groupsRes, formsRes] = await Promise.all([
-        fetch('/ycode/api/apps/mailerlite/groups'),
-        fetch('/ycode/api/form-submissions?summary=true'),
+        fetch('/projects/kolbo-school/api/apps/mailerlite/groups'),
+        fetch('/projects/kolbo-school/api/form-submissions?summary=true'),
       ]);
 
       const groupsResult = await groupsRes.json();
@@ -663,7 +663,7 @@ export default function AppsPage() {
 
     setIsSavingConnections(true);
     try {
-      const response = await fetch('/ycode/api/apps/mailerlite/settings', {
+      const response = await fetch('/projects/kolbo-school/api/apps/mailerlite/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ connections: updatedConnections }),
@@ -692,7 +692,7 @@ export default function AppsPage() {
     );
 
     try {
-      await fetch('/ycode/api/apps/mailerlite/settings', {
+      await fetch('/projects/kolbo-school/api/apps/mailerlite/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ connections: updatedConnections }),
@@ -712,7 +712,7 @@ export default function AppsPage() {
     );
 
     try {
-      await fetch('/ycode/api/apps/mailerlite/settings', {
+      await fetch('/projects/kolbo-school/api/apps/mailerlite/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ connections: updatedConnections }),

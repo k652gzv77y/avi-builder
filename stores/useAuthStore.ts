@@ -109,7 +109,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/ycode`,
+          emailRedirectTo: `${window.location.origin}/projects/kolbo-school`,
           // Note: Email confirmation should be disabled in Supabase Dashboard
           // (Authentication → Providers → Email → Disable "Confirm email")
           // This is recommended for self-hosted single-admin setups
@@ -198,7 +198,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${window.location.origin}/ycode`,
+          redirectTo: `${window.location.origin}/projects/kolbo-school`,
         },
       });
 

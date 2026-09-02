@@ -197,13 +197,11 @@ export async function proxy(request: NextRequest) {
   //   - `/ycode/mcp`: OAuth Bearer-token endpoint (Claude.ai web, ChatGPT)
   const effectivePathname = builderPath ?? pathname;
 
-  // Preserve existing internal API clients while keeping editor page navigation
-  // on the project URL. API requests must not redirect because callers issue
-  // POST/PUT/DELETE requests to the legacy endpoint paths.
+  // The physical Next.js routes remain under `/ycode` during this migration,
+  // but every public builder URL uses the project namespace.
   if (
     !builderPath
     && effectivePathname.startsWith('/ycode')
-    && !effectivePathname.startsWith('/ycode/api')
     && effectivePathname !== '/ycode/mcp'
     && !effectivePathname.startsWith('/ycode/mcp/')
   ) {
@@ -211,7 +209,9 @@ export async function proxy(request: NextRequest) {
   }
 
   if (effectivePathname === '/ycode/mcp' || effectivePathname.startsWith('/ycode/mcp/')) {
-    const response = NextResponse.next();
+    const response = builderPath
+      ? NextResponse.rewrite(new URL(effectivePathname + request.nextUrl.search, request.url))
+      : NextResponse.next();
     response.headers.set('x-pathname', effectivePathname);
     return response;
   }

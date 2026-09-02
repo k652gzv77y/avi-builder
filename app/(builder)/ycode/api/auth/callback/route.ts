@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      return NextResponse.redirect(new URL('/ycode', request.url));
+      return NextResponse.redirect(new URL('/projects/kolbo-school', request.url));
     } catch (error) {
       console.error('Auth callback failed:', error);
       return NextResponse.redirect(

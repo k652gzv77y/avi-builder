@@ -31,7 +31,7 @@ export default function ConsentForm(props: ConsentFormProps) {
     setError(null);
 
     try {
-      const response = await fetch('/ycode/api/oauth/authorize', {
+      const response = await fetch('/projects/kolbo-school/api/oauth/authorize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

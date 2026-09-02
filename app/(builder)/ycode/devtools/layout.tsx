@@ -18,7 +18,7 @@ export default function DevtoolsLayout({ children }: { children: React.ReactNode
 
   useEffect(() => {
     if (!isLoading && !session) {
-      router.push('/ycode');
+      router.push('/projects/kolbo-school');
     }
   }, [isLoading, session, router]);
 

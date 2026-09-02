@@ -93,7 +93,7 @@ export function TemplateGallery({
       }
 
       onApplySuccess?.();
-      window.location.href = '/ycode';
+      window.location.href = '/projects/kolbo-school';
     } catch (err) {
       console.error('[TemplateGallery] Apply error:', err);
       setApplyError(

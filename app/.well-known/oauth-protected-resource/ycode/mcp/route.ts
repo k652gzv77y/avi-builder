@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
   const baseUrl = getBaseUrl(request);
 
   return jsonMetadataResponse({
-    resource: `${baseUrl}/ycode/mcp`,
+    resource: `${baseUrl}/projects/kolbo-school/mcp`,
     authorization_servers: [baseUrl],
     bearer_methods_supported: ['header'],
     resource_documentation: 'https://github.com/ycode/ycode',

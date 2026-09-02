@@ -668,7 +668,7 @@ async function scheduleWarmChain(
 
   const body = JSON.stringify({ routes, warmed: alreadyWarmed });
   const signature = await hmacHex(body, key);
-  await fetch(`${baseUrl}/ycode/api/cache/warm`, {
+  await fetch(`${baseUrl}/projects/kolbo-school/api/cache/warm`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', [WARM_SIGNATURE_HEADER]: signature },
     body,
@@ -682,7 +682,7 @@ async function scheduleWarmChain(
  * Warm a batch of routes in the background, then chain to a fresh invocation
  * for the next batch until every route is warmed or MAX_ROUTES_TO_WARM_TOTAL
  * is reached. Shared by the initial `warmRoutes` call and the self-chaining
- * `/ycode/api/cache/warm` endpoint.
+ * `/projects/kolbo-school/api/cache/warm` endpoint.
  *
  * @param alreadyWarmed routes warmed by earlier links in this chain, used to
  *   enforce the cumulative overall cap.
@@ -730,7 +730,7 @@ export async function warmRouteChain(
  *
  * Uses the active host's request lifecycle so warming runs after the response.
  * added latency on the triggering request. Warms the first batch here and
- * self-chains through `/ycode/api/cache/warm` for the rest, draining the
+ * self-chains through `/projects/kolbo-school/api/cache/warm` for the rest, draining the
  * whole list up to MAX_ROUTES_TO_WARM_TOTAL — anything beyond that self-warms
  * on first real visit.
  *

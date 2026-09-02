@@ -92,7 +92,7 @@ export async function PATCH(
     const previewImageRegex = /previewImage:\s*'[^']*'/;
     const updatedLayoutSectionWithImage = updatedLayoutSection.replace(
       previewImageRegex, 
-      `previewImage: '/ycode/layouts/previews/${uniqueNewLayoutKey}.webp'`
+      `previewImage: '/projects/kolbo-school/layouts/previews/${uniqueNewLayoutKey}.webp'`
     );
 
     // Replace the section in the file

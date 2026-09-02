@@ -246,7 +246,7 @@ export default function YCodeBuilder({ children }: YCodeBuilderProps = {} as YCo
       if (targetPageId) {
         navigateToLayers(targetPageId);
       } else {
-        router.replace('/ycode');
+        router.replace('/projects/kolbo-school');
       }
     }
   }, [isEditor, authInitialized, routeType, currentPageId, pages, navigateToLayers, router]);
@@ -512,12 +512,12 @@ export default function YCodeBuilder({ children }: YCodeBuilderProps = {} as YCo
   useEffect(() => {
     const checkSupabaseConfig = async () => {
       try {
-        const response = await fetch('/ycode/api/setup/status');
+        const response = await fetch('/projects/kolbo-school/api/setup/status');
         const data = await response.json();
 
         if (!data.is_configured) {
           // Redirect to setup wizard
-          router.push('/ycode/welcome');
+          router.push('/projects/kolbo-school/welcome');
           return;
         }
 
@@ -525,7 +525,7 @@ export default function YCodeBuilder({ children }: YCodeBuilderProps = {} as YCo
       } catch (err) {
         console.error('Failed to check Supabase config:', err);
         // On error, redirect to setup to be safe
-        router.push('/ycode/welcome');
+        router.push('/projects/kolbo-school/welcome');
       }
     };
 
@@ -729,13 +729,13 @@ export default function YCodeBuilder({ children }: YCodeBuilderProps = {} as YCo
   }, [user]);
 
   // After login, honor `?next=` (used by the OAuth consent flow to bounce
-  // unauthenticated users through `/ycode` and back). Only same-origin
-  // paths starting with `/ycode` are accepted to prevent open redirects.
+  // unauthenticated users through `/projects/kolbo-school` and back). Only same-origin
+  // paths starting with `/projects/kolbo-school` are accepted to prevent open redirects.
   useEffect(() => {
     if (!user || !authInitialized) return;
     const next = searchParams?.get('next');
     if (!next) return;
-    if (!next.startsWith('/ycode')) return;
+    if (!next.startsWith('/projects/kolbo-school')) return;
     router.replace(next);
   }, [user, authInitialized, searchParams, router]);
 
@@ -2267,7 +2267,7 @@ export default function YCodeBuilder({ children }: YCodeBuilderProps = {} as YCo
           <div className="mt-4 text-center">
             <p className="text-xs text-white/50">
               First time here?{' '}
-              <Link href="/ycode/welcome" className="text-white/80">
+              <Link href="/projects/kolbo-school/welcome" className="text-white/80">
                 Complete setup
               </Link>
             </p>

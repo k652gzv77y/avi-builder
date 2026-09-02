@@ -70,7 +70,7 @@ export function BackupRestoreDialog({
     setLoading(true);
 
     try {
-      const response = await fetch('/ycode/api/project/export', {
+      const response = await fetch('/projects/kolbo-school/api/project/export', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -122,7 +122,7 @@ export function BackupRestoreDialog({
         formData.append('password', restorePassword);
       }
 
-      const response = await fetch('/ycode/api/project/import', {
+      const response = await fetch('/projects/kolbo-school/api/project/import', {
         method: 'POST',
         body: formData,
       });
@@ -138,7 +138,7 @@ export function BackupRestoreDialog({
 
       toast.success('Project successfully restored', { description: 'The builder will now reload' });
       handleClose();
-      setTimeout(() => { window.location.href = '/ycode'; }, 500);
+      setTimeout(() => { window.location.href = '/projects/kolbo-school'; }, 500);
     } catch (err) {
       showError(err, 'Restore failed');
     } finally {

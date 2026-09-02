@@ -696,9 +696,9 @@ export default function AirtableSettings({
                 onDelete={() => setConnectionToDelete(conn)}
                 onGoToCollection={() => {
                   if (onCloseAndNavigate) {
-                    onCloseAndNavigate(`/ycode/collections/${conn.collectionId}`);
+                    onCloseAndNavigate(`/projects/kolbo-school/collections/${conn.collectionId}`);
                   } else {
-                    router.push(`/ycode/collections/${conn.collectionId}`);
+                    router.push(`/projects/kolbo-school/collections/${conn.collectionId}`);
                   }
                 }}
                 onStartEdit={() => handleStartEdit(conn)}

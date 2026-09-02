@@ -86,7 +86,7 @@ function AirtableSyncButton({ collectionId, onSyncComplete }: AirtableSyncButton
         >
           {isSyncing ? 'Syncing data...' : 'Sync data now'}
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => router.push('/ycode/integrations/apps?app=airtable')}>
+        <DropdownMenuItem onClick={() => router.push('/projects/kolbo-school/integrations/apps?app=airtable')}>
           Go to settings
         </DropdownMenuItem>
       </DropdownMenuContent>

@@ -7,8 +7,8 @@ import { getCachedToken, setCachedToken } from '@/lib/mcp/token-cache';
 
 /**
  * Shared MCP HTTP handler used by both the URL-token endpoint
- * (`/ycode/mcp/[token]`) and the OAuth Bearer-token endpoint
- * (`/ycode/mcp`).
+ * (`/projects/kolbo-school/mcp/[token]`) and the OAuth Bearer-token endpoint
+ * (`/projects/kolbo-school/mcp`).
  *
  * Authentication is the only thing that differs between the two — once a
  * token is validated, the request body, session lifecycle, transport, and
@@ -266,6 +266,6 @@ export function unauthorizedJson(message: string): Response {
  * document so OAuth-aware clients can discover the auth server.
  */
 export function buildWwwAuthenticateHeader(baseUrl: string): string {
-  const resourceMetadata = `${baseUrl}/.well-known/oauth-protected-resource/ycode/mcp`;
+  const resourceMetadata = `${baseUrl}/.well-known/oauth-protected-resource`;
   return `Bearer realm="ycode", resource_metadata="${resourceMetadata}"`;
 }

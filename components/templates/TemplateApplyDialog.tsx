@@ -64,7 +64,7 @@ export function TemplateApplyDialog({
       onSuccess?.();
 
       // Navigate to /ycode to refresh the whole app with new content
-      window.location.href = '/ycode';
+      window.location.href = '/projects/kolbo-school';
     } catch (err) {
       console.error('[TemplateApplyDialog] Error:', err);
       setError(err instanceof Error ? err.message : 'Failed to apply template');

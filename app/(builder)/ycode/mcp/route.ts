@@ -21,7 +21,7 @@ export const revalidate = 0;
  * can discover the OAuth flow.
  *
  * The shared session/transport logic lives in `lib/mcp/handler.ts` and is
- * also used by the legacy URL-token endpoint at `/ycode/mcp/[token]`.
+ * also used by the legacy URL-token endpoint at `/projects/kolbo-school/mcp/[token]`.
  */
 
 function extractBearerToken(request: NextRequest): string | null {

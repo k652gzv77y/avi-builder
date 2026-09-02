@@ -9,7 +9,7 @@ export const revalidate = 0;
 /**
  * POST /ycode/api/oauth/authorize
  *
- * Called by the consent page (`/ycode/oauth/authorize`) when the user
+ * Called by the consent page (`/projects/kolbo-school/oauth/authorize`) when the user
  * approves or denies an OAuth request. Validates the session, client,
  * and PKCE parameters; on approve issues a single-use code and 302s
  * back to `redirect_uri`.

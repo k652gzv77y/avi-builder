@@ -178,7 +178,7 @@ export default function HeaderBar({
   useEffect(() => {
     const checkForUpdates = async () => {
       try {
-        const response = await fetch('/ycode/api/updates/check');
+        const response = await fetch('/projects/kolbo-school/api/updates/check');
         if (response.ok) {
           const data = await response.json();
           setHasUpdate(data.available === true);
@@ -276,7 +276,7 @@ export default function HeaderBar({
 
     // Error pages use special preview route
     if (currentPage.error_page !== null) {
-      return `/ycode/preview/error-pages/${currentPage.error_page}`;
+      return `/projects/kolbo-school/preview/error-pages/${currentPage.error_page}`;
     }
 
     // For dynamic pages, use localized dynamic URL builder
@@ -284,7 +284,7 @@ export default function HeaderBar({
       ? buildLocalizedDynamicPageUrl(currentPage, folders, collectionItemSlug, selectedLocale, localeTranslations)
       : localizedPagePath;
 
-    return `/ycode/preview${path === '/' ? '' : path}`;
+    return `/projects/kolbo-school/preview${path === '/' ? '' : path}`;
   }, [currentPage, folders, localizedPagePath, collectionItemSlug, selectedLocale, localeTranslations]);
 
   // Build published URL (for the link in the center)
@@ -332,7 +332,7 @@ export default function HeaderBar({
       setActiveSidebarTab('layers');
       const params = new URLSearchParams(window.location.search);
       params.set('preview', 'true');
-      router.push(`/ycode/layers/${currentPageId}?${params.toString()}`);
+      router.push(`/projects/kolbo-school/layers/${currentPageId}?${params.toString()}`);
       return;
     }
 
@@ -423,7 +423,7 @@ export default function HeaderBar({
             )}
             {canManageSettings && (
               <DropdownMenuItem
-                onClick={() => router.push('/ycode/settings/general')}
+                onClick={() => router.push('/projects/kolbo-school/settings/general')}
               >
                 Settings
               </DropdownMenuItem>
@@ -438,7 +438,7 @@ export default function HeaderBar({
             {canManageSettings && (
               <>
                 <DropdownMenuItem
-                  onClick={() => router.push('/ycode/integrations/apps')}
+                  onClick={() => router.push('/projects/kolbo-school/integrations/apps')}
                 >
                   Integrations
                 </DropdownMenuItem>
@@ -481,7 +481,7 @@ export default function HeaderBar({
             <DropdownMenuSeparator />
 
             <DropdownMenuItem
-              onClick={() => router.push('/ycode/profile')}
+              onClick={() => router.push('/projects/kolbo-school/profile')}
             >
               My profile
             </DropdownMenuItem>
@@ -586,7 +586,7 @@ export default function HeaderBar({
                   setLastDesignUrl(window.location.pathname + window.location.search);
                 }
                 setOptimisticNav('forms');
-                router.push('/ycode/forms');
+                router.push('/projects/kolbo-school/forms');
               }}
             >
               <Icon name="form" />
@@ -626,7 +626,7 @@ export default function HeaderBar({
               size="xs"
               variant="default"
               className="bg-primary/20 hover:bg-primary/30 text-blue-400 hover:text-blue-300"
-              onClick={() => router.push('/ycode/settings/updates')}
+              onClick={() => router.push('/projects/kolbo-school/settings/updates')}
             >
               Update available
             </Button>

@@ -61,8 +61,8 @@ function YCodeLayoutInner({ children }: { children: React.ReactNode }) {
 
   // Exclude standalone routes from YCodeBuilder
   // These routes should render independently without the editor UI
-  const prefixRoutes = ['/ycode/preview', '/ycode/devtools/', '/ycode/oauth/'];
-  const exactRoutes = ['/ycode/welcome', '/ycode/accept-invite'];
+  const prefixRoutes = ['/projects/kolbo-school/preview', '/projects/kolbo-school/devtools/', '/projects/kolbo-school/oauth/'];
+  const exactRoutes = ['/projects/kolbo-school/welcome', '/projects/kolbo-school/accept-invite'];
 
   if (
     prefixRoutes.some(route => pathname?.startsWith(route))

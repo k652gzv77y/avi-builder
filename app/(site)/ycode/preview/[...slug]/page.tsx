@@ -82,7 +82,7 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
           passwordProtection={{
             pageId: protection.protectedBy === 'page' ? protection.protectedById : undefined,
             folderId: protection.protectedBy === 'folder' ? protection.protectedById : undefined,
-            redirectUrl: `/ycode/preview/${slugPath}`,
+            redirectUrl: `/projects/kolbo-school/preview/${slugPath}`,
             isPublished: false,
           }}
         />
@@ -99,7 +99,7 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
           <PasswordForm
             pageId={protection.protectedBy === 'page' ? protection.protectedById : undefined}
             folderId={protection.protectedBy === 'folder' ? protection.protectedById : undefined}
-            redirectUrl={`/ycode/preview/${slugPath}`}
+            redirectUrl={`/projects/kolbo-school/preview/${slugPath}`}
             isPublished={false}
           />
         </div>

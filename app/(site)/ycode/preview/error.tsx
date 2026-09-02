@@ -24,7 +24,7 @@ export default function Error({ error, reset }: ErrorProps) {
 
     async function fetchErrorPage() {
       try {
-        const response = await fetch('/ycode/api/error-page?code=500&published=false');
+        const response = await fetch('/projects/kolbo-school/api/error-page?code=500&published=false');
         if (response.ok) {
           const data = await response.json();
           setErrorPageData(data.pageData);

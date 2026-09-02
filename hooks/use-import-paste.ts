@@ -183,7 +183,7 @@ export function useImportPaste({
 
   /** Point the user at the Webflow Design settings to connect a published site. */
   const openWebflowSettings = useCallback(() => {
-    router.push('/ycode/integrations/apps?app=webflow');
+    router.push('/projects/kolbo-school/integrations/apps?app=webflow');
   }, [router]);
 
   const importWebflow = useCallback(async (text: string, placement?: ExternalPastePlacement) => {

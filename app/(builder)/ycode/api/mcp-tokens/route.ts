@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
 
     const host = request.headers.get('host') || 'localhost:3000';
     const protocol = request.headers.get('x-forwarded-proto') || 'http';
-    const mcpUrl = `${protocol}://${host}/ycode/mcp/${token.token}`;
+    const mcpUrl = `${protocol}://${host}/projects/kolbo-school/mcp/${token.token}`;
 
     return noCache({
       data: {

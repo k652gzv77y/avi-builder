@@ -337,7 +337,7 @@ const LeftSidebar = React.memo(function LeftSidebar({
               const targetPageId = currentPageId || (pages.length > 0 ? pages[0].id : null);
               if (targetPageId) {
                 const segment = newTab === 'layers' ? 'layers' : 'pages';
-                const newPath = `/ycode/${segment}/${targetPageId}${window.location.search}`;
+                const newPath = `/projects/kolbo-school/${segment}/${targetPageId}${window.location.search}`;
                 window.history.replaceState(null, '', newPath);
               }
             }}

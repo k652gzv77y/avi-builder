@@ -811,7 +811,7 @@ function ConnectAgentState() {
         <button
           type="button"
           className="text-xs text-muted-foreground underline hover:text-foreground"
-          onClick={() => router.push('/ycode/settings/agent')}
+          onClick={() => router.push('/projects/kolbo-school/settings/agent')}
         >
           Open Agent settings
         </button>

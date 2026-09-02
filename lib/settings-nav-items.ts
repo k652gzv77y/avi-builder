@@ -10,12 +10,12 @@ export interface SettingsNavItem {
 }
 
 export const SETTINGS_NAV_ITEMS: SettingsNavItem[] = [
-  { id: 'general', label: 'General', path: '/ycode/settings/general' },
-  { id: 'agent', label: 'Agent', path: '/ycode/settings/agent' },
-  { id: 'users', label: 'Users', path: '/ycode/settings/users' },
-  { id: 'redirects', label: 'Redirects', path: '/ycode/settings/redirects' },
-  { id: 'security', label: 'Security', path: '/ycode/settings/security' },
-  { id: 'email', label: 'Email', path: '/ycode/settings/email' },
-  { id: 'templates', label: 'Templates', path: '/ycode/settings/templates' },
-  { id: 'updates', label: 'Updates', path: '/ycode/settings/updates' },
+  { id: 'general', label: 'General', path: '/projects/kolbo-school/settings/general' },
+  { id: 'agent', label: 'Agent', path: '/projects/kolbo-school/settings/agent' },
+  { id: 'users', label: 'Users', path: '/projects/kolbo-school/settings/users' },
+  { id: 'redirects', label: 'Redirects', path: '/projects/kolbo-school/settings/redirects' },
+  { id: 'security', label: 'Security', path: '/projects/kolbo-school/settings/security' },
+  { id: 'email', label: 'Email', path: '/projects/kolbo-school/settings/email' },
+  { id: 'templates', label: 'Templates', path: '/projects/kolbo-school/settings/templates' },
+  { id: 'updates', label: 'Updates', path: '/projects/kolbo-school/settings/updates' },
 ];

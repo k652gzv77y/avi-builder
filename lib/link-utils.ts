@@ -471,7 +471,7 @@ export function resolveCollectionLinkValue(
 
     // Prefix with /ycode/preview in preview mode
     if (isPreview && href) {
-      href = `/ycode/preview${href}`;
+      href = `/projects/kolbo-school/preview${href}`;
     }
 
     // Append anchor if present
@@ -604,7 +604,7 @@ export function generateLinkHref(
 
           // Prefix with /ycode/preview in preview mode
           if (isPreview && href) {
-            href = `/ycode/preview${href}`;
+            href = `/projects/kolbo-school/preview${href}`;
           }
         }
       }
@@ -721,7 +721,7 @@ function resolveLinkTargetItemId(
 
 /**
  * Normalise an href to a comparable path: drops origin, query, hash, the
- * `/ycode/preview` prefix, and any trailing slash so two URLs that point at the
+ * `/projects/kolbo-school/preview` prefix, and any trailing slash so two URLs that point at the
  * same page compare equal regardless of formatting.
  */
 function normalizeLinkPath(href: string): string | null {
@@ -741,7 +741,7 @@ function normalizeLinkPath(href: string): string | null {
   }
 
   path = path.split('#')[0].split('?')[0];
-  path = path.replace(/^\/ycode\/preview/, '');
+  path = path.replace(/^\/projects\/kolbo-school\/preview/, '');
   if (path.length > 1) path = path.replace(/\/+$/, '');
   if (path === '') path = '/';
   return path;

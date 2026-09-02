@@ -35,7 +35,7 @@ export default function FormSettings({ layer, onLayerUpdate }: FormSettingsProps
   useEffect(() => {
     const checkEmailSettings = async () => {
       try {
-        const response = await fetch('/ycode/api/settings/email');
+        const response = await fetch('/projects/kolbo-school/api/settings/email');
         if (response.ok) {
           const result = await response.json();
           const mode = result.data?.mode;
@@ -224,7 +224,7 @@ export default function FormSettings({ layer, onLayerUpdate }: FormSettingsProps
     >
       {!isSmtpEnabled && isSmtpEnabled !== null && (
         <div className="text-xs text-muted-foreground text-center py-4">
-          Configure <a href="/ycode/settings/email" className="underline hover:text-foreground">Email in Settings</a> to use email notifications.
+          Configure <a href="/projects/kolbo-school/settings/email" className="underline hover:text-foreground">Email in Settings</a> to use email notifications.
         </div>
       )}
 

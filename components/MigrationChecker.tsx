@@ -29,7 +29,7 @@ export default function MigrationChecker({ onComplete }: MigrationCheckerProps) 
       setError(null);
 
       // Single API call: checks AND runs migrations if needed
-      const response = await fetch('/ycode/api/setup/migrate', {
+      const response = await fetch('/projects/kolbo-school/api/setup/migrate', {
         method: 'POST',
       });
 

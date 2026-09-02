@@ -31,7 +31,7 @@ export function resetBrowserClient(): void {
  */
 async function getSupabaseConfig(): Promise<{ url: string; anonKey: string } | null> {
   if (!configPromise) {
-    configPromise = fetch('/ycode/api/supabase/config')
+    configPromise = fetch('/projects/kolbo-school/api/supabase/config')
       .then(async (res) => {
         if (!res.ok) {
           // Handle 404 (not configured) gracefully - expected during setup

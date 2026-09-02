@@ -25,7 +25,7 @@ async function uploadFile(file: File): Promise<Asset | null> {
     formData.append('file', file);
     formData.append('source', 'figma-import');
 
-    const response = await fetch('/ycode/api/files/upload', {
+    const response = await fetch('/projects/kolbo-school/api/files/upload', {
       method: 'POST',
       body: formData,
     });

@@ -588,9 +588,9 @@ export default function WebflowSettings({
                   onRemove={() => setImportToRemove(importRecord)}
                   onOpenCollection={(collectionId) => {
                     if (onCloseAndNavigate) {
-                      onCloseAndNavigate(`/ycode/collections/${collectionId}`);
+                      onCloseAndNavigate(`/projects/kolbo-school/collections/${collectionId}`);
                     } else {
-                      router.push(`/ycode/collections/${collectionId}`);
+                      router.push(`/projects/kolbo-school/collections/${collectionId}`);
                     }
                   }}
                 />

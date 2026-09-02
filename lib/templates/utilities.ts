@@ -147,11 +147,11 @@ export const utilityTemplates: Record<string, BlockTemplate> = {
       classes: ['shrink-0', 'w-full', 'h-full', 'flex', 'flex-col', 'items-center', 'justify-center', 'relative', 'gap-[5px]', 'bg-cover', 'bg-center', 'bg-no-repeat', 'bg-[image:var(--bg-img)]'],
       design: {
         ...SLIDE_BASE_DESIGN,
-        backgrounds: { isActive: true, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat', backgroundImage: '--bg-img', bgImageVars: { '--bg-img': 'url(/ycode/layouts/assets/placeholder-2.webp)' } },
+        backgrounds: { isActive: true, backgroundSize: 'cover', backgroundPosition: 'center', backgroundRepeat: 'no-repeat', backgroundImage: '--bg-img', bgImageVars: { '--bg-img': 'url(/projects/kolbo-school/layouts/assets/placeholder-2.webp)' } },
       },
       restrictions: { ancestor: 'slides' },
       variables: {
-        backgroundImage: { src: { type: 'dynamic_text', data: { content: '/ycode/layouts/assets/placeholder-2.webp' } } },
+        backgroundImage: { src: { type: 'dynamic_text', data: { content: '/projects/kolbo-school/layouts/assets/placeholder-2.webp' } } },
       },
       children: [
         {
@@ -378,9 +378,9 @@ export const utilityTemplates: Record<string, BlockTemplate> = {
           restrictions: { copy: false, delete: false, ancestor: 'slider' },
           open: true,
           children: [
-            createSlideRef('Slide 1', '/ycode/layouts/assets/placeholder-2.webp'),
-            createSlideRef('Slide 2', '/ycode/layouts/assets/placeholder-3.webp'),
-            createSlideRef('Slide 3', '/ycode/layouts/assets/placeholder-7.webp'),
+            createSlideRef('Slide 1', '/projects/kolbo-school/layouts/assets/placeholder-2.webp'),
+            createSlideRef('Slide 2', '/projects/kolbo-school/layouts/assets/placeholder-3.webp'),
+            createSlideRef('Slide 3', '/projects/kolbo-school/layouts/assets/placeholder-7.webp'),
           ],
         },
         // Navigation (prev/next buttons)

@@ -115,7 +115,7 @@ export const useAssetsStore = create<AssetsStore>((set, get) => ({
 
     try {
       // Only load folders initially - assets are loaded on-demand
-      const foldersResponse = await fetch('/ycode/api/asset-folders');
+      const foldersResponse = await fetch('/projects/kolbo-school/api/asset-folders');
       
       if (!foldersResponse.ok) {
         throw new Error('Failed to fetch folders');
@@ -160,7 +160,7 @@ export const useAssetsStore = create<AssetsStore>((set, get) => ({
     queryParams.set('page', page.toString());
     queryParams.set('limit', limit.toString());
     
-    const response = await fetch(`/ycode/api/assets?${queryParams.toString()}`);
+    const response = await fetch(`/projects/kolbo-school/api/assets?${queryParams.toString()}`);
     
     if (!response.ok) {
       throw new Error('Failed to fetch assets');
@@ -237,7 +237,7 @@ export const useAssetsStore = create<AssetsStore>((set, get) => ({
     // assets that don't exist (negative cache).
     pendingFetches.add(id);
     
-    fetch(`/ycode/api/assets/${id}`)
+    fetch(`/projects/kolbo-school/api/assets/${id}`)
       .then(res => res.ok ? res.json() : null)
       .then(result => {
         if (result?.data) {
@@ -354,7 +354,7 @@ export const useAssetsStore = create<AssetsStore>((set, get) => ({
     const allFolderIdsToDelete = [folderId, ...descendantIds];
 
     // Call API to delete folder (backend handles cascading deletion)
-    const response = await fetch(`/ycode/api/asset-folders/${folderId}`, {
+    const response = await fetch(`/projects/kolbo-school/api/asset-folders/${folderId}`, {
       method: 'DELETE',
     });
 
@@ -417,7 +417,7 @@ export const useAssetsStore = create<AssetsStore>((set, get) => ({
           originalFolder.order !== folder.order ||
           originalFolder.depth !== folder.depth
         ) {
-          const response = await fetch(`/ycode/api/asset-folders/${folder.id}`, {
+          const response = await fetch(`/projects/kolbo-school/api/asset-folders/${folder.id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

@@ -2010,7 +2010,7 @@ const CenterCanvas = React.memo(function CenterCanvas({
 
     // Error pages use special preview route
     if (currentPage.error_page !== null) {
-      return `/ycode/preview/error-pages/${currentPage.error_page}`;
+      return `/projects/kolbo-school/preview/error-pages/${currentPage.error_page}`;
     }
 
     // Get collection item slug value for dynamic pages (with translation support)
@@ -2057,7 +2057,7 @@ const CenterCanvas = React.memo(function CenterCanvas({
       ? buildLocalizedDynamicPageUrl(currentPage, folders, collectionItemSlug, selectedLocale, localeTranslations)
       : buildLocalizedSlugPath(currentPage, folders, 'page', selectedLocale, localeTranslations);
 
-    return `/ycode/preview${path === '/' ? '' : path}`;
+    return `/projects/kolbo-school/preview${path === '/' ? '' : path}`;
   }, [currentPage, folders, currentPageCollectionItemId, collectionItemsFromStore, collectionFieldsFromStore, selectedLocale, localeTranslations]);
 
   // Reload preview when password settings change (URL path stays the same).

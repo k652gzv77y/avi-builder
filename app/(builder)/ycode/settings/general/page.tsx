@@ -127,7 +127,7 @@ export default function GeneralSettingsPage() {
     // Fetch missing assets
     Promise.all(
       idsToFetch.map((id) =>
-        fetch(`/ycode/api/assets/${id}`)
+        fetch(`/projects/kolbo-school/api/assets/${id}`)
           .then((res) => (res.ok ? res.json() : null))
           .then((result) => result?.data as Asset | null)
           .catch(() => null)
@@ -289,7 +289,7 @@ export default function GeneralSettingsPage() {
     try {
       setIsResetting(true);
 
-      const response = await fetch('/ycode/api/devtools/reset-db', {
+      const response = await fetch('/projects/kolbo-school/api/devtools/reset-db', {
         method: 'POST',
       });
 
@@ -299,7 +299,7 @@ export default function GeneralSettingsPage() {
         throw new Error(result.error || 'Failed to reset project');
       }
 
-      window.location.href = '/ycode';
+      window.location.href = '/projects/kolbo-school';
     } catch (err) {
       console.error('Error resetting project:', err);
       toast.error(err instanceof Error ? err.message : 'Failed to reset project');
@@ -412,7 +412,7 @@ export default function GeneralSettingsPage() {
                       />
                     ) : (
                       <Image
-                        src={'/ycode-webclip.png'}
+                        src={'/projects/kolbo-school-webclip.png'}
                         alt="Web clip preview"
                         width={64}
                         height={64}

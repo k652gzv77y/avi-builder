@@ -44,9 +44,9 @@ function LocaleSelectorComponent() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        {canManageSettings && !pathname?.startsWith('/ycode/localization') && (
+        {canManageSettings && !pathname?.startsWith('/projects/kolbo-school/localization') && (
           <>
-            <DropdownMenuItem onClick={() => router.push('/ycode/localization')}>
+            <DropdownMenuItem onClick={() => router.push('/projects/kolbo-school/localization')}>
               Manage locales & translations
             </DropdownMenuItem>
             <DropdownMenuSeparator />

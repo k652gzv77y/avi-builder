@@ -7,8 +7,8 @@ import { ToastError } from '@/lib/toast-error';
 import { WEBFLOW_SETTINGS } from './constants';
 import type { WebflowImport, WebflowSite, SyncResult } from './types';
 
-const BASE = '/ycode/api/apps/webflow';
-const SETTINGS_BASE = '/ycode/api/apps/webflow/settings';
+const BASE = '/projects/kolbo-school/api/apps/webflow';
+const SETTINGS_BASE = '/projects/kolbo-school/api/apps/webflow/settings';
 const JSON_HEADERS = { 'Content-Type': 'application/json' } as const;
 
 async function jsonFetch<T>(url: string, init?: RequestInit): Promise<T> {

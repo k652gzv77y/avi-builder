@@ -23,7 +23,7 @@ export default function ResetDatabasePage() {
       setLoading(true);
       setError(null);
 
-      const response = await fetch('/ycode/api/devtools/reset-db', {
+      const response = await fetch('/projects/kolbo-school/api/devtools/reset-db', {
         method: 'POST',
       });
 
@@ -33,7 +33,7 @@ export default function ResetDatabasePage() {
         throw new Error(result.error || 'Failed to reset database');
       }
 
-      window.location.href = '/ycode';
+      window.location.href = '/projects/kolbo-school';
     } catch (err) {
       console.error('Error resetting database:', err);
       setError(err instanceof Error ? err.message : 'Failed to reset database');

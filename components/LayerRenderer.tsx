@@ -2748,7 +2748,7 @@ const LayerItemImpl: React.FC<{
         });
 
         try {
-          const response = await fetch('/ycode/api/form-submissions', {
+          const response = await fetch('/projects/kolbo-school/api/form-submissions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

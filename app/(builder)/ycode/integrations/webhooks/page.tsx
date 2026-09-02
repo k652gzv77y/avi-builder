@@ -153,7 +153,7 @@ export default function WebhooksPage() {
 
   const fetchWebhooks = async () => {
     try {
-      const response = await fetch('/ycode/api/webhooks');
+      const response = await fetch('/projects/kolbo-school/api/webhooks');
       const result = await response.json();
       if (result.data) {
         setWebhooks(result.data);
@@ -176,8 +176,8 @@ export default function WebhooksPage() {
     try {
       const isEditing = !!editingWebhook;
       const url = isEditing
-        ? `/ycode/api/webhooks/${editingWebhook.id}`
-        : '/ycode/api/webhooks';
+        ? `/projects/kolbo-school/api/webhooks/${editingWebhook.id}`
+        : '/projects/kolbo-school/api/webhooks';
       const method = isEditing ? 'PUT' : 'POST';
 
       // Build filters object (only include non-empty values)
@@ -231,7 +231,7 @@ export default function WebhooksPage() {
     if (!webhookToDelete) return;
 
     try {
-      const response = await fetch(`/ycode/api/webhooks/${webhookToDelete.id}`, {
+      const response = await fetch(`/projects/kolbo-school/api/webhooks/${webhookToDelete.id}`, {
         method: 'DELETE',
       });
 
@@ -252,7 +252,7 @@ export default function WebhooksPage() {
 
   const handleToggleEnabled = async (webhook: Webhook) => {
     try {
-      const response = await fetch(`/ycode/api/webhooks/${webhook.id}`, {
+      const response = await fetch(`/projects/kolbo-school/api/webhooks/${webhook.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enabled: !webhook.enabled }),
@@ -275,7 +275,7 @@ export default function WebhooksPage() {
   const handleTestWebhook = async (webhook: Webhook) => {
     setTestingWebhookId(webhook.id);
     try {
-      const response = await fetch(`/ycode/api/webhooks/${webhook.id}`, {
+      const response = await fetch(`/projects/kolbo-school/api/webhooks/${webhook.id}`, {
         method: 'POST',
       });
 
@@ -302,7 +302,7 @@ export default function WebhooksPage() {
     setIsLoadingDeliveries(true);
 
     try {
-      const response = await fetch(`/ycode/api/webhooks/${webhook.id}/deliveries?limit=20`);
+      const response = await fetch(`/projects/kolbo-school/api/webhooks/${webhook.id}/deliveries?limit=20`);
       const result = await response.json();
 
       if (result.data) {
@@ -320,8 +320,8 @@ export default function WebhooksPage() {
     setIsLoadingFilterData(true);
     try {
       const [formsRes, collectionsRes] = await Promise.all([
-        fetch('/ycode/api/form-submissions?summary=true'),
-        fetch('/ycode/api/collections'),
+        fetch('/projects/kolbo-school/api/form-submissions?summary=true'),
+        fetch('/projects/kolbo-school/api/collections'),
       ]);
       const formsResult = await formsRes.json();
       const collectionsResult = await collectionsRes.json();

@@ -54,7 +54,7 @@ export default async function DynamicHome({ searchParams }: DynamicHomeProps) {
             Welcome to AVI Builder
           </h1>
           <Link
-            href="/ycode"
+            href="/projects/kolbo-school"
             className=" bg-blue-500 text-white text-sm font-medium h-8 flex items-center justify-center px-3 rounded-lg transition-colors"
           >
             Get started

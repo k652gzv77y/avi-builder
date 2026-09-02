@@ -31,8 +31,8 @@ export default function DarkModeProvider({ children }: { children: React.ReactNo
   const pathname = usePathname();
   
   useEffect(() => {
-    const isPreviewRoute = pathname?.startsWith('/ycode/preview');
-    const isBuilderRoute = !isPreviewRoute && pathname?.startsWith('/ycode');
+    const isPreviewRoute = pathname?.startsWith('/projects/kolbo-school/preview');
+    const isBuilderRoute = !isPreviewRoute && pathname?.startsWith('/projects/kolbo-school');
     
     if (isBuilderRoute) {
       if (shouldApplyDark()) {

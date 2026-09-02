@@ -125,13 +125,13 @@ export default function WelcomePage() {
 
     const checkEnvironment = async () => {
       try {
-        const response = await fetch('/ycode/api/setup/status');
+        const response = await fetch('/projects/kolbo-school/api/setup/status');
         const data = await response.json();
 
         // If setup is complete, redirect unauthenticated users to /ycode (login screen)
         // Logged-in users can still access this page
         if (data.is_setup_complete && !session) {
-          router.push('/ycode');
+          router.push('/projects/kolbo-school');
           return; // Keep showing loading screen during redirect
         }
 
@@ -211,7 +211,7 @@ export default function WelcomePage() {
         setError(null);
 
         try {
-          const response = await fetch('/ycode/api/setup/status');
+          const response = await fetch('/projects/kolbo-school/api/setup/status');
           const data = await response.json();
 
           if (data.is_configured) {
@@ -839,7 +839,7 @@ export default function WelcomePage() {
         // Assign owner role to the first user
         const { user: newUser } = useAuthStore.getState();
         if (newUser?.id) {
-          await fetch('/ycode/api/auth/set-role', {
+          await fetch('/projects/kolbo-school/api/auth/set-role', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId: newUser.id, role: 'owner' }),
@@ -1066,7 +1066,7 @@ export default function WelcomePage() {
           <div className="w-full max-w-xl py-10 animate-in fade-in slide-in-from-bottom-1 duration-700" style={{ animationFillMode: 'both' }}>
 
             <TemplateGallery
-              startFromScratchHref="/ycode"
+              startFromScratchHref="/projects/kolbo-school"
               applyImmediately
             />
 

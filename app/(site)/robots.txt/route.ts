@@ -18,7 +18,7 @@ export async function GET() {
       const fallback = `# Default robots.txt
 User-agent: *
 Allow: /
-Disallow: /ycode/
+Disallow: /projects/
 
 # Sitemap
 Sitemap: ${baseUrl}/sitemap.xml`;
@@ -51,7 +51,7 @@ User-agent: *
 Allow: /
 
 # Disallow admin/editor paths
-Disallow: /ycode/`;
+Disallow: /projects/`;
 
       if (sitemapEnabled) {
         content += `\n\n# Sitemap\nSitemap: ${baseUrl}/sitemap.xml`;
@@ -70,7 +70,7 @@ Disallow: /ycode/`;
     // Return default on error
     const fallback = `User-agent: *
 Allow: /
-Disallow: /ycode/`;
+Disallow: /projects/`;
 
     return new NextResponse(fallback, {
       headers: {

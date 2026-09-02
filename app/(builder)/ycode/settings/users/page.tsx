@@ -66,7 +66,7 @@ export default function UsersSettingsPage() {
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch('/ycode/api/auth/users');
+      const response = await fetch('/projects/kolbo-school/api/auth/users');
       const result = await response.json();
       if (result.data) {
         setActiveUsers(result.data.activeUsers || []);
@@ -93,13 +93,13 @@ export default function UsersSettingsPage() {
     setInviteSuccess(null);
 
     try {
-      const response = await fetch('/ycode/api/auth/invite', {
+      const response = await fetch('/projects/kolbo-school/api/auth/invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: inviteEmail.trim(),
           role: inviteRole,
-          redirectTo: window.location.origin + '/ycode/accept-invite',
+          redirectTo: window.location.origin + '/projects/kolbo-school/accept-invite',
         }),
       });
 
@@ -139,7 +139,7 @@ export default function UsersSettingsPage() {
     if (!userToDelete) return;
 
     try {
-      const response = await fetch(`/ycode/api/auth/users?id=${userToDelete.id}`, {
+      const response = await fetch(`/projects/kolbo-school/api/auth/users?id=${userToDelete.id}`, {
         method: 'DELETE',
       });
 
@@ -168,12 +168,12 @@ export default function UsersSettingsPage() {
 
   const handleResendInvite = async (email: string) => {
     try {
-      const response = await fetch('/ycode/api/auth/invite', {
+      const response = await fetch('/projects/kolbo-school/api/auth/invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email,
-          redirectTo: window.location.origin + '/ycode/accept-invite',
+          redirectTo: window.location.origin + '/projects/kolbo-school/accept-invite',
         }),
       });
 
@@ -190,7 +190,7 @@ export default function UsersSettingsPage() {
 
   const handleChangeRole = async (userId: string, newRole: string) => {
     try {
-      const response = await fetch(`/ycode/api/auth/users?id=${userId}`, {
+      const response = await fetch(`/projects/kolbo-school/api/auth/users?id=${userId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ role: newRole }),
@@ -362,7 +362,7 @@ export default function UsersSettingsPage() {
                     <DropdownMenuContent align="end">
                       {currentUser?.id === user.id ? (
                         <DropdownMenuItem
-                          onClick={() => router.push('/ycode/profile')}
+                          onClick={() => router.push('/projects/kolbo-school/profile')}
                         >
                           My profile
                         </DropdownMenuItem>

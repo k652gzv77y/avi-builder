@@ -289,7 +289,7 @@ export async function recordVersionViaApi(
   };
 
   try {
-    const response = await fetch('/ycode/api/versions', {
+    const response = await fetch('/projects/kolbo-school/api/versions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(versionData),

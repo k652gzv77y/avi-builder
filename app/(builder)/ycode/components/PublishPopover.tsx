@@ -54,8 +54,8 @@ function getChangeTitle(change: PublishPreviewChange): string {
 
 function getChangeHref(category: ExpandableCategory, change: PublishPreviewChange): string | null {
   if (change.status === 'deleted') return null;
-  if (category === 'pages') return `/ycode/pages/${change.id}`;
-  if (category === 'components') return `/ycode/components/${change.id}`;
+  if (category === 'pages') return `/projects/kolbo-school/pages/${change.id}`;
+  if (category === 'components') return `/projects/kolbo-school/components/${change.id}`;
   return null;
 }
 

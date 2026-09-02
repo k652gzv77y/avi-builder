@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
 
 export default function SettingsPage() {
-  redirect('/ycode/settings/general');
+  redirect('/projects/kolbo-school/settings/general');
 }

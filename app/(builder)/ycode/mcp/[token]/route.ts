@@ -16,7 +16,7 @@ export const revalidate = 0;
  *
  * Used by Cursor, Windsurf, Claude Desktop, and Claude Code — clients that
  * accept an MCP URL with the auth token embedded in the path. Claude.ai web
- * and ChatGPT use the sibling `/ycode/mcp` route, which authenticates via
+ * and ChatGPT use the sibling `/projects/kolbo-school/mcp` route, which authenticates via
  * `Authorization: Bearer <token>` headers issued by the OAuth flow.
  */
 

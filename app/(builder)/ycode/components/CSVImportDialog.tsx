@@ -205,7 +205,7 @@ export function CSVImportDialog({
     if (!file) throw new Error('No file selected');
 
     // 1. Get a presigned upload URL from the server
-    const presignResponse = await fetch('/ycode/api/files/presign', {
+    const presignResponse = await fetch('/projects/kolbo-school/api/files/presign', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -247,7 +247,7 @@ export function CSVImportDialog({
       const csvStoragePath = await uploadCSVToStorage();
 
       // Create import job with the storage reference
-      const response = await fetch(`/ycode/api/collections/${collectionId}/import`, {
+      const response = await fetch(`/projects/kolbo-school/api/collections/${collectionId}/import`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -311,7 +311,7 @@ export function CSVImportDialog({
     const json = JSON.stringify(batch);
     const blob = new Blob([json], { type: 'application/json' });
 
-    const presignRes = await fetch('/ycode/api/files/presign', {
+    const presignRes = await fetch('/projects/kolbo-school/api/files/presign', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -365,7 +365,7 @@ export function CSVImportDialog({
           requestBody = { importId: id, batchStoragePath };
         }
 
-        const response = await fetch('/ycode/api/collections/import/process', {
+        const response = await fetch('/projects/kolbo-school/api/collections/import/process', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(requestBody),
@@ -400,7 +400,7 @@ export function CSVImportDialog({
 
     if (!abortRef.current) {
       try {
-        const response = await fetch('/ycode/api/collections/import/process', {
+        const response = await fetch('/projects/kolbo-school/api/collections/import/process', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ importId: id }),

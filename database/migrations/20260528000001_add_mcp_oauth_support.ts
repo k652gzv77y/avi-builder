@@ -7,7 +7,7 @@ import type { Knex } from 'knex';
  * Claude.ai web and ChatGPT custom connectors (which require OAuth + PKCE per the
  * MCP authorization spec 2025-06-18) can authenticate against the YCode MCP server.
  *
- * The existing URL-token flow (`/ycode/mcp/[token]`) remains unchanged for
+ * The existing URL-token flow (`/projects/kolbo-school/mcp/[token]`) remains unchanged for
  * backward compatibility with Cursor, Windsurf, Claude Desktop, and Claude Code.
  */
 

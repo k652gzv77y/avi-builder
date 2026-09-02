@@ -72,7 +72,7 @@ export default function StaticExportSettings() {
   const loadSettings = async () => {
     setIsLoading(true)
     try {
-      const response = await fetch('/ycode/api/apps/static-export/settings')
+      const response = await fetch('/projects/kolbo-school/api/apps/static-export/settings')
       const result = await response.json()
 
       if (result.data && Object.keys(result.data).length > 0) {
@@ -128,7 +128,7 @@ export default function StaticExportSettings() {
   const handleSave = async () => {
     setIsSaving(true)
     try {
-      const response = await fetch('/ycode/api/apps/static-export/settings', {
+      const response = await fetch('/projects/kolbo-school/api/apps/static-export/settings', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(config),
@@ -171,7 +171,7 @@ export default function StaticExportSettings() {
     stopPolling()
     pollRef.current = setInterval(async () => {
       try {
-        const res = await fetch('/ycode/api/apps/static-export/status')
+        const res = await fetch('/projects/kolbo-school/api/apps/static-export/status')
         const result = await res.json()
         const job = result.data as ExportJob | null
         if (!job || job.id !== jobId) return
@@ -209,7 +209,7 @@ export default function StaticExportSettings() {
     setExportStatus(null)
     try {
       if (hasChanges) {
-        const saveRes = await fetch('/ycode/api/apps/static-export/settings', {
+        const saveRes = await fetch('/projects/kolbo-school/api/apps/static-export/settings', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(config),
@@ -220,12 +220,12 @@ export default function StaticExportSettings() {
         }
       }
 
-      const response = await fetch('/ycode/api/apps/static-export/export', {
+      const response = await fetch('/projects/kolbo-school/api/apps/static-export/export', {
         method: 'POST',
       })
 
       if (response.ok) {
-        const statusRes = await fetch('/ycode/api/apps/static-export/status')
+        const statusRes = await fetch('/projects/kolbo-school/api/apps/static-export/status')
         const statusResult = await statusRes.json()
         const job = statusResult.data as ExportJob | null
         if (job?.id) {
@@ -252,7 +252,7 @@ export default function StaticExportSettings() {
 
   const handleDisconnect = async () => {
     try {
-      await fetch('/ycode/api/apps/static-export/settings', {
+      await fetch('/projects/kolbo-school/api/apps/static-export/settings', {
         method: 'DELETE',
       })
 

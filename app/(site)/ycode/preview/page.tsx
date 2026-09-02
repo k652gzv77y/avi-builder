@@ -33,7 +33,7 @@ export default async function Home() {
             No homepage found. Create an index page in the builder.
           </p>
           <Link
-            href="/ycode"
+            href="/projects/kolbo-school"
             className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors"
           >
             Open Builder →
@@ -72,7 +72,7 @@ export default async function Home() {
           passwordProtection={{
             pageId: protection.protectedBy === 'page' ? protection.protectedById : undefined,
             folderId: protection.protectedBy === 'folder' ? protection.protectedById : undefined,
-            redirectUrl: '/ycode/preview',
+            redirectUrl: '/projects/kolbo-school/preview',
             isPublished: false,
           }}
         />
@@ -87,7 +87,7 @@ export default async function Home() {
         <PasswordForm
           pageId={protection.protectedBy === 'page' ? protection.protectedById : undefined}
           folderId={protection.protectedBy === 'folder' ? protection.protectedById : undefined}
-          redirectUrl="/ycode/preview"
+          redirectUrl="/projects/kolbo-school/preview"
           isPublished={false}
         />
       </div>

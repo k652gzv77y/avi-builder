@@ -56,14 +56,14 @@ export const InviteUserButton: React.FC<InviteUserButtonProps> = ({
       setError(null);
       setSuccess(null);
 
-      const response = await fetch('/ycode/api/auth/invite', {
+      const response = await fetch('/projects/kolbo-school/api/auth/invite', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           email: email.trim(),
-          redirectTo: window.location.origin + '/ycode/accept-invite',
+          redirectTo: window.location.origin + '/projects/kolbo-school/accept-invite',
         }),
       });
 

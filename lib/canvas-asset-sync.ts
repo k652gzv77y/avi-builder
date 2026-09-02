@@ -73,7 +73,7 @@ export async function syncLayerAssets(layers: Layer[]): Promise<void> {
   const results = await Promise.all(
     missing.map(async (id) => {
       try {
-        const res = await fetch(`/ycode/api/assets/${id}`);
+        const res = await fetch(`/projects/kolbo-school/api/assets/${id}`);
         if (!res.ok) return null;
         const json = await res.json();
         return (json?.data as Asset) ?? null;

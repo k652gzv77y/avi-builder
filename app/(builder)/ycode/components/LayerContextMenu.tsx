@@ -659,7 +659,7 @@ function LayerContextMenuInner({
       }
 
       // Call API to save layout
-      const response = await fetch('/ycode/api/layouts', {
+      const response = await fetch('/projects/kolbo-school/api/layouts', {
         method: 'POST',
         body: formData,
       });

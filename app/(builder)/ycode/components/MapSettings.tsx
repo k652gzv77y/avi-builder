@@ -186,7 +186,7 @@ export default function MapSettings({ layer, onLayerUpdate }: MapSettingsProps) 
     searchAbortRef.current = controller;
 
     setIsSearching(true);
-    fetch(`/ycode/api/maps/geocode?q=${encodeURIComponent(debouncedQuery)}&provider=${provider}`, {
+    fetch(`/projects/kolbo-school/api/maps/geocode?q=${encodeURIComponent(debouncedQuery)}&provider=${provider}`, {
       signal: controller.signal,
     })
       .then((res) => res.json())
@@ -260,7 +260,7 @@ export default function MapSettings({ layer, onLayerUpdate }: MapSettingsProps) 
                   variant={hasToken ? 'secondary' : 'default'}
                   className="shrink-0"
                 >
-                  <Link href={`/ycode/integrations/apps?type=maps&app=${providerConfig.appId}`}>
+                  <Link href={`/projects/kolbo-school/integrations/apps?type=maps&app=${providerConfig.appId}`}>
                     <Icon name="settings" />
                   </Link>
                 </Button>

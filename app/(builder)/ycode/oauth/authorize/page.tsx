@@ -13,7 +13,7 @@ import ConsentForm from './ConsentForm';
  *  - Enforces the MCP-required PKCE method (S256).
  *
  * On a valid request, renders the client-side `<ConsentForm />` which
- * posts the approve/deny decision to `/ycode/api/oauth/authorize`.
+ * posts the approve/deny decision to `/projects/kolbo-school/api/oauth/authorize`.
  */
 
 export const dynamic = 'force-dynamic';
@@ -38,8 +38,8 @@ function buildLoginRedirect(searchParams: SearchParams): string {
       params.set(key, value[0]);
     }
   }
-  const next = `/ycode/oauth/authorize?${params.toString()}`;
-  return `/ycode?next=${encodeURIComponent(next)}`;
+  const next = `/projects/kolbo-school/oauth/authorize?${params.toString()}`;
+  return `/projects/kolbo-school?next=${encodeURIComponent(next)}`;
 }
 
 function ErrorPanel({ title, message }: { title: string; message: string }) {
