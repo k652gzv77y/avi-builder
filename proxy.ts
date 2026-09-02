@@ -1,6 +1,6 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import { NextRequest } from 'next/server';
 import { applySecurityHeaders } from '@/lib/security-headers-server';
 
 /**
@@ -27,6 +27,8 @@ const PUBLIC_API_EXACT = [
 
 const BUILDER_HOSTNAME = process.env.YCODE_BUILDER_HOSTNAME || 'avibuilder.com';
 const PUBLIC_SITE_HOSTNAME = process.env.YCODE_PUBLIC_SITE_HOSTNAME || 'beta.kolboschool.com';
+const DEFAULT_PROJECT_SLUG = 'kolbo-school';
+const PROJECTS_PREFIX = `/projects/${DEFAULT_PROJECT_SLUG}`;
 const LEGACY_BUILDER_HOSTNAMES = (process.env.YCODE_LEGACY_BUILDER_HOSTNAMES || 'ycode.kolboschool.com')
   .split(',')
   .map((hostname) => hostname.trim().toLowerCase())
@@ -46,10 +48,26 @@ function redirectToHost(request: NextRequest, hostname: string): NextResponse {
 
 function isBuilderInfrastructurePath(pathname: string): boolean {
   return pathname.startsWith('/ycode')
+    || pathname === PROJECTS_PREFIX
+    || pathname.startsWith(`${PROJECTS_PREFIX}/`)
     || pathname.startsWith('/_next')
     || pathname.startsWith('/a/')
     || pathname === '/favicon.ico'
     || pathname.startsWith('/.well-known/');
+}
+
+function getBuilderPath(pathname: string): string | null {
+  if (pathname === PROJECTS_PREFIX) return '/ycode';
+  if (pathname.startsWith(`${PROJECTS_PREFIX}/`)) {
+    return `/ycode${pathname.slice(PROJECTS_PREFIX.length)}`;
+  }
+  return null;
+}
+
+function getProjectPath(pathname: string): string {
+  return pathname === '/ycode'
+    ? PROJECTS_PREFIX
+    : `${PROJECTS_PREFIX}${pathname.slice('/ycode'.length)}`;
 }
 
 /**
@@ -156,6 +174,7 @@ async function verifyApiAuth(request: NextRequest): Promise<NextResponse | null>
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const hostname = getRequestHostname(request);
+  const builderPath = getBuilderPath(pathname);
 
   // Keep the public site and editor on distinct origins. Builder infrastructure
   // remains on the editor origin so MCP OAuth metadata, assets, and API calls
@@ -168,7 +187,7 @@ export async function proxy(request: NextRequest) {
     return redirectToHost(request, PUBLIC_SITE_HOSTNAME);
   }
 
-  if (hostname === PUBLIC_SITE_HOSTNAME && pathname.startsWith('/ycode')) {
+  if (hostname === PUBLIC_SITE_HOSTNAME && (pathname.startsWith('/ycode') || builderPath)) {
     return redirectToHost(request, BUILDER_HOSTNAME);
   }
 
@@ -176,35 +195,58 @@ export async function proxy(request: NextRequest) {
   // Cloud overlay proxies MUST also exempt these paths to avoid login redirects.
   //   - `/ycode/mcp/<token>`: legacy URL-token endpoint (Cursor, Windsurf, etc.)
   //   - `/ycode/mcp`: OAuth Bearer-token endpoint (Claude.ai web, ChatGPT)
-  if (pathname === '/ycode/mcp' || pathname.startsWith('/ycode/mcp/')) {
+  const effectivePathname = builderPath ?? pathname;
+
+  // Preserve existing internal API clients while keeping editor page navigation
+  // on the project URL. API requests must not redirect because callers issue
+  // POST/PUT/DELETE requests to the legacy endpoint paths.
+  if (
+    !builderPath
+    && effectivePathname.startsWith('/ycode')
+    && !effectivePathname.startsWith('/ycode/api')
+    && effectivePathname !== '/ycode/mcp'
+    && !effectivePathname.startsWith('/ycode/mcp/')
+  ) {
+    return NextResponse.redirect(new URL(getProjectPath(effectivePathname), request.url));
+  }
+
+  if (effectivePathname === '/ycode/mcp' || effectivePathname.startsWith('/ycode/mcp/')) {
     const response = NextResponse.next();
-    response.headers.set('x-pathname', pathname);
+    response.headers.set('x-pathname', effectivePathname);
     return response;
   }
 
   // Debug escape hatch: skip auth on preview routes when explicitly enabled.
   const skipPreviewAuth = process.env.DISABLE_PREVIEW_AUTH === 'true'
-    && pathname.startsWith('/ycode/preview');
+    && effectivePathname.startsWith('/ycode/preview');
 
   // Protect API and preview routes with auth. `/api/templates` lives outside the
   // `/ycode` tree (public site route group) but exposes destructive builder-only
   // operations (apply/export), so it must be gated here too.
-  if (!skipPreviewAuth && (pathname.startsWith('/ycode/api') || pathname.startsWith('/ycode/preview') || pathname.startsWith('/api/templates'))) {
-    const authResponse = await verifyApiAuth(request);
+  if (!skipPreviewAuth && (effectivePathname.startsWith('/ycode/api') || effectivePathname.startsWith('/ycode/preview') || effectivePathname.startsWith('/api/templates'))) {
+    const authRequest = builderPath
+      ? new NextRequest(new URL(effectivePathname + request.nextUrl.search, request.url), request)
+      : request;
+    const authResponse = await verifyApiAuth(authRequest);
     if (authResponse) {
       if (authResponse.status === 401) {
-        if (pathname.startsWith('/ycode/preview')) {
-          return NextResponse.redirect(new URL('/ycode', request.url));
+        if (effectivePathname.startsWith('/ycode/preview')) {
+          return NextResponse.redirect(new URL(PROJECTS_PREFIX, request.url));
         }
         return authResponse;
       }
       // Authenticated — pass through
-      authResponse.headers.set('x-pathname', pathname);
+      authResponse.headers.set('x-pathname', effectivePathname);
+      if (builderPath) {
+        const rewriteUrl = request.nextUrl.clone();
+        rewriteUrl.pathname = effectivePathname;
+        return NextResponse.rewrite(rewriteUrl, { headers: authResponse.headers });
+      }
       return authResponse;
     }
   }
 
-  const isPublicPage = !pathname.startsWith('/ycode')
+  const isPublicPage = !effectivePathname.startsWith('/ycode')
     && !pathname.startsWith('/_next')
     && !pathname.startsWith('/api')
     && !pathname.startsWith('/dynamic');
@@ -222,10 +264,12 @@ export async function proxy(request: NextRequest) {
   }
 
   // Create response
-  const response = NextResponse.next();
+  const response = builderPath
+    ? NextResponse.rewrite(new URL(effectivePathname + request.nextUrl.search, request.url))
+    : NextResponse.next();
 
   // Add pathname header for layout to determine dark mode
-  response.headers.set('x-pathname', pathname);
+  response.headers.set('x-pathname', effectivePathname);
 
   // Cache-Control for public pages is configured centrally via next.config.ts headers().
 

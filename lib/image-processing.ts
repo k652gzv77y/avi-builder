@@ -9,13 +9,13 @@ interface CloudflareImagesBinding {
   info(input: Uint8Array): Promise<{ width?: number; height?: number }>;
   input(input: Uint8Array): {
     transform(options: Record<string, unknown>): {
-      output(options: { format: 'image/webp' | 'image/avif' }): {
-        response(): Promise<Response>;
-      };
+      output(options: { format: 'image/webp' | 'image/avif' }): Promise<{
+        response(): Response;
+      }>;
     };
-    output(options: { format: 'image/webp' | 'image/avif' }): {
-      response(): Promise<Response>;
-    };
+    output(options: { format: 'image/webp' | 'image/avif' }): Promise<{
+      response(): Response;
+    }>;
   };
 }
 
@@ -65,7 +65,8 @@ export async function convertImageToWebp(
       }) as typeof image;
     }
     // Cloudflare Images chooses its own compression settings for binding output.
-    return responseBytes(await image.output({ format: 'image/webp' }).response());
+    const output = await image.output({ format: 'image/webp' });
+    return responseBytes(output.response());
   }
 
   const sharp = await getSharp();
@@ -93,7 +94,8 @@ export async function transformImage(
         fit: 'contain',
       }) as typeof image;
     }
-    return responseBytes(await image.output({ format: options.format }).response());
+    const output = await image.output({ format: options.format });
+    return responseBytes(output.response());
   }
 
   const sharp = await getSharp();
