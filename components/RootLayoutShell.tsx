@@ -8,6 +8,25 @@ export const defaultMetadata: Metadata = {
   metadataBase: new URL('https://avibuilder.com'),
   applicationName: 'AVI Builder',
   manifest: '/avi-builder.webmanifest',
+  openGraph: {
+    type: 'website',
+    title: 'AVI Builder - Advanced Visual Interface Builder',
+    description: 'Advanced Visual Interface Builder',
+    images: [
+      {
+        url: '/brand/avi-social-light.png',
+        width: 1200,
+        height: 640,
+        alt: 'AVI Builder - Advanced Visual Interface Builder',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'AVI Builder - Advanced Visual Interface Builder',
+    description: 'Advanced Visual Interface Builder',
+    images: ['/brand/avi-social-light.png'],
+  },
   icons: {
     icon: [
       { url: '/brand/avi-favicon-light.svg', type: 'image/svg+xml', media: '(prefers-color-scheme: light)' },

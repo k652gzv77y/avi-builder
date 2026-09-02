@@ -1,30 +1,12 @@
-import { useId, type SVGProps } from 'react';
+import type { SVGProps } from 'react';
 
 type AviBuilderMarkProps = SVGProps<SVGSVGElement> & { title?: string };
 
 /** Full AviCorp mark, rendered in the active interface color. */
 export default function AviBuilderMark({ title = 'AVI Builder', ...props }: AviBuilderMarkProps) {
-  const id = useId().replace(/:/g, '');
-  const filterId = `avi-mark-luminance-${id}`;
-  const maskId = `avi-mark-cutout-${id}`;
-
   return (
     <svg viewBox="0 0 2000 1583.36" role="img" aria-label={title} fill="currentColor" {...props}>
       <title>{title}</title>
-      <defs>
-        <filter id={filterId} x="492.62" y="0" width="1244.41" height="1583.36" colorInterpolationFilters="sRGB" filterUnits="userSpaceOnUse">
-          <feFlood floodColor="#fff" result="background" />
-          <feBlend in="SourceGraphic" in2="background" />
-        </filter>
-        <mask id={maskId} x="492.62" y="0" width="1244.41" height="1583.36" maskUnits="userSpaceOnUse">
-          <g filter={`url(#${filterId})`}>
-            <path d="M1684.21 791.68h-416.52c-22.72 0-42.89 14.54-50.07 36.09-76.24 228.71-152.47 457.42-228.71 686.12-11.39 34.18 14.05 69.47 50.07 69.47h416.52c22.72 0 42.89-14.54 50.07-36.09 76.24-228.71 152.47-457.42 228.71-686.12 11.39-34.18-14.05-69.47-50.07-69.47Z" />
-          </g>
-        </mask>
-      </defs>
-      <g mask={`url(#${maskId})`}>
-        <path d="M951.95 66.67 1435.29 1516.7h-387.24L564.71 66.67h387.24M961.96 0H545.44c-36.02 0-61.46 35.29-50.07 69.47 164.2 492.6 328.4 985.2 492.6 1477.81 7.18 21.55 27.35 36.09 50.07 36.09h416.52c36.02 0 61.46-35.29 50.07-69.47C1340.43 1021.3 1176.23 528.7 1012.01 36.09 1004.83 14.54 984.68 0 961.96 0Z" />
-      </g>
       <path d="m1664.94 858.35-108.26 324.78-111.19 333.57h-387.24l51.08-153.25 168.37-505.1h387.24m19.27-66.67h-416.52c-22.72 0-42.89 14.54-50.07 36.09-76.24 228.71-152.47 457.42-228.71 686.12-11.39 34.18 14.05 69.47 50.07 69.47h416.52c22.72 0 42.89-14.54 50.07-36.09 76.24-228.71 152.47-457.42 228.71-686.12 11.39-34.18-14.05-69.47-50.07-69.47Z" />
       <path d="m1927.91 66.67-13.26 39.78-74.24 222.73h-387.24l42.29-126.86 45.22-135.65h387.24M1947.18 0h-416.52c-22.72 0-42.89 14.54-50.07 36.09-32.25 96.76-64.51 193.52-96.76 290.28-11.39 34.18 14.05 69.47 50.07 69.47h416.52c22.72 0 42.89-14.54 50.07-36.09 32.25-96.76 64.51-193.52 96.76-290.28C2008.64 35.29 1983.21 0 1947.18 0Z" />
       <path d="M961.98 791.68H771.27l-131.95 395.84h322.65c29.15 0 52.78-23.62 52.78-52.77v-290.29c0-29.15-23.63-52.78-52.78-52.78Z" />
