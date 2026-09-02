@@ -448,7 +448,6 @@ const CMS = React.memo(function CMS() {
   // Which CMS section the right panel shows: a collection or a Figma-style variables table.
   const [cmsSection, setCmsSection] = useState<'collections' | 'variables'>('collections');
   const [selectedVariableCollection, setSelectedVariableCollection] = useState<VariableCollectionId>('colors');
-  const [variableCreateRequestId, setVariableCreateRequestId] = useState(0);
   const colorVariables = useColorVariablesStore((state) => state.colorVariables);
   const globals = useGlobalsStore((state) => state.globals);
 
@@ -2102,27 +2101,8 @@ const CMS = React.memo(function CMS() {
   // Collections sidebar component
   const collectionsSidebar = (
     <div className="w-64 shrink-0 bg-background border-r flex flex-col overflow-hidden px-4">
-      <header className="py-5 flex items-center justify-between shrink-0">
+      <header className="py-5 shrink-0">
         <span className="font-medium">Global variables</span>
-        {canManageSchema && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button size="xs" variant="secondary">
-                <Icon name="plus" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                onClick={() => {
-                  setCmsSection('variables');
-                  setVariableCreateRequestId((id) => id + 1);
-                }}
-              >
-                New variable
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
       </header>
       <div className="flex flex-col pb-2 shrink-0">
         {VARIABLE_COLLECTIONS.map((collection) => (
@@ -2246,8 +2226,6 @@ const CMS = React.memo(function CMS() {
           collectionId={selectedVariableCollection}
           canManageSchema={canManageSchema}
           timezone={timezone}
-          createRequestId={variableCreateRequestId}
-          onCreateRequestHandled={() => setVariableCreateRequestId(0)}
         />
       </div>
     );

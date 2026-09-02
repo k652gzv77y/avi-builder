@@ -28,7 +28,8 @@ export const VARIABLE_COLLECTIONS: {
   { id: 'assets', name: 'Assets', description: 'Images used as variables', icon: 'image' },
 ];
 
-const SITE_VARIABLE_TYPES = new Set(['text', 'number', 'date', 'color', 'link', 'rich_text']);
+export const SITE_VARIABLE_TYPE_VALUES = ['text', 'number', 'date', 'color', 'link', 'rich_text'] as const;
+const SITE_VARIABLE_TYPES = new Set<string>(SITE_VARIABLE_TYPE_VALUES);
 
 export function getVariableCollectionItemCount(
   id: VariableCollectionId,
@@ -42,6 +43,36 @@ export function getVariableCollectionItemCount(
 
 export const VARIABLE_MODES_SETTING_KEY = 'variable_modes';
 export const COLOR_MODE_VALUES_SETTING_KEY = 'color_variable_mode_values';
+export const VARIABLE_FOLDERS_SETTING_KEY = 'variable_folders';
+
+export type VariableFoldersSetting = Partial<Record<VariableCollectionId, string[]>>;
+
+export function parseVariablePath(name: string): { folder: string | null; leaf: string } {
+  const trimmed = (name || '').trim();
+  const idx = trimmed.indexOf('/');
+  if (idx <= 0) return { folder: null, leaf: trimmed };
+  const folder = trimmed.slice(0, idx).trim();
+  const leaf = trimmed.slice(idx + 1).trim();
+  return { folder: folder || null, leaf: leaf || trimmed };
+}
+
+export function joinVariablePath(folder: string | null | undefined, leaf: string): string {
+  const cleanLeaf = leaf.trim() || 'Untitled';
+  const cleanFolder = folder?.trim();
+  return cleanFolder ? `${cleanFolder}/${cleanLeaf}` : cleanLeaf;
+}
+
+export function renameVariableFolder(name: string, fromFolder: string, toFolder: string): string {
+  const { folder, leaf } = parseVariablePath(name);
+  if (folder !== fromFolder) return name;
+  return joinVariablePath(toFolder.trim() || null, leaf);
+}
+
+export function stripVariableFolder(name: string, folder: string): string {
+  const parsed = parseVariablePath(name);
+  if (parsed.folder !== folder) return name;
+  return parsed.leaf;
+}
 
 export type VariableModesSetting = Partial<Record<VariableCollectionId, VariableMode[]>>;
 export type ColorModeValuesSetting = Record<string, Record<string, string>>;
