@@ -165,12 +165,6 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL(PROJECTS_ROOT, request.url));
   }
 
-  // This is the temporary project index until the multi-project picker is
-  // implemented. It keeps the shared application entry point stable.
-  if (hostname === BUILDER_HOSTNAME && pathname === PROJECTS_ROOT) {
-    return NextResponse.redirect(new URL(PROJECTS_PREFIX, request.url));
-  }
-
   // MCP endpoints use their own token-based authentication — skip session auth.
   // Cloud overlay proxies MUST also exempt these paths to avoid login redirects.
   //   - `/ycode/mcp/<token>`: legacy URL-token endpoint (Cursor, Windsurf, etc.)
