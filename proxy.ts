@@ -26,7 +26,6 @@ const PUBLIC_API_EXACT = [
 ];
 
 const BUILDER_HOSTNAME = process.env.YCODE_BUILDER_HOSTNAME || 'avibuilder.com';
-const PUBLIC_SITE_HOSTNAME = process.env.YCODE_PUBLIC_SITE_HOSTNAME || 'beta.kolboschool.com';
 const DEFAULT_PROJECT_SLUG = 'kolbo-school';
 const PROJECTS_PREFIX = `/projects/${DEFAULT_PROJECT_SLUG}`;
 const LEGACY_BUILDER_HOSTNAMES = (process.env.YCODE_LEGACY_BUILDER_HOSTNAMES || 'ycode.kolboschool.com')
@@ -37,23 +36,6 @@ const LEGACY_BUILDER_HOSTNAMES = (process.env.YCODE_LEGACY_BUILDER_HOSTNAMES || 
 function getRequestHostname(request: NextRequest): string {
   const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || '';
   return host.split(',')[0].trim().split(':')[0].toLowerCase();
-}
-
-function redirectToHost(request: NextRequest, hostname: string): NextResponse {
-  const url = request.nextUrl.clone();
-  url.protocol = 'https:';
-  url.host = hostname;
-  return NextResponse.redirect(url);
-}
-
-function isBuilderInfrastructurePath(pathname: string): boolean {
-  return pathname.startsWith('/ycode')
-    || pathname === PROJECTS_PREFIX
-    || pathname.startsWith(`${PROJECTS_PREFIX}/`)
-    || pathname.startsWith('/_next')
-    || pathname.startsWith('/a/')
-    || pathname === '/favicon.ico'
-    || pathname.startsWith('/.well-known/');
 }
 
 function getBuilderPath(pathname: string): string | null {
@@ -170,23 +152,14 @@ export async function proxy(request: NextRequest) {
   const hostname = getRequestHostname(request);
   const builderPath = getBuilderPath(pathname);
 
-  // Keep the public site and editor on distinct origins. Builder infrastructure
-  // remains on the editor origin so MCP OAuth metadata, assets, and API calls
-  // never redirect to the public site.
+  // The Builder is an independent application. Its legacy host is retired and
+  // must not redirect visitors to any project or public-site domain.
   if (LEGACY_BUILDER_HOSTNAMES.includes(hostname)) {
     return new NextResponse('Not Found', { status: 404 });
   }
 
   if (hostname === BUILDER_HOSTNAME && pathname === '/') {
     return NextResponse.redirect(new URL(PROJECTS_PREFIX, request.url));
-  }
-
-  if (hostname === BUILDER_HOSTNAME && !isBuilderInfrastructurePath(pathname)) {
-    return redirectToHost(request, PUBLIC_SITE_HOSTNAME);
-  }
-
-  if (hostname === PUBLIC_SITE_HOSTNAME && (pathname.startsWith('/ycode') || builderPath)) {
-    return redirectToHost(request, BUILDER_HOSTNAME);
   }
 
   // MCP endpoints use their own token-based authentication — skip session auth.

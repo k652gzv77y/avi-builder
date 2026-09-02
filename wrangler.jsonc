@@ -9,7 +9,6 @@
     "AVI_RUNTIME": "cloudflare",
     "REQUIRE_HYPERDRIVE": "true",
     "YCODE_BUILDER_HOSTNAME": "avibuilder.com",
-    "YCODE_PUBLIC_SITE_HOSTNAME": "beta.kolboschool.com",
     "YCODE_LEGACY_BUILDER_HOSTNAMES": "ycode.kolboschool.com"
   },
   "assets": {
