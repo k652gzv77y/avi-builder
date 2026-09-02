@@ -9,7 +9,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSetupStore } from '@/stores/useSetupStore';
-import { useAuthSession } from '@/hooks/use-auth-session';
 import type { SupabaseConfig } from '@/types';
 import {
   connectSupabase,
@@ -68,7 +67,6 @@ function LogoBottomRight() {
 export default function WelcomePage() {
   const router = useRouter();
   const { currentStep, setStep, setSupabaseConfig, supabaseConfig, markComplete } = useSetupStore();
-  const { session, isLoading: isAuthLoading } = useAuthSession();
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -118,19 +116,17 @@ export default function WelcomePage() {
     }
   };
 
-  // Check if running on Vercel and if env vars are configured
-  // Redirect unauthenticated users to /ycode if setup is already complete
+  // A hosted Builder must never expose the one-time setup wizard after its
+  // Supabase connection and first user have been created.
   useEffect(() => {
-    if (isAuthLoading) return;
-
     const checkEnvironment = async () => {
       try {
-        const response = await fetch('/projects/kolbo-school/api/setup/status');
+        const response = await fetch('/projects/kolbo-school/api/setup/status', {
+          cache: 'no-store',
+        });
         const data = await response.json();
 
-        // If setup is complete, redirect unauthenticated users to /ycode (login screen)
-        // Logged-in users can still access this page
-        if (data.is_setup_complete && !session) {
+        if (data.is_setup_complete) {
           router.push('/projects/kolbo-school');
           return; // Keep showing loading screen during redirect
         }
@@ -145,10 +141,10 @@ export default function WelcomePage() {
       }
     };
     checkEnvironment();
-  }, [currentStep, router, isAuthLoading, session]);
+  }, [currentStep, router]);
 
   // Block rendering until checks complete (prevents flash before redirect)
-  if (isAuthLoading || !statusChecked) {
+  if (!statusChecked) {
     return <BuilderLoading message="Checking setup" />;
   }
 
