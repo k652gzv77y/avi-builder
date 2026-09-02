@@ -1,8 +1,8 @@
 /**
  * Resolve the site's base URL from settings and environment.
  *
- * Priority: globalCanonicalUrl > primaryDomainUrl > NEXT_PUBLIC_SITE_URL
- *         > VERCEL_PROJECT_PRODUCTION_URL > VERCEL_URL
+ * Priority: globalCanonicalUrl > primaryDomainUrl > APP_ORIGIN
+ *         > NEXT_PUBLIC_SITE_URL > legacy Vercel deployment URLs
  */
 export function getSiteBaseUrl(options?: {
   globalCanonicalUrl?: string | null;
@@ -11,6 +11,7 @@ export function getSiteBaseUrl(options?: {
   const raw =
     options?.globalCanonicalUrl
     || options?.primaryDomainUrl
+    || process.env.APP_ORIGIN
     || process.env.NEXT_PUBLIC_SITE_URL
     || (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : null)
     || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)

@@ -7,7 +7,7 @@ import { getSupabaseAdmin } from '@/lib/supabase-server';
 import { createAsset } from '@/lib/repositories/assetRepository';
 import { isAssetOfType } from './asset-utils';
 import { ASSET_CATEGORIES, STORAGE_BUCKET, generateStoragePath, getDisplayName } from '@/lib/asset-constants';
-import sharp from 'sharp';
+import { convertImageToWebp, getImageDimensions as readImageDimensions } from '@/lib/image-processing';
 import type { Asset } from '@/types';
 
 /**
@@ -91,7 +91,7 @@ export function cleanSvgContent(svgContent: string): string {
 }
 
 /**
- * Extract image dimensions from file buffer using sharp
+ * Extract image dimensions from the runtime image processor.
  */
 async function getImageDimensions(file: File): Promise<{ width: number; height: number } | null> {
   try {
@@ -100,8 +100,7 @@ async function getImageDimensions(file: File): Promise<{ width: number; height: 
     }
 
     const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    const metadata = await sharp(buffer).metadata();
+    const metadata = await readImageDimensions(new Uint8Array(arrayBuffer));
 
     if (metadata.width && metadata.height) {
       return {
@@ -118,7 +117,7 @@ async function getImageDimensions(file: File): Promise<{ width: number; height: 
 }
 
 /**
- * Convert image to WebP format using sharp
+ * Convert image to WebP format using the active runtime image processor.
  * @param file - Original image file
  * @returns Converted file data and metadata, or null if not an image or conversion fails
  */
@@ -141,15 +140,10 @@ async function convertImageToWebP(file: File): Promise<{
     }
 
     const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    // Convert to WebP with quality 85
-    const webpBuffer = await sharp(buffer)
-      .webp({ quality: 85 })
-      .toBuffer();
+    const webpBuffer = await convertImageToWebp(new Uint8Array(arrayBuffer), { quality: 85 });
 
     // Get dimensions from the converted image
-    const metadata = await sharp(webpBuffer).metadata();
+    const metadata = await readImageDimensions(webpBuffer);
 
     return {
       buffer: webpBuffer,
@@ -192,8 +186,7 @@ export async function uploadFile(
       let dimensions: { width: number; height: number } | null = null;
       try {
         const arrayBuffer = await file.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
-        const metadata = await sharp(buffer).metadata();
+        const metadata = await readImageDimensions(new Uint8Array(arrayBuffer));
         if (metadata.width && metadata.height) {
           dimensions = {
             width: metadata.width,

@@ -4,7 +4,7 @@ import { getAuthUser } from '@/lib/supabase-auth';
 import { getSupabaseAdmin } from '@/lib/supabase-server';
 import { STORAGE_BUCKET, STORAGE_FOLDERS } from '@/lib/asset-constants';
 import { generateId } from '@/lib/utils';
-import sharp from 'sharp';
+import { convertImageToWebp } from '@/lib/image-processing';
 
 /**
  * POST /ycode/api/profile/avatar
@@ -45,12 +45,12 @@ export async function POST(request: NextRequest) {
 
     // Convert image to WebP and resize for avatar
     const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    const webpBuffer = await sharp(buffer)
-      .resize(256, 256, { fit: 'cover' })
-      .webp({ quality: 85 })
-      .toBuffer();
+    const webpBuffer = await convertImageToWebp(new Uint8Array(arrayBuffer), {
+      quality: 85,
+      width: 256,
+      height: 256,
+      fit: 'cover',
+    });
 
     // Create storage path: avatars/{userId}-{randomId}.webp
     const storagePath = `${STORAGE_FOLDERS.AVATARS}/${generateId(auth.user.id)}.webp`;

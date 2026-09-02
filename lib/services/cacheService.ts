@@ -1,6 +1,6 @@
 import { revalidateTag, revalidatePath } from 'next/cache';
-import { invalidateByTag } from '@vercel/functions';
 import { getSupabaseAdmin, getSupabaseConfig } from '@/lib/supabase-server';
+import { runInBackground } from '@/lib/platform/runtime';
 import { buildSlugPath, normalizeSlugSegment } from '@/lib/page-utils';
 import type { Page, PageFolder } from '@/types';
 import type {
@@ -35,16 +35,9 @@ type SupabaseAdmin = NonNullable<Awaited<ReturnType<typeof getSupabaseAdmin>>>;
 const SUPABASE_IN_LIMIT = 500;
 
 /**
- * Vercel's bulk cache-tag purge API accepts at most 16 tags per call
- * (https://vercel.com/docs/caching/cdn-cache/purge). Passing a larger array
- * gets rejected, so every tag beyond the cap would silently keep serving
- * stale content. Dynamic (CMS) pages make this trivial to hit: a single
- * dynamic page expands to one route per published item, so a component/style
- * change touching a dynamic template can produce dozens of routes in one
- * selective-invalidation pass. We chunk to stay under the cap.
+ * Tag invalidation works through Next.js so the same code is backed by
+ * OpenNext's R2 cache on Cloudflare and Next's cache on other runtimes.
  */
-const MAX_TAGS_PER_INVALIDATION = 16;
-
 /** Split an array into chunks safe for Supabase `.in()` queries. */
 function chunk<T>(arr: T[], size: number): T[][] {
   const chunks: T[][] = [];
@@ -55,16 +48,12 @@ function chunk<T>(arr: T[], size: number): T[][] {
 }
 
 /**
- * Purge a set of cache tags via Vercel's CDN purge API, chunked to respect the
- * 16-tags-per-call limit. Batches are settled independently so one failed batch
- * doesn't abort the rest; the first error is rethrown for the caller to handle.
+ * Purge a set of cache tags through Next.js's portable cache API.
  */
-export async function purgeTagsOnVercel(tags: string[]): Promise<void> {
-  if (tags.length === 0) return;
-  const batches = chunk(tags, MAX_TAGS_PER_INVALIDATION);
-  const results = await Promise.allSettled(batches.map((batch) => invalidateByTag(batch)));
-  const failure = results.find((r): r is PromiseRejectedResult => r.status === 'rejected');
-  if (failure) throw failure.reason;
+export async function purgeTags(tags: string[]): Promise<void> {
+  for (const tag of tags) {
+    revalidateTag(tag, { expire: 0 });
+  }
 }
 
 /**
@@ -77,25 +66,14 @@ export async function purgeTagsOnVercel(tags: string[]): Promise<void> {
 /**
  * Invalidate cache for a specific page by route path.
  *
- * On Vercel: uses invalidateByTag exclusively, which talks directly to Vercel's
- * CDN purge API and covers all three cache layers (CDN, Runtime, Data). We
- * deliberately avoid revalidateTag here because Next.js bug #63509 causes it
- * to cascade-invalidate other tags consumed by the page render, breaking
- * selective invalidation on Vercel.
- *
- * On self-hosted (no Vercel runtime): invalidateByTag no-ops, so we fall
- * back to revalidateTag to clear the in-process Next.js data cache.
+ * OpenNext maps these tags onto its R2-backed cache on Cloudflare.
  *
  * @param routePath - Route path (without leading slash for tag, with for path)
  */
 export async function invalidatePage(routePath: string): Promise<boolean> {
   const tag = `route-/${routePath}`;
   try {
-    if (process.env.VERCEL === '1') {
-      await invalidateByTag(tag);
-    } else {
-      revalidateTag(tag, { expire: 0 });
-    }
+    revalidateTag(tag, { expire: 0 });
     return true;
   } catch (error) {
     console.error('❌ [Cache] Invalidation error:', error);
@@ -105,7 +83,7 @@ export async function invalidatePage(routePath: string): Promise<boolean> {
 
 /**
  * Invalidate cache for multiple pages.
- * Uses Vercel's batched invalidateByTag on Vercel, revalidateTag elsewhere.
+ * Uses portable Next.js tag invalidation.
  *
  * @param routePaths - Array of route paths
  */
@@ -113,16 +91,7 @@ export async function invalidatePages(routePaths: string[]): Promise<boolean> {
   if (routePaths.length === 0) return true;
   try {
     const tags = routePaths.map((p) => `route-/${p}`);
-    if (process.env.VERCEL === '1') {
-      // Chunked to respect Vercel's 16-tags-per-purge cap — without this,
-      // routes beyond the first 16 (common when a dynamic CMS page expands to
-      // many item URLs) would never be invalidated and keep serving stale HTML.
-      await purgeTagsOnVercel(tags);
-    } else {
-      for (const tag of tags) {
-        revalidateTag(tag, { expire: 0 });
-      }
-    }
+    await purgeTags(tags);
     return true;
   } catch (error) {
     console.error('❌ [Cache] Invalidation error:', error);
@@ -136,16 +105,8 @@ export async function invalidatePages(routePaths: string[]): Promise<boolean> {
  */
 export async function clearAllCache(): Promise<void> {
   try {
-    if (process.env.VERCEL === '1') {
-      // Vercel: direct CDN purge by the 'all-pages' tag set on every page
-      // response. Covers CDN, Runtime, and Data caches in one call. Avoids
-      // revalidateTag's cascade bug (#63509).
-      await invalidateByTag('all-pages');
-    } else {
-      // Self-hosted: clear Next.js's in-process caches.
-      revalidateTag('all-pages', { expire: 0 });
-      revalidatePath('/', 'layout');
-    }
+    revalidateTag('all-pages', { expire: 0 });
+    revalidatePath('/', 'layout');
   } catch (error) {
     console.error('❌ [Cache] Clear all error:', error);
     throw new Error('Failed to clear all cache');
@@ -733,8 +694,6 @@ export async function warmRouteChain(
   alreadyWarmed: number,
   request: Request,
 ): Promise<{ scheduled: number; remaining: number }> {
-  if (process.env.VERCEL !== '1') return { scheduled: 0, remaining: 0 };
-
   const safeRoutes = sanitiseWarmRoutes(routes);
   if (safeRoutes.length === 0) return { scheduled: 0, remaining: 0 };
 
@@ -751,8 +710,7 @@ export async function warmRouteChain(
   const remaining = allowed.slice(WARM_BATCH_SIZE);
 
   try {
-    const { waitUntil } = await import('@vercel/functions');
-    waitUntil(
+    await runInBackground(
       (async () => {
         await warmBatch(batch, baseUrl);
         if (remaining.length > 0) {
@@ -768,18 +726,17 @@ export async function warmRouteChain(
 
 /**
  * Background-warm a set of routes by issuing GET requests to them, so the
- * next real visitor sees x-vercel-cache: HIT instead of STALE/MISS.
+ * next real visitor receives the cached page instead of a cold render.
  *
- * Uses Vercel's waitUntil so warming runs AFTER the response is sent: zero
+ * Uses the active host's request lifecycle so warming runs after the response.
  * added latency on the triggering request. Warms the first batch here and
  * self-chains through `/ycode/api/cache/warm` for the rest, draining the
  * whole list up to MAX_ROUTES_TO_WARM_TOTAL — anything beyond that self-warms
  * on first real visit.
  *
- * Vercel-only: warming via internal fetch only makes sense when there's a
- * CDN in front of the function. No-ops elsewhere.
+ * Works on any deployed runtime with request-lifecycle background execution.
  *
- * @returns null if not on Vercel, no host header, no routes, or warming
+ * @returns null if there is no host header, no routes, or warming
  *   failed to schedule. Otherwise reports how many will be warmed (across the
  *   whole chain) vs the total requested.
  */
@@ -787,7 +744,7 @@ export async function warmRoutes(
   routes: string[],
   request: Request,
 ): Promise<{ warmed: number; total: number } | null> {
-  if (process.env.VERCEL !== '1' || routes.length === 0) return null;
+  if (routes.length === 0) return null;
 
   const total = routes.length;
   const result = await warmRouteChain(routes, 0, request);

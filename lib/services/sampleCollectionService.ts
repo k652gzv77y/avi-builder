@@ -1,6 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
-import sharp from 'sharp';
+import { getImageDimensions } from '@/lib/image-processing';
 
 import { createCollection, getAllCollections } from '@/lib/repositories/collectionRepository';
 import { createField } from '@/lib/repositories/collectionFieldRepository';
@@ -178,7 +178,7 @@ async function getOrUploadSampleImage(filename: string): Promise<Asset> {
   const filePath = path.join(SAMPLES_DIR, filename);
   const buffer = await fs.readFile(filePath);
 
-  const metadata = await sharp(buffer).metadata();
+  const metadata = await getImageDimensions(buffer);
   const width = metadata.width ?? 0;
   const height = metadata.height ?? 0;
 

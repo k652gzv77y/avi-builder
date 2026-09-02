@@ -13,9 +13,9 @@ import 'server-only';
 import fs from 'fs/promises';
 import path from 'path';
 import type { SupabaseConfig } from '@/types';
+import { isHostedRuntime } from '@/lib/platform/runtime';
 
 const ENV_FILE = path.join(process.cwd(), '.env');
-const IS_VERCEL = process.env.VERCEL === '1';
 
 /**
  * Read Supabase config from environment variables.
@@ -61,10 +61,10 @@ export async function get<T = unknown>(key: string): Promise<T | null> {
  * On Vercel, throws — env vars must be set via the dashboard.
  */
 export async function set(key: string, value: unknown): Promise<void> {
-  if (IS_VERCEL) {
+  if (isHostedRuntime()) {
     throw new Error(
-      'Cannot write to file system on Vercel. Please set environment variables instead:\n' +
-      '1. Go to Vercel Dashboard → Project Settings → Environment Variables\n' +
+      'Cannot write to the hosting file system. Please set environment variables instead:\n' +
+      '1. Set the required environment variables in your hosting provider\n' +
       '2. Add: SUPABASE_PUBLISHABLE_KEY, SUPABASE_SECRET_KEY, SUPABASE_CONNECTION_URL, SUPABASE_DB_PASSWORD (and SUPABASE_URL for self-hosted)\n' +
       '3. Redeploy your application'
     );

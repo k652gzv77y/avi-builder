@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { revalidateTag } from 'next/cache';
 import { noCache } from '@/lib/api-response';
-import { purgeTagsOnVercel } from '@/lib/services/cacheService';
+import { purgeTags } from '@/lib/services/cacheService';
 
 /**
  * Vercel Cache Invalidation Endpoint
@@ -20,16 +19,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // On Vercel: batched direct CDN purge, avoids revalidateTag cascade bug (#63509).
-    // Chunked to respect Vercel's 16-tags-per-purge cap.
-    // Off Vercel: revalidateTag per-tag for Next.js's in-process data cache.
-    if (process.env.VERCEL === '1') {
-      await purgeTagsOnVercel(tags);
-    } else {
-      for (const tag of tags) {
-        revalidateTag(tag, { expire: 0 });
-      }
-    }
+    await purgeTags(tags);
 
     return noCache({
       success: true,

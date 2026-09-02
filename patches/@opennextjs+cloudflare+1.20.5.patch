@@ -1,0 +1,14 @@
+diff --git a/node_modules/@opennextjs/cloudflare/dist/cli/build/utils/workerd.js b/node_modules/@opennextjs/cloudflare/dist/cli/build/utils/workerd.js
+index 2567f7c..dc9d0a6 100644
+--- a/node_modules/@opennextjs/cloudflare/dist/cli/build/utils/workerd.js
++++ b/node_modules/@opennextjs/cloudflare/dist/cli/build/utils/workerd.js
+@@ -13,6 +13,9 @@ import { getCrossPlatformPathRegex } from "@opennextjs/aws/utils/regex.js";
+  * @returns An object with the transformed exports and a boolean indicating if the build condition was found
+  */
+ export function transformBuildCondition(conditionMap, condition) {
++    if (typeof conditionMap !== "object" || conditionMap == null) {
++        return { transformedExports: conditionMap, hasBuildCondition: false };
++    }
+     const transformed = {};
+     const hasTopLevelBuildCondition = condition in conditionMap && conditionMap[condition] != null;
+     let hasBuildCondition = hasTopLevelBuildCondition;

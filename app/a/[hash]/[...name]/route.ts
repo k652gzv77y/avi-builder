@@ -8,12 +8,12 @@
  * The name segment is cosmetic (for SEO) and derived from the asset's filename.
  * If the name doesn't match the current filename, a 301 redirect is issued.
  *
- * Supports image resizing via query params (width, height, quality) using sharp.
- * Responses are cached with immutable headers so sharp only runs once per unique URL.
+ * Supports image resizing via query params (width, height, quality).
+ * Responses are cached with immutable headers so transforms run once per unique URL.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import sharp from 'sharp';
+import { transformImage } from '@/lib/image-processing';
 import { base62ToUuid } from '@/lib/convertion-utils';
 import { getAssetProxyUrl, isAssetOfType, ASSET_CATEGORIES } from '@/lib/asset-utils';
 import { getAssetForProxy } from '@/lib/repositories/assetRepository';
@@ -108,8 +108,8 @@ export async function GET(
     }
 
     const transform = parseTransformParams(url.searchParams);
-    // Resize the fetched original in-process with sharp. GIFs are excluded via
-    // isResizableBitmap — Sharp flattens animated frames into a single static
+    // Resize the fetched original. GIFs are excluded via isResizableBitmap —
+    // bitmap transforms flatten animated frames into a single static
     // image, so they fall through and stream as raw bytes below.
     if (transform && isImage && isResizableBitmap(asset.mime_type)) {
       const buffer = Buffer.from(await response.arrayBuffer());
@@ -119,25 +119,12 @@ export async function GET(
       const isAvif = asset.mime_type === 'image/avif';
 
       try {
-        let pipeline = sharp(buffer);
-
-        if (transform.width || transform.height) {
-          // `fit: 'inside'` scales down within the requested bounds while
-          // preserving aspect ratio — it never crops. Cropping is a display
-          // concern handled by CSS `object-fit` on the rendered element; using
-          // `fit: 'cover'` here crops the sides whenever both dimensions are
-          // present, silently fighting the element's own `object-fit`.
-          pipeline = pipeline.resize(transform.width, transform.height, {
-            fit: 'inside',
-            withoutEnlargement: true,
-          });
-        }
-
-        pipeline = isAvif
-          ? pipeline.avif({ quality: transform.quality })
-          : pipeline.webp({ quality: transform.quality });
-
-        const resized = await pipeline.toBuffer();
+        const resized = await transformImage(buffer, {
+          width: transform.width,
+          height: transform.height,
+          quality: transform.quality,
+          format: isAvif ? 'image/avif' : 'image/webp',
+        });
 
         return new Response(new Uint8Array(resized), {
           status: 200,
@@ -147,7 +134,7 @@ export async function GET(
           },
         });
       } catch {
-        // Sharp's bundled decoder can't decode some bitstreams (e.g. 10/12-bit
+        // The runtime decoder can reject some bitstreams (e.g. 10/12-bit
         // AVIF, which browsers still render). Since the decode failure blocks
         // any re-encode, serve the original bytes untouched rather than failing.
         return new Response(new Uint8Array(buffer), {

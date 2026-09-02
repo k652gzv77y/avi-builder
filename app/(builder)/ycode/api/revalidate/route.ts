@@ -1,5 +1,4 @@
 import { revalidateTag } from 'next/cache';
-import { invalidateByTag } from '@vercel/functions';
 import { NextRequest, NextResponse } from 'next/server';
 import { noCache } from '@/lib/api-response';
 
@@ -23,13 +22,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // On Vercel: direct CDN purge, avoids revalidateTag cascade bug (#63509).
-    // Off Vercel: revalidateTag for Next.js's in-process data cache.
-    if (process.env.VERCEL === '1') {
-      await invalidateByTag(tag);
-    } else {
-      revalidateTag(tag, { expire: 0 });
-    }
+    revalidateTag(tag, { expire: 0 });
 
     return noCache({
       revalidated: true,

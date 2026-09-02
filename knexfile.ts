@@ -3,6 +3,7 @@ import path from 'path';
 import { credentials } from './lib/credentials.ts';
 import { parseSupabaseConfig } from './lib/supabase-config-parser.ts';
 import type { SupabaseConfig } from './types/index.ts';
+import { isCloudflareRuntime } from './lib/platform/runtime.ts';
 
 /**
  * Knex Configuration for Ycode Supabase Migrations
@@ -16,6 +17,19 @@ import type { SupabaseConfig } from './types/index.ts';
  * Uses environment variables on Vercel, file-based storage locally
  */
 async function getSupabaseConnectionParams() {
+  if (isCloudflareRuntime()) {
+    const { getCloudflareContext } = await import('@opennextjs/cloudflare');
+    const hyperdrive = getCloudflareContext().env.HYPERDRIVE as { connectionString?: string } | undefined;
+
+    if (hyperdrive?.connectionString) {
+      return { connectionString: hyperdrive.connectionString };
+    }
+
+    if (process.env.REQUIRE_HYPERDRIVE === 'true') {
+      throw new Error('Cloudflare Hyperdrive is required but the HYPERDRIVE binding is missing.');
+    }
+  }
+
   const config = await credentials.get<SupabaseConfig>('supabase_config');
 
   if (!config?.connectionUrl || !config?.dbPassword) {
@@ -36,7 +50,7 @@ async function getSupabaseConnectionParams() {
 }
 
 const createConfig = (): Knex.Config => {
-  const isVercel = process.env.VERCEL === '1';
+  const isConstrainedRuntime = process.env.VERCEL === '1' || isCloudflareRuntime();
 
   return {
     client: 'pg',
@@ -50,7 +64,7 @@ const createConfig = (): Knex.Config => {
       extension: 'ts',
       tableName: 'migrations',
     },
-    pool: isVercel ? {
+    pool: isConstrainedRuntime ? {
       min: 0,
       max: 1,
       acquireTimeoutMillis: 10000,

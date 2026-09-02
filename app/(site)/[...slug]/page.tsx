@@ -1,7 +1,6 @@
 import { notFound, redirect, permanentRedirect } from 'next/navigation';
 import { connection } from 'next/server';
 import { unstable_cache } from 'next/cache';
-import { addCacheTag } from '@vercel/functions';
 import type { Metadata } from 'next';
 import { getSupabaseAdmin } from '@/lib/supabase-server';
 import { buildSlugPath } from '@/lib/page-utils';
@@ -156,11 +155,7 @@ async function fetchPublishedPageWithLayers(slugPath: string) {
   // Tags are both 'route-/X' AND 'all-pages':
   // - route-/X lets selective invalidation purge just this page's data cache
   // - all-pages lets full invalidation (color variables, redirects, etc.)
-  //   sweep every page's data cache in one invalidateByTag call.
-  // Vercel's invalidateByTag is tag-precise — invalidating one route's tag
-  // doesn't cascade to entries that only share 'all-pages'. (Next.js bug
-  // #63509 would apply if we used revalidateTag for selective, but we route
-  // exclusively through invalidateByTag on Vercel.)
+  //   sweep every page's data cache in one tag invalidation call.
   const tags = [`route-/${slugPath}`, 'all-pages'];
   const opts = { tags, revalidate: false as const };
 
@@ -269,8 +264,6 @@ export default async function Page({ params }: PageProps) {
   // Tag this response for Vercel CDN cache invalidation. The publish endpoint
   // purges this exact tag (route-/<slug>) so only this URL's cache entry is
   // invalidated. No-ops outside Vercel.
-  await addCacheTag([`route-/${slugPath}`, 'all-pages']);
-
   // Check for redirects before processing the page
   const currentPath = `/${slugPath}`;
   const redirects = await fetchCachedRedirects();

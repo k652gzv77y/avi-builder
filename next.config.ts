@@ -37,11 +37,12 @@ const nextConfig: NextConfig = {
     remotePatterns: imageRemotePatterns,
   },
 
-  // Ensure sharp works properly in serverless environments (Vercel)
-  // Also externalize Knex database drivers (we only use PostgreSQL)
+  // Keep PostgreSQL's workerd-aware transport external so OpenNext resolves
+  // its Cloudflare implementation instead of bundling the Node transport.
   // This works for both webpack and Turbopack
   serverExternalPackages: [
-    'sharp',
+    'pg',
+    'pg-cloudflare',
     'oracledb',
     'mysql',
     'mysql2',

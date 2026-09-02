@@ -1,7 +1,6 @@
 import { redirect, permanentRedirect } from 'next/navigation';
 import { connection } from 'next/server';
 import { unstable_cache } from 'next/cache';
-import { addCacheTag } from '@vercel/functions';
 import Link from 'next/link';
 import { fetchHomepage, fetchErrorPage, splitPageData, reassemblePageData, slimPageData } from '@/lib/page-fetcher';
 import type { PageData } from '@/lib/page-fetcher';
@@ -26,11 +25,7 @@ async function fetchPublishedHomepage() {
   // Tags are both 'route-/' AND 'all-pages':
   // - route-/ lets selective invalidation purge just this page's data cache
   // - all-pages lets full invalidation (color variables, redirects, etc.)
-  //   sweep every page's data cache in one invalidateByTag call.
-  // Vercel's invalidateByTag is tag-precise, so no cascade — selective
-  // invalidation of one route doesn't disturb others. (Next.js bug #63509
-  // would apply if we used revalidateTag for selective on Vercel, but we
-  // route exclusively through invalidateByTag here.)
+  //   sweep every page's data cache in one tag invalidation call.
   const tags = ['route-/', 'all-pages'];
   const opts = { tags, revalidate: false as const };
 
@@ -118,11 +113,6 @@ async function fetchCachedErrorPage(errorCode: 401) {
 }
 
 export default async function Home() {
-  // Tag this response for Vercel CDN cache invalidation. The publish endpoint
-  // purges this exact tag (route-/) so only the homepage cache entry is
-  // invalidated. No-ops outside Vercel.
-  await addCacheTag(['route-/', 'all-pages']);
-
   // Check for redirects targeting the homepage
   const redirects = await fetchCachedRedirects();
   if (redirects && Array.isArray(redirects)) {

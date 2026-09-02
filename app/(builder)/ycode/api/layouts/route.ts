@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { promises as fs } from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import sharp from 'sharp';
+import { convertImageToWebp } from '@/lib/image-processing';
 import { getAssetsByIds } from '@/lib/repositories/assetRepository';
 import { getComponentsByIds } from '@/lib/repositories/componentRepository';
 import { getDraftLayers, upsertDraftLayers } from '@/lib/repositories/pageLayersRepository';
@@ -194,7 +194,7 @@ async function downloadAndLocalizeAssets(
       let outputBuffer: Buffer;
       let ext: string;
       if (isRasterImage) {
-        outputBuffer = await sharp(sourceBuffer).webp({ quality: 85 }).toBuffer();
+        outputBuffer = await convertImageToWebp(sourceBuffer, { quality: 85 });
         ext = '.webp';
       } else {
         outputBuffer = sourceBuffer;

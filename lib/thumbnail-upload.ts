@@ -5,18 +5,16 @@
 
 import { getSupabaseAdmin } from '@/lib/supabase-server';
 import { STORAGE_BUCKET, STORAGE_FOLDERS } from '@/lib/asset-constants';
-import sharp from 'sharp';
+import { convertImageToWebp } from '@/lib/image-processing';
 
 /**
- * Convert an image buffer to WebP format
+ * Convert an image buffer to WebP format.
  * @param imageBuffer - Raw image buffer (PNG, JPEG, etc.)
  * @param quality - WebP quality 0-100
  * @returns WebP buffer
  */
 export async function convertToWebP(imageBuffer: Buffer, quality: number = 85): Promise<Buffer> {
-  return sharp(imageBuffer)
-    .webp({ quality })
-    .toBuffer();
+  return convertImageToWebp(imageBuffer, { quality });
 }
 
 /**
