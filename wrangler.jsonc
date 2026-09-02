@@ -22,6 +22,12 @@
       "service": "avi-builder-staging"
     }
   ],
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE",
+      "id": "d29eb46892fe4acf993de0336355ac56"
+    }
+  ],
   "kv_namespaces": [
     {
       "binding": "NEXT_INC_CACHE_KV",
