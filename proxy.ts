@@ -27,7 +27,9 @@ const PUBLIC_API_EXACT = [
 
 const BUILDER_HOSTNAME = process.env.YCODE_BUILDER_HOSTNAME || 'avibuilder.com';
 const DEFAULT_PROJECT_SLUG = 'kolbo-school';
-const PROJECTS_PREFIX = `/projects/${DEFAULT_PROJECT_SLUG}`;
+const PROJECTS_ROOT = '/projects';
+const PROJECTS_PREFIX = `${PROJECTS_ROOT}/${DEFAULT_PROJECT_SLUG}`;
+const PROJECTS_AUTH_CALLBACK = `${PROJECTS_ROOT}/auth/callback`;
 const LEGACY_BUILDER_HOSTNAMES = (process.env.YCODE_LEGACY_BUILDER_HOSTNAMES || 'ycode.kolboschool.com')
   .split(',')
   .map((hostname) => hostname.trim().toLowerCase())
@@ -39,6 +41,7 @@ function getRequestHostname(request: NextRequest): string {
 }
 
 function getBuilderPath(pathname: string): string | null {
+  if (pathname === PROJECTS_AUTH_CALLBACK) return '/ycode/api/auth/callback';
   if (pathname === PROJECTS_PREFIX) return '/ycode';
   if (pathname.startsWith(`${PROJECTS_PREFIX}/`)) {
     return `/ycode${pathname.slice(PROJECTS_PREFIX.length)}`;
@@ -159,6 +162,12 @@ export async function proxy(request: NextRequest) {
   }
 
   if (hostname === BUILDER_HOSTNAME && pathname === '/') {
+    return NextResponse.redirect(new URL(PROJECTS_ROOT, request.url));
+  }
+
+  // This is the temporary project index until the multi-project picker is
+  // implemented. It keeps the shared application entry point stable.
+  if (hostname === BUILDER_HOSTNAME && pathname === PROJECTS_ROOT) {
     return NextResponse.redirect(new URL(PROJECTS_PREFIX, request.url));
   }
 

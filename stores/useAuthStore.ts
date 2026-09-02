@@ -199,8 +199,9 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         provider,
         options: {
           // Exchange the PKCE code on the server, then return to the canonical
-          // project route with its session cookies in place.
-          redirectTo: `${window.location.origin}/projects/kolbo-school/api/auth/callback`,
+          // project route with its session cookies in place. The callback is
+          // shared by every project, while `next` keeps the selected project.
+          redirectTo: `${window.location.origin}/projects/auth/callback?next=${encodeURIComponent('/projects/kolbo-school')}`,
         },
       });
 
