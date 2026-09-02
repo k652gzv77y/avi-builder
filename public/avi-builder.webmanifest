@@ -1,0 +1,24 @@
+{
+  "name": "AVI Builder",
+  "short_name": "AVI",
+  "description": "Advanced Visual Interface Builder",
+  "start_url": "/ycode",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#111111",
+  "theme_color": "#111111",
+  "icons": [
+    {
+      "src": "/brand/avi-webclip-light.png",
+      "sizes": "2048x2048",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/brand/avi-webclip-dark.png",
+      "sizes": "2048x2048",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

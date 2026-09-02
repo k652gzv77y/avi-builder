@@ -1,8 +1,10 @@
 import '@/app/site.css';
 import type { Metadata } from 'next';
-import RootLayoutShell, { defaultMetadata } from '@/components/RootLayoutShell';
+import RootLayoutShell, { defaultMetadata, defaultViewport } from '@/components/RootLayoutShell';
 import { fetchGlobalPageSettings } from '@/lib/generate-page-metadata';
 import { renderRootLayoutHeadCode } from '@/lib/parse-head-html';
+
+export const viewport = defaultViewport;
 
 export async function generateMetadata(): Promise<Metadata> {
   if (process.env.SKIP_SETUP === 'true') {

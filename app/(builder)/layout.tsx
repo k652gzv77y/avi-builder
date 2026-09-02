@@ -1,6 +1,6 @@
 import '@/app/globals.css';
 import { Inter } from 'next/font/google';
-import RootLayoutShell, { defaultMetadata } from '@/components/RootLayoutShell';
+import RootLayoutShell, { defaultMetadata, defaultViewport } from '@/components/RootLayoutShell';
 
 // Inter powers the builder's UI. It is loaded here (not in the shared shell)
 // so published public pages don't ship the builder's font.
@@ -11,6 +11,7 @@ const inter = Inter({
 });
 
 export const metadata = defaultMetadata;
+export const viewport = defaultViewport;
 
 export default function BuilderLayout({
   children,
