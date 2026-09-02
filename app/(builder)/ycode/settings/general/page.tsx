@@ -490,7 +490,7 @@ export default function GeneralSettingsPage() {
 
                 <Field orientation="horizontal" className="flex-row-reverse col-span-2">
                   <FieldContent>
-                    <FieldLabel htmlFor="badge">Display the &ldquo;Made in Ycode&rdquo; badge</FieldLabel>
+                    <FieldLabel htmlFor="badge">Display the &ldquo;Built with AVI Builder&rdquo; badge</FieldLabel>
                     <FieldDescription>
                       {isCloudVersion()
                         ? 'Upgrade to a project plan in order to disable the badge.'

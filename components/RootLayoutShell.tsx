@@ -3,8 +3,8 @@ import type { Metadata } from 'next';
 import DarkModeProvider from '@/components/DarkModeProvider';
 
 export const defaultMetadata: Metadata = {
-  title: 'Ycode - Visual Website Builder',
-  description: 'Self-hosted visual website builder',
+  title: 'AVI Builder - Advanced Visual Interface Builder',
+  description: 'Advanced Visual Interface Builder',
 };
 
 interface RootLayoutShellProps {

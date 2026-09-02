@@ -25,8 +25,12 @@ const PUBLIC_API_EXACT = [
   '/ycode/api/oauth/token',    // OAuth token exchange — auth is via PKCE/refresh
 ];
 
-const BUILDER_HOSTNAME = process.env.YCODE_BUILDER_HOSTNAME || 'ycode.kolboschool.com';
+const BUILDER_HOSTNAME = process.env.YCODE_BUILDER_HOSTNAME || 'avibuilder.com';
 const PUBLIC_SITE_HOSTNAME = process.env.YCODE_PUBLIC_SITE_HOSTNAME || 'beta.kolboschool.com';
+const LEGACY_BUILDER_HOSTNAMES = (process.env.YCODE_LEGACY_BUILDER_HOSTNAMES || 'ycode.kolboschool.com')
+  .split(',')
+  .map((hostname) => hostname.trim().toLowerCase())
+  .filter(Boolean);
 
 function getRequestHostname(request: NextRequest): string {
   const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || '';
@@ -156,6 +160,10 @@ export async function proxy(request: NextRequest) {
   // Keep the public site and editor on distinct origins. Builder infrastructure
   // remains on the editor origin so MCP OAuth metadata, assets, and API calls
   // never redirect to the public site.
+  if (LEGACY_BUILDER_HOSTNAMES.includes(hostname)) {
+    return redirectToHost(request, BUILDER_HOSTNAME);
+  }
+
   if (hostname === BUILDER_HOSTNAME && !isBuilderInfrastructurePath(pathname)) {
     return redirectToHost(request, PUBLIC_SITE_HOSTNAME);
   }

@@ -145,7 +145,7 @@ export default async function Home() {
       <div className="min-h-screen flex items-center justify-center bg-white">
         <div className="text-center p-8 flex flex-col items-center justify-center gap-2">
           <h1 className="text-xl font-semibold text-neutral-900">
-            Welcome to Ycode
+            Welcome to AVI Builder
           </h1>
           <Link
             href="/ycode"
@@ -250,7 +250,7 @@ export async function generateMetadata(): Promise<Metadata> {
   if (!data) {
     return {
       title: 'Ycode',
-      description: 'Built with Ycode',
+      description: 'Built with AVI Builder',
     };
   }
 
