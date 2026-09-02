@@ -5,7 +5,8 @@ rollback target until the staging Worker passes the verification checklist.
 
 ## One-time Cloudflare setup
 
-1. Create the R2 bucket named `avi-builder-opennext-cache`.
+1. Create a Cloudflare KV namespace named `avi-builder-opennext-cache` and
+   bind it as `NEXT_INC_CACHE_KV`.
 2. Create a Hyperdrive configuration for the existing AVI Builder Supabase
    Postgres database. Use the pooled Postgres connection string.
 3. Add the returned Hyperdrive id to `wrangler.jsonc`:
@@ -48,6 +49,6 @@ production environment only at cutover.
 - Verify file uploads and image optimization.
 - Exercise MCP OAuth/token endpoints and a builder API request.
 - Confirm the Airtable cron succeeds and inspect Workers logs.
-- Publish then reload a public page to confirm tag revalidation reaches the R2
+- Publish then reload a public page to confirm tag revalidation reaches the KV
   data cache and Durable Object tag cache.
 - Keep Vercel serving production until all checks pass on staging.

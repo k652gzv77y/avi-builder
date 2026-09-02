@@ -1,6 +1,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "avi-builder-staging",
+  "account_id": "ed21b04052e50e8fbf1ee544dea3e938",
   "main": ".open-next/worker.js",
   "compatibility_date": "2026-09-01",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
@@ -21,10 +22,10 @@
       "service": "avi-builder-staging"
     }
   ],
-  "r2_buckets": [
+  "kv_namespaces": [
     {
-      "binding": "NEXT_INC_CACHE_R2_BUCKET",
-      "bucket_name": "avi-builder-opennext-cache"
+      "binding": "NEXT_INC_CACHE_KV",
+      "id": "b0f2e213ff884961bf93ee106e74865c"
     }
   ],
   "durable_objects": {
