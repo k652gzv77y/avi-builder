@@ -177,6 +177,10 @@ export async function proxy(request: NextRequest) {
     return new NextResponse('Not Found', { status: 404 });
   }
 
+  if (hostname === BUILDER_HOSTNAME && pathname === '/') {
+    return NextResponse.redirect(new URL(PROJECTS_PREFIX, request.url));
+  }
+
   if (hostname === BUILDER_HOSTNAME && !isBuilderInfrastructurePath(pathname)) {
     return redirectToHost(request, PUBLIC_SITE_HOSTNAME);
   }

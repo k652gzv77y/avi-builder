@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createRouteClient } from '@/lib/supabase-route-client';
 
+const PROJECT_PATH = '/projects/kolbo-school';
+
 /**
  * GET /ycode/api/auth/callback
  *
@@ -16,7 +18,7 @@ export async function GET(request: NextRequest) {
 
       if (!supabase) {
         return NextResponse.redirect(
-          new URL('/login?error=config', request.url)
+          new URL(`${PROJECT_PATH}?error=config`, request.url)
         );
       }
 
@@ -25,18 +27,18 @@ export async function GET(request: NextRequest) {
       if (error) {
         console.error('Auth callback error:', error);
         return NextResponse.redirect(
-          new URL('/login?error=auth', request.url)
+          new URL(`${PROJECT_PATH}?error=auth`, request.url)
         );
       }
 
-      return NextResponse.redirect(new URL('/projects/kolbo-school', request.url));
+      return NextResponse.redirect(new URL(PROJECT_PATH, request.url));
     } catch (error) {
       console.error('Auth callback failed:', error);
       return NextResponse.redirect(
-        new URL('/login?error=server', request.url)
+        new URL(`${PROJECT_PATH}?error=server`, request.url)
       );
     }
   }
 
-  return NextResponse.redirect(new URL('/login', request.url));
+  return NextResponse.redirect(new URL(PROJECT_PATH, request.url));
 }
