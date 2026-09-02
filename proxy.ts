@@ -64,12 +64,6 @@ function getBuilderPath(pathname: string): string | null {
   return null;
 }
 
-function getProjectPath(pathname: string): string {
-  return pathname === '/ycode'
-    ? PROJECTS_PREFIX
-    : `${PROJECTS_PREFIX}${pathname.slice('/ycode'.length)}`;
-}
-
 /**
  * Derive the Supabase project URL and anon key from environment variables.
  * Returns null if env vars are not set (pre-setup or local dev without .env.local).
@@ -180,7 +174,7 @@ export async function proxy(request: NextRequest) {
   // remains on the editor origin so MCP OAuth metadata, assets, and API calls
   // never redirect to the public site.
   if (LEGACY_BUILDER_HOSTNAMES.includes(hostname)) {
-    return redirectToHost(request, BUILDER_HOSTNAME);
+    return new NextResponse('Not Found', { status: 404 });
   }
 
   if (hostname === BUILDER_HOSTNAME && !isBuilderInfrastructurePath(pathname)) {
@@ -197,15 +191,11 @@ export async function proxy(request: NextRequest) {
   //   - `/ycode/mcp`: OAuth Bearer-token endpoint (Claude.ai web, ChatGPT)
   const effectivePathname = builderPath ?? pathname;
 
-  // The physical Next.js routes remain under `/ycode` during this migration,
-  // but every public builder URL uses the project namespace.
-  if (
-    !builderPath
-    && effectivePathname.startsWith('/ycode')
-    && effectivePathname !== '/ycode/mcp'
-    && !effectivePathname.startsWith('/ycode/mcp/')
-  ) {
-    return NextResponse.redirect(new URL(getProjectPath(effectivePathname), request.url));
+  // `/ycode` is an internal route implementation detail. Public requests must
+  // use the canonical project namespace; unlike a redirect, this prevents old
+  // builder URLs from remaining part of the supported application surface.
+  if (!builderPath && effectivePathname.startsWith('/ycode')) {
+    return new NextResponse('Not Found', { status: 404 });
   }
 
   if (effectivePathname === '/ycode/mcp' || effectivePathname.startsWith('/ycode/mcp/')) {
