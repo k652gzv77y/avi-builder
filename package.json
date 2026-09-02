@@ -1,14 +1,14 @@
 {
-  "name": "ycode",
-  "version": "1.30.10",
-  "description": "Visual website builder you can self-host",
+  "name": "avi-builder",
+  "version": "0.1.0",
+  "description": "Advanced Visual Interface Builder",
   "license": "MIT",
   "private": false,
-  "author": "Ycode",
-  "homepage": "https://www.ycode.com",
+  "author": "AviCorp",
+  "homepage": "https://avibuilder.com",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ycode/ycode.git"
+    "url": "https://github.com/k652gzv77y/avi-builder.git"
   },
   "keywords": [
     "website-builder",

@@ -1,7 +1,7 @@
 import packageJson from '../../../../../../package.json';
 import { noCache } from '@/lib/api-response';
 
-const UPSTREAM_REPO = 'ycode/ycode'; // Official Ycode repo
+const AVI_BUILDER_REPOSITORY = process.env.AVI_BUILDER_REPOSITORY || 'k652gzv77y/avi-builder';
 const CURRENT_VERSION = packageJson.version;
 
 // Disable caching for this route
@@ -31,17 +31,17 @@ interface Release {
 /**
  * GET /ycode/api/updates/releases
  *
- * Fetch all releases from the official Ycode repository
+ * Fetch all releases from the AVI Builder repository.
  */
 export async function GET() {
   try {
-    // Fetch all releases from upstream repo
+    // Fetch releases published by AVI Builder.
     const response = await fetch(
-      `https://api.github.com/repos/${UPSTREAM_REPO}/releases`,
+      `https://api.github.com/repos/${AVI_BUILDER_REPOSITORY}/releases`,
       {
         headers: {
           'Accept': 'application/vnd.github.v3+json',
-          'User-Agent': 'Ycode-Update-Checker',
+          'User-Agent': 'AVI-Builder-Update-Checker',
         },
         cache: 'no-store',
       }

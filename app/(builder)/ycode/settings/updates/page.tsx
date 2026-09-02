@@ -135,7 +135,7 @@ export default function UpdatesSettingsPage() {
           <div>
             <FieldLegend>Version status</FieldLegend>
             <FieldDescription>
-              Check if your Ycode installation is up to date with the latest release.
+              Check AVI Builder releases from your own repository.
             </FieldDescription>
           </div>
 
@@ -239,7 +239,7 @@ export default function UpdatesSettingsPage() {
                     asChild
                   >
                     <a
-                      href={updateInfo?.updateInstructions?.autoSyncUrl || 'https://github.com/ycode/ycode'}
+                      href={updateInfo?.updateInstructions?.autoSyncUrl || 'https://github.com/k652gzv77y/avi-builder'}
                       target="_blank"
                       rel="noopener noreferrer"
                     >

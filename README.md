@@ -1,50 +1,29 @@
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://assets.ycodeapp.com/assets/app13650/Icons/9l3kz_ycode-logo-white.svg">
-    <source media="(prefers-color-scheme: light)" srcset="https://assets.ycodeapp.com/assets/app13650/Icons/arpQnWd8noiOpoMx0rFsCWN6MY0kCgpxPk3zbuzO.svg">
-    <img alt="Ycode Logo" src="https://assets.ycodeapp.com/assets/app13650/Icons/arpQnWd8noiOpoMx0rFsCWN6MY0kCgpxPk3zbuzO.svg" width="200">
-  </picture>
-</p>
+# AVI Builder
 
-## About Ycode
+AVI Builder, short for Advanced Visual Interface Builder, is a visual website builder and CMS maintained by AviCorp.
 
-Ycode is a visual website builder and CMS designed for creating and managing websites without writing code. It is available as a self-hosted Open Source project or as a fully managed [Cloud][cloud] service.
+## Product URLs
 
-## Learning Ycode
+- Builder: https://avibuilder.com
+- Source: https://github.com/k652gzv77y/avi-builder
 
-Ycode has extensive [documentation][docs]. We actively maintain and improve it, so if something is unclear or incomplete, feel free to open an issue. We welcome any feedback that helps make the docs better.
+## Development
 
-## Setting Up Ycode Open Source
+Requirements:
 
-To self-host Ycode you will need:
+- Node.js 18 or later
+- Supabase project
+- Vercel project for deployment
 
-- A [GitHub](https://github.com) account
-- A [Supabase](https://supabase.com) account
-- A [Vercel](https://vercel.com) account
+Install and run locally:
 
-Follow the [installation instructions][install] to get started.
+```bash
+npm install
+npm run dev
+```
 
-## Support
+Copy the required Supabase, AI, and template-service variables into `.env.local` before using the builder. Production variables are configured in Vercel.
 
-We provide official support on [Ycode Cloud][cloud] projects. Community-driven support for the Open Source version is available in [Discord][discord].
+## Licensing and Attribution
 
-## Contributing
-
-Thank you for considering contributing to Ycode! We ask that you review the [contribution guide][contributing] before opening issues or submitting pull requests.
-
-## Code of Conduct
-
-To ensure the Ycode community is welcoming to all, please review and abide by our [Code of Conduct][coc].
-
-## Important Links
-
-- [Ycode Website][cloud]
-- [Ycode Documentation][docs]
-- [Ycode Discord Community][discord]
-
-[cloud]: https://www.ycode.com
-[docs]: https://docs.ycode.com/
-[install]: https://docs.ycode.com/docs/getting-started/installation
-[discord]: https://discord.gg/xadfw2DV4q
-[contributing]: https://github.com/ycode/ycode/blob/main/CONTRIBUTING.md
-[coc]: https://github.com/ycode/ycode/blob/main/CODE_OF_CONDUCT.md
+AVI Builder includes modified source code from Ycode under the MIT License. The original license is preserved in [LICENSE](LICENSE), with attribution in [NOTICE](NOTICE).
