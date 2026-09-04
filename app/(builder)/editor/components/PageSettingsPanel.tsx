@@ -52,6 +52,7 @@ import { useAsset } from '@/hooks/use-asset';
 import { useEditorStore } from '@/stores/useEditorStore';
 import RichTextEditor from './RichTextEditor';
 import { Separator } from '@/components/ui/separator';
+import { builderOverlayLeft } from '@/lib/builder-chrome';
 import { cn } from '@/lib/utils';
 import { getFieldIcon, IMAGE_FIELD_TYPES, RICH_TEXT_FIELD_TYPES, DISPLAYABLE_FIELD_TYPES, type FieldGroup as CollectionFieldGroup } from '@/lib/collection-field-utils';
 
@@ -1240,14 +1241,14 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
       {/* Backdrop */}
       <div
         className="fixed inset-0 z-40"
-        style={{ left: `${leftSidebarWidth}px` }}
+        style={{ left: `${builderOverlayLeft(leftSidebarWidth)}px` }}
         onClick={handleClose}
       />
 
       {/* Panel */}
       <div
-        className="fixed top-14 bottom-0 w-125 bg-background border-r z-50 flex flex-col"
-        style={{ left: `${leftSidebarWidth}px` }}
+        className="fixed top-10 bottom-0 w-125 bg-background border-r z-50 flex flex-col"
+        style={{ left: `${builderOverlayLeft(leftSidebarWidth)}px` }}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4">

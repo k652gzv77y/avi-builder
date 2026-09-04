@@ -5,7 +5,7 @@ import { projectsPath } from '@/lib/project-url';
 import React, { useEffect, useMemo, useState, useCallback, useRef, startTransition, Suspense, lazy } from 'react';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 
 // 4. Internal components
 import ComponentVariantsSection from './ComponentVariantsSection';
@@ -318,7 +318,7 @@ const LeftSidebar = React.memo(function LeftSidebar({
         style={{ width: `${sidebarWidth}px` }}
       >
       <div
-        className="w-full h-full bg-background border-r flex overflow-hidden p-4 pb-0"
+        className="flex h-full w-full overflow-hidden border-r bg-background px-2 pb-0 pt-2"
       >
         {/* Tabs */}
         <div className="w-full">
@@ -345,14 +345,6 @@ const LeftSidebar = React.memo(function LeftSidebar({
             }}
             className="h-full overflow-hidden gap-0!"
           >
-            {!readOnly && (
-              <TabsList className="w-full shrink-0">
-                <TabsTrigger value="layers">Layers</TabsTrigger>
-                <TabsTrigger value="pages">Pages</TabsTrigger>
-              </TabsList>
-            )}
-
-            <hr className="mt-4" />
 
             {/* Content - forceMount keeps all tabs mounted for instant switching */}
             <TabsContent
@@ -406,17 +398,19 @@ const LeftSidebar = React.memo(function LeftSidebar({
                   }}
                 />
               )}
-              <header className="py-5 flex justify-between shrink-0 z-20">
-                <span className="font-medium">{editingComponentId && editingComponent ? editingComponent.name : 'Layers'}</span>
+              <header className="flex h-8 shrink-0 items-center justify-between z-20">
+                <span className="text-[11px] font-medium tracking-tight text-foreground/80">
+                  {editingComponentId && editingComponent ? editingComponent.name : 'Layers'}
+                </span>
                 {!readOnly && (
-                  <div className="-my-1">
-                    <Button
-                      size="xs" variant="secondary"
-                      onClick={() => setShowElementLibrary(prev => !prev)}
-                    >
-                      <Icon name="plus" className={`${showElementLibrary ? 'rotate-45' : 'rotate-0'} transition-transform duration-100`} />
-                    </Button>
-                  </div>
+                  <Button
+                    size="icon-xs"
+                    variant={showElementLibrary ? 'secondary' : 'ghost'}
+                    aria-label={showElementLibrary ? 'Close insert panel' : 'Insert'}
+                    onClick={() => setShowElementLibrary(prev => !prev)}
+                  >
+                    <Icon name="plus" className={`${showElementLibrary ? 'rotate-45' : 'rotate-0'} transition-transform duration-100`} />
+                  </Button>
                 )}
               </header>
 

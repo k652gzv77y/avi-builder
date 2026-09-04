@@ -14,21 +14,21 @@ or materially below Framer's workflow.
 - [x] Desktop/tablet/phone breakpoints
 - [~] Per-breakpoint layout overrides with a clear inherited-value indicator
 - [ ] Independent breakpoint creation, naming, ordering, and range editing
-- [ ] Framer-style breakpoint canvas switcher and viewport presets
+- [x] Framer-style breakpoint canvas switcher and viewport presets
 - [ ] Per-page canvas presets and device frames
 - [ ] Page transitions and route-level animation controls
 - [ ] Canvas comments, pins, threads, mentions, and resolution state
 - [ ] Canvas sections for organizing long pages
 - [ ] Figma-style multi-select alignment/distribution/spacing inspector
 - [ ] Copy/paste styles and copy/paste responsive properties between layers
-- [ ] Keyboard shortcut reference and command palette for all editor actions
+- [~] Keyboard shortcut reference exists; command palette still missing
 
 ## 2. Layout and Responsive Design
 
 - [x] Stack/flex layout, grid, padding, gap, alignment, wrap, and positioning
 - [x] Width, height, min/max sizing, overflow, and aspect-ratio support
 - [~] Visual layout controls need Framer-level density and discoverability
-- [ ] Framer-style `Fill`, `Hug`, `Fixed`, and `Relative` sizing modes everywhere
+- [x] Framer-style `Fill`, `Fit`, `Fixed`, and `Relative` sizing modes on width/height
 - [ ] Fractional grid controls, named grid areas, and visual cell placement
 - [ ] Full positioning pin controls with responsive constraints
 - [ ] Auto layout suggestions when grouping or arranging selected layers

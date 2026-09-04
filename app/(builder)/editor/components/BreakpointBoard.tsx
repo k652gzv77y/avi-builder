@@ -20,7 +20,7 @@ export default function BreakpointBoard({
 }) {
   return (
     <div
-      className="fixed inset-x-0 bottom-0 top-14 z-40 overflow-auto bg-[#f4f4f5] dark:bg-[#0c0c0d]"
+      className="fixed inset-x-0 bottom-0 top-10 z-40 overflow-auto bg-[var(--builder-canvas)]"
     >
       <div className="flex min-h-full items-start justify-center gap-8 px-10 py-8">
         {FRAMES.map((frame) => {

@@ -183,7 +183,7 @@ export default function BreakpointFrames({
   );
 
   return (
-    <div className="flex items-start gap-10">
+    <div className="flex items-start gap-8">
       {frames.map((frame) => {
         const isActive = frame.id === resolvedActiveId
           || (active === 'all' && frame.id === 'desktop');
