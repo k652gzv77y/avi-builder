@@ -84,20 +84,71 @@ export async function generateColorVariablesCss(): Promise<string | null> {
 
 export async function getAllColorVariables(): Promise<ColorVariable[]> {
   const client = await getSupabaseAdmin();
-
-  if (!client) {
-    throw new Error('Supabase not configured');
-  }
-
+  if (!client) throw new Error('Supabase not configured');
   const { data, error } = await client
     .from('color_variables')
     .select('*')
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
-
-  if (error) {
-    throw new Error(`Failed to fetch color variables: ${error.message}`);
-  }
-
+  if (error) throw new Error(`Failed to fetch color variables: ${error.message}`);
   return data || [];
+}
+
+export async function getColorVariableById(id: string): Promise<ColorVariable | null> {
+  const client = await getSupabaseAdmin();
+  if (!client) throw new Error('Supabase not configured');
+  const { data, error } = await client.from('color_variables').select('*').eq('id', id).single();
+  if (error) {
+    if (error.code === 'PGRST116') return null;
+    throw new Error(`Failed to fetch color variable: ${error.message}`);
+  }
+  return data;
+}
+
+export async function createColorVariable(variableData: CreateColorVariableData): Promise<ColorVariable> {
+  const client = await getSupabaseAdmin();
+  if (!client) throw new Error('Supabase not configured');
+  const { data: maxRow } = await client.from('color_variables').select('sort_order').order('sort_order', { ascending: false }).limit(1).single();
+  const nextOrder = (maxRow?.sort_order ?? -1) + 1;
+  const { data, error } = await client.from('color_variables').insert({ ...variableData, sort_order: nextOrder }).select().single();
+  if (error) throw new Error(`Failed to create color variable: ${error.message}`);
+  return data;
+}
+
+export async function updateColorVariable(id: string, updates: UpdateColorVariableData): Promise<ColorVariable> {
+  const client = await getSupabaseAdmin();
+  if (!client) throw new Error('Supabase not configured');
+  const { data, error } = await client.from('color_variables').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', id).select().single();
+  if (error) throw new Error(`Failed to update color variable: ${error.message}`);
+  return data;
+}
+
+export async function deleteColorVariable(id: string): Promise<void> {
+  const client = await getSupabaseAdmin();
+  if (!client) throw new Error('Supabase not configured');
+  const { error } = await client.from('color_variables').delete().eq('id', id);
+  if (error) throw new Error(`Failed to delete color variable: ${error.message}`);
+}
+
+export async function reorderColorVariables(orderedIds: string[]): Promise<void> {
+  const client = await getSupabaseAdmin();
+  if (!client) throw new Error('Supabase not configured');
+  const { data: existing, error: fetchError } = await client.from('color_variables').select('*').in('id', orderedIds);
+  if (fetchError) throw new Error(`Failed to fetch color variables for reorder: ${fetchError.message}`);
+  const existingMap = new Map((existing || []).map((v) => [v.id, v]));
+  const now = new Date().toISOString();
+  const updates = orderedIds.map((id, index) => {
+    const row = existingMap.get(id);
+    if (!row) return null;
+    return { ...row, sort_order: index, updated_at: now };
+  }).filter(Boolean);
+  const { error } = await client.from('color_variables').upsert(updates, { onConflict: 'id' });
+  if (error) throw new Error(`Failed to reorder color variables: ${error.message}`);
+}
+
+export async function getColorVariablesHash(): Promise<string> {
+  const variables = await getAllColorVariables();
+  return generateContentHash(
+    variables.map(v => ({ id: v.id, name: v.name, value: v.value, sort_order: v.sort_order }))
+  );
 }
