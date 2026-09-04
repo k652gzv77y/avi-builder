@@ -35,8 +35,15 @@ const nextConfig: NextConfig = {
     remotePatterns: imageRemotePatterns,
   },
 
+  // Hyperdrive + pg: nft only copies pg-cloudflare/package.json unless these files are traced.
+  outputFileTracingIncludes: {
+    '**/*': [
+      './node_modules/pg-cloudflare/dist/**',
+      './node_modules/pg-cloudflare/esm/**',
+    ],
+  },
+
   serverExternalPackages: [
-    'sharp',
     'oracledb',
     'mysql',
     'mysql2',
@@ -55,6 +62,7 @@ const nextConfig: NextConfig = {
       'better-sqlite3': './lib/stubs/db-driver-stub.ts',
       'tedious': './lib/stubs/db-driver-stub.ts',
       'pg-query-stream': './lib/stubs/db-driver-stub.ts',
+      'sharp': './lib/stubs/sharp-stub.ts',
     },
   },
 
