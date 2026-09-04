@@ -1,18 +1,18 @@
+import { headers } from 'next/headers';
 import BuilderLayoutClient from './BuilderLayoutClient';
+import { PROJECT_SLUG_HEADER } from '@/lib/project-url';
 
 /**
  * Avi Builder Editor Layout (Server Component)
- * 
- * Forces dynamic rendering for all /ycode/* routes.
- * This is required because:
- * 1. Editor routes require authentication (user-specific)
- * 2. Client components use useSearchParams which needs dynamic context
+ *
+ * Proxy rewrites /projects/:slug → /editor and sets x-avi-project-slug.
+ * Pass that slug into the client shell so projectsPath() works during SSR.
  */
 
-// Force all /ycode routes to be dynamic - no static prerendering
-// This prevents useSearchParams errors during build
 export const dynamic = 'force-dynamic';
 
-export default function BuilderLayout({ children }: { children: React.ReactNode }) {
-  return <BuilderLayoutClient>{children}</BuilderLayoutClient>;
+export default async function BuilderLayout({ children }: { children: React.ReactNode }) {
+  const headerList = await headers();
+  const initialSlug = headerList.get(PROJECT_SLUG_HEADER);
+  return <BuilderLayoutClient initialSlug={initialSlug}>{children}</BuilderLayoutClient>;
 }
