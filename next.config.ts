@@ -8,8 +8,6 @@ const imageRemotePatterns: NonNullable<NonNullable<NextConfig['images']>['remote
   },
 ];
 
-// Self-hosted Supabase: allow the custom domain for storage image optimization.
-// Supports both "https://supabase.example.com" and bare "supabase.example.com".
 if (process.env.SUPABASE_URL) {
   try {
     const parsed = new URL(
@@ -37,9 +35,6 @@ const nextConfig: NextConfig = {
     remotePatterns: imageRemotePatterns,
   },
 
-  // Ensure sharp works properly in serverless environments (Vercel)
-  // Also externalize Knex database drivers (we only use PostgreSQL)
-  // This works for both webpack and Turbopack
   serverExternalPackages: [
     'sharp',
     'oracledb',
@@ -51,12 +46,8 @@ const nextConfig: NextConfig = {
     'pg-query-stream',
   ],
 
-  // Turbopack configuration
-  // Map unused database drivers to stub modules (we only use PostgreSQL)
-  // This prevents Turbopack from trying to resolve packages that aren't installed
   turbopack: {
     resolveAlias: {
-      // Map unused database drivers to stub module to prevent resolution errors
       'oracledb': './lib/stubs/db-driver-stub.ts',
       'mysql': './lib/stubs/db-driver-stub.ts',
       'mysql2': './lib/stubs/db-driver-stub.ts',
@@ -67,10 +58,23 @@ const nextConfig: NextConfig = {
     },
   },
 
+  async redirects() {
+    return [
+      { source: '/ycode', destination: '/editor', permanent: false },
+      { source: '/ycode/:path*', destination: '/editor/:path*', permanent: false },
+    ];
+  },
+
+  async rewrites() {
+    return [
+      { source: '/editor', destination: '/ycode' },
+      { source: '/editor/:path*', destination: '/ycode/:path*' },
+    ];
+  },
+
   async headers() {
     return [
       {
-        // Asset proxy: immutable caching (content-addressed by hash)
         source: '/a/:path*',
         headers: [
           {
@@ -80,19 +84,9 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        // Apply to public pages ONLY (exclude /ycode/*, /_next/*, /a/*)
-        // NOTE: Do NOT set Cache-Control here. Vercel recommends letting
-        // ISR manage cache headers automatically so per-URL cache-tag
-        // tracking works for selective revalidateTag invalidations.
-        // Manual s-maxage breaks per-URL purging on catch-all routes.
-        source: '/:path((?!ycode|_next|a/).*)*',
+        source: '/:path((?!ycode|editor|_next|a/).*)*',
         headers: [
           {
-            // Open the TLS connection to fonts.gstatic.com while the document
-            // is still streaming so woff2 binaries can be fetched the moment
-            // the inlined @font-face rules are parsed. Sending this as a
-            // response header (vs. <link rel=preconnect> in <head>) lets the
-            // browser act on it before parsing the document.
             key: 'Link',
             value: '<https://fonts.gstatic.com>; rel=preconnect; crossorigin',
           },
@@ -103,8 +97,6 @@ const nextConfig: NextConfig = {
 
   webpack: (config, { isServer }) => {
     if (isServer) {
-      // Ignore optional dependencies that Knex tries to load
-      // We only use PostgreSQL, so we don't need these drivers
       config.externals = config.externals || [];
       config.externals.push({
         'oracledb': 'commonjs oracledb',
@@ -117,7 +109,6 @@ const nextConfig: NextConfig = {
       });
     }
 
-    // Suppress Knex migration warnings (we don't use migrations in Next.js runtime)
     config.ignoreWarnings = [
       ...(config.ignoreWarnings || []),
       {
