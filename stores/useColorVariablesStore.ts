@@ -8,6 +8,7 @@
 import { create } from 'zustand';
 import { colorVariablesApi } from '@/lib/api';
 import type { ColorVariable, Layer } from '@/types';
+import { useSettingsStore } from './useSettingsStore';
 
 interface ColorVariablesState {
   colorVariables: ColorVariable[];
@@ -37,14 +38,9 @@ export const useColorVariablesStore = create<ColorVariablesStore>((set, get) => 
 
   loadColorVariables: async () => {
     set({ isLoading: true, error: null });
-
     try {
       const response = await colorVariablesApi.getAll();
-
-      if (response.error) {
-        throw new Error(response.error);
-      }
-
+      if (response.error) throw new Error(response.error);
       set({ colorVariables: response.data || [], isLoading: false });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to load color variables';
@@ -55,19 +51,14 @@ export const useColorVariablesStore = create<ColorVariablesStore>((set, get) => 
   createColorVariable: async (name, value) => {
     try {
       const response = await colorVariablesApi.create({ name, value });
-
       if (response.error) {
         set({ error: response.error });
         return null;
       }
-
       if (response.data) {
-        set((state) => ({
-          colorVariables: [...state.colorVariables, response.data!],
-        }));
+        set((state) => ({ colorVariables: [...state.colorVariables, response.data!] }));
         return response.data;
       }
-
       return null;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to create color variable';
@@ -79,21 +70,16 @@ export const useColorVariablesStore = create<ColorVariablesStore>((set, get) => 
   updateColorVariable: async (id, data) => {
     try {
       const response = await colorVariablesApi.update(id, data);
-
       if (response.error) {
         set({ error: response.error });
         return null;
       }
-
       if (response.data) {
         set((state) => ({
-          colorVariables: state.colorVariables.map((v) =>
-            v.id === id ? response.data! : v
-          ),
+          colorVariables: state.colorVariables.map((v) => (v.id === id ? response.data! : v)),
         }));
         return response.data;
       }
-
       return null;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to update color variable';
@@ -106,8 +92,6 @@ export const useColorVariablesStore = create<ColorVariablesStore>((set, get) => 
     try {
       const variable = get().colorVariables.find((v) => v.id === id);
       const rawValue = variable?.value || '#000000';
-      const hexOnly = rawValue.split('/')[0];
-
       const toCssRgba = (val: string): string => {
         const parts = val.split('/');
         if (parts.length < 2) return val;
@@ -119,60 +103,41 @@ export const useColorVariablesStore = create<ColorVariablesStore>((set, get) => 
         return `rgba(${r},${g},${b},${opacity})`;
       };
       const cssValue = toCssRgba(rawValue);
-
       const response = await colorVariablesApi.delete(id);
-
       if (response.error) {
         set({ error: response.error });
         return false;
       }
-
-      // Detach variable from all layers, replacing with resolved color
       try {
         const { usePagesStore } = await import('./usePagesStore');
         const { useComponentsStore } = await import('./useComponentsStore');
         const pagesStore = usePagesStore.getState();
         const componentsStore = useComponentsStore.getState();
-
         const replaceInClasses = (classes: string | string[]): string | string[] => {
-          const replace = (s: string) =>
-            s.replaceAll(`color:var(--${id})`, rawValue)
-              .replaceAll(`var(--${id})`, cssValue);
-          if (Array.isArray(classes)) {
-            return classes.map(replace);
-          }
-          return replace(classes);
+          const replace = (s: string) => s.replaceAll(`color:var(--${id})`, rawValue).replaceAll(`var(--${id})`, cssValue);
+          return Array.isArray(classes) ? classes.map(replace) : replace(classes);
         };
-
         const replaceInLayers = (layers: Layer[]): Layer[] =>
           layers.map((layer) => ({
             ...layer,
             classes: replaceInClasses(layer.classes),
             children: layer.children ? replaceInLayers(layer.children) : undefined,
           }));
-
         for (const [pageId, draft] of Object.entries(pagesStore.draftsByPageId)) {
           if (!draft) continue;
-          const updated = replaceInLayers(draft.layers);
-          pagesStore.setDraftLayers(pageId, updated);
+          pagesStore.setDraftLayers(pageId, replaceInLayers(draft.layers));
         }
-
         for (const comp of componentsStore.components) {
           if (!comp.layers) continue;
           const updated = replaceInLayers(comp.layers as Layer[]);
           useComponentsStore.setState((state) => ({
-            components: state.components.map((c) =>
-              c.id === comp.id ? { ...c, layers: updated } : c
-            ),
+            components: state.components.map((c) => (c.id === comp.id ? { ...c, layers: updated } : c)),
           }));
         }
       } catch (detachError) {
         console.error('Failed to detach color variable from layers:', detachError);
       }
-
-      set((state) => ({
-        colorVariables: state.colorVariables.filter((v) => v.id !== id),
-      }));
+      set((state) => ({ colorVariables: state.colorVariables.filter((v) => v.id !== id) }));
       return true;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to delete color variable';
@@ -189,9 +154,7 @@ export const useColorVariablesStore = create<ColorVariablesStore>((set, get) => 
         return v ? { ...v, sort_order: index } : null;
       })
       .filter(Boolean) as ColorVariable[];
-
     set({ colorVariables: reordered });
-
     try {
       await colorVariablesApi.reorder(orderedIds);
     } catch (error) {
@@ -200,18 +163,13 @@ export const useColorVariablesStore = create<ColorVariablesStore>((set, get) => 
     }
   },
 
-  getVariableById: (id) => {
-    return get().colorVariables.find((v) => v.id === id);
-  },
+  getVariableById: (id) => get().colorVariables.find((v) => v.id === id),
 
-  setPreviewOverride: (override) => {
-    set({ previewOverride: override });
-  },
+  setPreviewOverride: (override) => set({ previewOverride: override }),
 
   generateCssDeclarations: () => {
     const { colorVariables, previewOverride } = get();
     if (colorVariables.length === 0 && !previewOverride) return '';
-
     const toCssValue = (val: string): string => {
       const parts = val.split('/');
       if (parts.length < 2) return val;
@@ -222,16 +180,31 @@ export const useColorVariablesStore = create<ColorVariablesStore>((set, get) => 
       const b = parseInt(hex.slice(5, 7), 16);
       return `rgba(${r},${g},${b},${opacity})`;
     };
-
-    const declarations = colorVariables
+    const settings = useSettingsStore.getState().settingsByKey || {};
+    const modes = settings['variable_modes']?.colors || [];
+    const dark = modes.find((mode: { id: string; name: string }) =>
+      mode.name?.trim().toLowerCase() === 'dark' || mode.id?.toLowerCase() === 'dark'
+    );
+    const darkModeId = dark?.id || null;
+    const modeValues = (settings['color_variable_mode_values'] || {}) as Record<string, Record<string, string>>;
+    const lightDecls = colorVariables
       .map((v) => {
-        if (previewOverride && v.id === previewOverride.id) {
-          return `--${v.id}: ${toCssValue(previewOverride.value)};`;
-        }
+        if (previewOverride && v.id === previewOverride.id) return `--${v.id}: ${toCssValue(previewOverride.value)};`;
         return `--${v.id}: ${toCssValue(v.value)};`;
       })
       .join(' ');
-
-    return `:root { ${declarations} }`;
+    const darkDecls = darkModeId
+      ? colorVariables
+          .map((v) => {
+            if (previewOverride && v.id === previewOverride.id) return `--${v.id}: ${toCssValue(previewOverride.value)};`;
+            const darkValue = modeValues[v.id]?.[darkModeId];
+            if (!darkValue) return null;
+            return `--${v.id}: ${toCssValue(darkValue)};`;
+          })
+          .filter(Boolean)
+          .join(' ')
+      : '';
+    if (!darkDecls) return `:root { ${lightDecls} }`;
+    return `:root { ${lightDecls} } html.dark { ${darkDecls} }`;
   },
 }));
