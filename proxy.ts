@@ -36,7 +36,7 @@ function getRequestHostname(request: NextRequest): string {
 }
 
 function isBuilderHost(hostname: string): boolean {
-  return hostname === BUILDER_HOSTNAME || hostname.endsWith(`.${BUILDER_HOSTNAME}`);
+  return hostname === BUILDER_HOSTNAME || hostname === `www.${BUILDER_HOSTNAME}`;
 }
 
 function getBuilderPath(pathname: string, hostname: string): string | null {
@@ -142,9 +142,10 @@ export async function proxy(request: NextRequest) {
   const onBuilder = isBuilderHost(hostname);
   const builderPath = getBuilderPath(pathname, hostname);
   const projectMatch = pathname.match(/^\/projects\/([^/]+)/);
-  const projectPrefix = projectMatch && !RESERVED_PROJECT_SLUGS.has(projectMatch[1])
-    ? `/projects/${projectMatch[1]}`
-    : '/projects';
+  const projectSlug = projectMatch && !RESERVED_PROJECT_SLUGS.has(projectMatch[1])
+    ? projectMatch[1]
+    : null;
+  const projectPrefix = projectSlug ? `/projects/${projectSlug}` : '/projects';
 
   if (LEGACY_BUILDER_HOSTNAMES.includes(hostname)) {
     return new NextResponse('Not Found', { status: 404 });
@@ -154,9 +155,11 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL(PROJECTS_ROOT, request.url));
   }
 
-  // Published hosts must never open the builder. Old links like
-  // beta.kolboschool.com/projects/kolbo-school go home instead.
-  if (!onBuilder && pathname.startsWith('/projects')) {
+  if (onBuilder && (pathname.endsWith('/welcome') || pathname === '/welcome')) {
+    return NextResponse.redirect(new URL(projectSlug ? `/projects/${projectSlug}` : PROJECTS_ROOT, request.url));
+  }
+
+  if (!onBuilder && (pathname.startsWith('/projects') || pathname.startsWith('/ycode') || pathname.endsWith('/welcome'))) {
     return NextResponse.redirect(new URL('/', request.url));
   }
 
