@@ -40,13 +40,14 @@ export default function DarkModeProvider({ children }: { children: React.ReactNo
 
   useEffect(() => {
     const isPreview = pathname?.startsWith('/editor/preview') || pathname?.startsWith('/ycode/preview');
-    const isEditorPath = pathname?.startsWith('/editor') || pathname?.startsWith('/ycode');
+    const isBuilderPath =
+      pathname === '/'
+      || pathname?.startsWith('/projects')
+      || pathname?.startsWith('/editor')
+      || pathname?.startsWith('/ycode')
+      || pathname?.startsWith('/login');
 
-    const useProductTheme =
-      !isPreview &&
-      (pathname === '/' || isEditorPath || pathname?.startsWith('/login'));
-
-    if (!useProductTheme) {
+    if (isPreview || !isBuilderPath) {
       document.documentElement.classList.remove('dark');
       document.documentElement.style.colorScheme = 'light';
       return;
