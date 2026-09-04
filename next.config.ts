@@ -68,13 +68,14 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       { source: '/editor', destination: '/projects', permanent: false },
-      { source: '/ycode', destination: '/projects', permanent: false },
       { source: '/editor/:path*', destination: '/ycode/:path*', permanent: false },
     ];
   },
 
   async rewrites() {
-    return [];
+    return [
+      { source: '/projects/:id', destination: '/ycode' },
+    ];
   },
 
   async headers() {
