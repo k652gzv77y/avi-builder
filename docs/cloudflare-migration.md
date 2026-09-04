@@ -1,13 +1,13 @@
 # Cloudflare Migration
 
-AVI Builder uses OpenNext on Cloudflare Workers. Vercel remains the production
+Avi Builder uses OpenNext on Cloudflare Workers. Vercel remains the production
 rollback target until the staging Worker passes the verification checklist.
 
 ## One-time Cloudflare setup
 
 1. Create a Cloudflare KV namespace named `avi-builder-opennext-cache` and
    bind it as `NEXT_INC_CACHE_KV`.
-2. Create a Hyperdrive configuration for the existing AVI Builder Supabase
+2. Create a Hyperdrive configuration for the existing Avi Builder Supabase
    Postgres database. Use the pooled Postgres connection string.
 3. Add the returned Hyperdrive id to `wrangler.jsonc`:
 

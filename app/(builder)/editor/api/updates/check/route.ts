@@ -9,7 +9,7 @@ export const revalidate = 0;
 /**
  * GET /ycode/api/updates/check
  *
- * Check for updates from the AVI Builder repository.
+ * Check for updates from the Avi Builder repository.
  */
 export async function GET() {
   const result = await checkForUpdates(packageJson.version);

@@ -137,7 +137,7 @@ export default function UpdatesSettingsPage() {
           <div>
             <FieldLegend>Version status</FieldLegend>
             <FieldDescription>
-              Check AVI Builder releases from your own repository.
+              Check Avi Builder releases from your own repository.
             </FieldDescription>
           </div>
 

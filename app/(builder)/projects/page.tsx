@@ -108,7 +108,7 @@ export default function ProjectsPage() {
               <span className="flex size-7 items-center justify-center rounded-md bg-foreground text-background">
                 <AviBuilderMark className="h-5 w-5 min-h-5 min-w-5" />
               </span>
-              AVI Builder
+              Avi Builder
             </Link>
           </div>
 
@@ -182,7 +182,11 @@ export default function ProjectsPage() {
                 </div>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button asChild variant="ghost" size="icon-sm" className="text-muted-foreground hover:bg-secondary hover:text-foreground" aria-label={`Open ${projectName}`}>
+                    <Button
+                      asChild variant="ghost"
+                      size="icon-sm" className="text-muted-foreground hover:bg-secondary hover:text-foreground"
+                      aria-label={`Open ${projectName}`}
+                    >
                       <Link href={PROJECT_URL}><ArrowUpRight /></Link>
                     </Button>
                   </TooltipTrigger>
@@ -192,7 +196,7 @@ export default function ProjectsPage() {
             </article>
           ) : (
             <div className="mt-4 max-w-[520px] border border-dashed border-border px-5 py-12 text-center text-xs text-muted-foreground">
-              No projects match "{query}".
+              No projects match &ldquo;{query}&rdquo;.
             </div>
           )}
         </section>

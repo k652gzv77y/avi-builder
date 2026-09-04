@@ -9,7 +9,7 @@ interface BuilderLoadingProps {
 }
 
 export default function BuilderLoading({
-  title = 'AVI Builder',
+  title = 'Avi Builder',
   message = 'Loading...',
   progress,
 }: BuilderLoadingProps) {

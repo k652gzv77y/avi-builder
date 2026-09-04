@@ -3,7 +3,7 @@ import type { SVGProps } from 'react';
 type AviBuilderMarkProps = SVGProps<SVGSVGElement> & { title?: string };
 
 /** Designer-supplied AVI mark, rendered in the active interface color. */
-export default function AviBuilderMark({ title = 'AVI Builder', ...props }: AviBuilderMarkProps) {
+export default function AviBuilderMark({ title = 'Avi Builder', ...props }: AviBuilderMarkProps) {
   return (
     <svg
       viewBox="0 0 1999.997 1583.37"

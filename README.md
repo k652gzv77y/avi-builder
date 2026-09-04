@@ -1,6 +1,6 @@
-# AVI Builder
+# Avi Builder
 
-AVI Builder, short for Advanced Visual Interface Builder, is a visual website builder and CMS maintained by AviCorp.
+Avi Builder, short for Advanced Visual Interface Builder, is a visual website builder and CMS maintained by AviCorp.
 
 ## Product URLs
 
@@ -26,4 +26,4 @@ Copy the required Supabase, AI, and template-service variables into `.env.local`
 
 ## Licensing and Attribution
 
-AVI Builder includes modified source code from Ycode under the MIT License. The original license is preserved in [LICENSE](LICENSE), with attribution in [NOTICE](NOTICE).
+Avi Builder includes modified source code from Ycode under the MIT License. The original license is preserved in [LICENSE](LICENSE), with attribution in [NOTICE](NOTICE).
