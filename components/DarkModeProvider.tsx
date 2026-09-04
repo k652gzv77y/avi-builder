@@ -35,27 +35,16 @@ export function applyBuilderTheme(theme: BuilderTheme = readBuilderTheme()) {
   root.dataset.theme = theme;
 }
 
-/**
- * Applies editor chrome theme on builder + auth screens.
- * Default is system so the UI tracks the device light/dark setting.
- * Published / preview routes stay light so site colors are not inverted.
- */
 export default function DarkModeProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   useEffect(() => {
-    const isPreview = pathname?.startsWith('/ycode/preview');
-    const isPublishedSite = pathname?.startsWith('/a/') || pathname === '/' && false;
-    const isPublicPublished =
-      isPreview ||
-      Boolean(pathname && !pathname.startsWith('/ycode') && pathname !== '/' && !pathname.startsWith('/login'));
+    const isPreview = pathname?.startsWith('/editor/preview') || pathname?.startsWith('/ycode/preview');
+    const isEditorPath = pathname?.startsWith('/editor') || pathname?.startsWith('/ycode');
 
-    // Login (/) and all /ycode editor routes get the product theme.
     const useProductTheme =
       !isPreview &&
-      (pathname === '/' ||
-        pathname?.startsWith('/ycode') ||
-        pathname?.startsWith('/login'));
+      (pathname === '/' || isEditorPath || pathname?.startsWith('/login'));
 
     if (!useProductTheme) {
       document.documentElement.classList.remove('dark');
@@ -82,8 +71,6 @@ export default function DarkModeProvider({ children }: { children: React.ReactNo
       media.removeEventListener('change', onSystem);
       window.removeEventListener('storage', onStorage);
       window.removeEventListener(BUILDER_THEME_EVENT, onCustom);
-      void isPublishedSite;
-      void isPublicPublished;
     };
   }, [pathname]);
 
