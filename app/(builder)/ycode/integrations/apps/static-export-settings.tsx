@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { toast } from 'sonner'
+import { projectsPath } from '@/lib/project-url'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
-import YCodeBuilder from './components/YCodeBuilderMain';
+import BuilderApp from './components/BuilderMain';
 import ColorTokensStyle from '@/components/ColorTokensStyle';
 import { useEditorUrl } from '@/hooks/use-editor-url';
 import { useAuthStore } from '@/stores/useAuthStore';
@@ -13,7 +13,7 @@ import {
   stopNotificationCleanup,
 } from '@/stores/useCollaborationPresenceStore';
 
-function YCodeLayoutInner({ children }: { children: React.ReactNode }) {
+function BuilderLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { routeType } = useEditorUrl();
   const { initialize } = useAuthStore();
@@ -49,7 +49,7 @@ function YCodeLayoutInner({ children }: { children: React.ReactNode }) {
     return (
       <>
         <ColorTokensStyle />
-        <YCodeBuilder>{children}</YCodeBuilder>
+        <BuilderApp>{children}</BuilderApp>
       </>
     );
   }
@@ -57,15 +57,15 @@ function YCodeLayoutInner({ children }: { children: React.ReactNode }) {
   return (
     <>
       <ColorTokensStyle />
-      <YCodeBuilder />
+      <BuilderApp />
     </>
   );
 }
 
-export default function YCodeLayoutClient({ children }: { children: React.ReactNode }) {
+export default function BuilderLayoutClient({ children }: { children: React.ReactNode }) {
   return (
     <Suspense fallback={null}>
-      <YCodeLayoutInner>{children}</YCodeLayoutInner>
+      <BuilderLayoutInner>{children}</BuilderLayoutInner>
     </Suspense>
   );
 }

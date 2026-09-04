@@ -11,7 +11,7 @@
  *     on the OS clipboard, so the menu can enable its "Paste after / inside"
  *     items even when Ycode's own internal clipboard is empty.
  *   - `pasteAt` is registered by the import host (`useImportPaste`, mounted in
- *     `YCodeBuilderMain`) and lets the menu trigger a positional import without
+ *     `BuilderMain`) and lets the menu trigger a positional import without
  *     reaching across the component tree.
  */
 

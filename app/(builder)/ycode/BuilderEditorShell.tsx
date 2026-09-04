@@ -11,7 +11,7 @@ import {
   stopNotificationCleanup,
 } from '@/stores/useCollaborationPresenceStore';
 
-const YCodeBuilder = dynamic(() => import('./components/YCodeBuilderMain'), {
+const BuilderApp = dynamic(() => import('./components/BuilderMain'), {
   ssr: false,
   loading: () => (
     <div className="flex h-dvh items-center justify-center text-sm text-muted-foreground">
@@ -20,7 +20,7 @@ const YCodeBuilder = dynamic(() => import('./components/YCodeBuilderMain'), {
   ),
 });
 
-export default function YCodeEditorShell({ children }: { children: React.ReactNode }) {
+export default function BuilderEditorShell({ children }: { children: React.ReactNode }) {
   const { routeType } = useEditorUrl();
   const { initialize } = useAuthStore();
 
@@ -38,8 +38,8 @@ export default function YCodeEditorShell({ children }: { children: React.ReactNo
   }, []);
 
   if (routeType === 'localization' || routeType === 'profile' || routeType === 'forms' || routeType === 'integrations') {
-    return <YCodeBuilder>{children}</YCodeBuilder>;
+    return <BuilderApp>{children}</BuilderApp>;
   }
 
-  return <YCodeBuilder />;
+  return <BuilderApp />;
 }

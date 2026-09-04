@@ -1,5 +1,5 @@
 /**
- * Settings rendering is handled by YCodeBuilder (HeaderBar + SettingsContent).
+ * Settings rendering is handled by BuilderApp (HeaderBar + SettingsContent).
  */
 export default function SettingsLayout({
   children,

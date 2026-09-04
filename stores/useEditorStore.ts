@@ -103,7 +103,7 @@ interface EditorActions {
   /** Reset the "AI opened component edit mode this turn" flag. */
   setAiOpenedComponentEdit: (value: boolean) => void;
   /** Request that the builder auto-exit component edit mode back to the page
-   * (consumed by YCodeBuilderMain after an AI-driven component edit finishes). */
+   * (consumed by BuilderMain after an AI-driven component edit finishes). */
   setPendingAiComponentExit: (value: boolean) => void;
   setActiveInteraction: (triggerId: string | null, targetIds: string[]) => void;
   clearActiveInteraction: () => void;

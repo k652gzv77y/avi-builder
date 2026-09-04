@@ -1,14 +1,14 @@
 'use client';
 
-import YCodeBuilder from '../components/YCodeBuilderMain';
+import BuilderApp from '../components/BuilderMain';
 
 /**
  * Base route for collections view
  * URL: /ycode/collections
  *
- * This route renders the same YCodeBuilder component.
+ * This route renders the same BuilderApp component.
  * Shows all collections or empty state when no collections exist.
  */
 export default function CollectionsRoute() {
-  return <YCodeBuilder />;
+  return <BuilderApp />;
 }

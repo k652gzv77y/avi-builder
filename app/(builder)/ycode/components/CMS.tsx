@@ -639,7 +639,7 @@ const CMS = React.memo(function CMS() {
     if (selectedCollectionId && !selectedCollectionId.startsWith('temp-')) {
       // Only reload if the collection actually changed
       if (prevCollectionIdRef.current !== selectedCollectionId) {
-        // Check if items are already preloaded (from YCodeBuilderMain) using store.getState()
+        // Check if items are already preloaded (from BuilderMain) using store.getState()
         const storeState = useCollectionsStore.getState();
         const existingItems = storeState.items[selectedCollectionId];
         const existingFields = storeState.fields[selectedCollectionId];

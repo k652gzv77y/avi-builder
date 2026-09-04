@@ -1,4 +1,4 @@
-import YCodeLayoutClient from './YCodeLayoutClient';
+import BuilderLayoutClient from './BuilderLayoutClient';
 
 /**
  * YCode Editor Layout (Server Component)
@@ -13,6 +13,6 @@ import YCodeLayoutClient from './YCodeLayoutClient';
 // This prevents useSearchParams errors during build
 export const dynamic = 'force-dynamic';
 
-export default function YCodeLayout({ children }: { children: React.ReactNode }) {
-  return <YCodeLayoutClient>{children}</YCodeLayoutClient>;
+export default function BuilderLayout({ children }: { children: React.ReactNode }) {
+  return <BuilderLayoutClient>{children}</BuilderLayoutClient>;
 }

@@ -102,11 +102,11 @@ import { Spinner } from '@/components/ui/spinner';
 import { Alert, AlertTitle } from '@/components/ui/alert';
 import AviBuilderMark from '@/components/branding/AviBuilderMark';
 
-interface YCodeBuilderProps {
+interface BuilderAppProps {
   children?: React.ReactNode;
 }
 
-export default function YCodeBuilder({ children }: YCodeBuilderProps = {} as YCodeBuilderProps) {
+export default function BuilderApp({ children }: BuilderAppProps = {} as BuilderAppProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { routeType, resourceId, sidebarTab, navigateToLayers, navigateToCollection, navigateToCollections, navigateToComponent, urlState, updateQueryParams } = useEditorUrl();
@@ -633,7 +633,7 @@ export default function YCodeBuilder({ children }: YCodeBuilderProps = {} as YCo
     }
   }, [urlState.layerId, resourceId, routeType, setSelectedLayerId, currentPageId, editingComponentId, currentDraft, componentDraftLayers, getCurrentLayers]);
 
-  // Sync selected layer to URL imperatively (avoids re-rendering YCodeBuilderMain on selection change)
+  // Sync selected layer to URL imperatively (avoids re-rendering BuilderMain on selection change)
   const urlSyncDepsRef = useRef({ routeType, updateQueryParams, urlLayerId: urlState.layerId, isEditing: urlState.isEditing });
   urlSyncDepsRef.current = { routeType, updateQueryParams, urlLayerId: urlState.layerId, isEditing: urlState.isEditing };
 
