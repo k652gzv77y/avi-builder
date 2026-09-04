@@ -21,7 +21,7 @@ if (process.env.SUPABASE_URL) {
       pathname: '/storage/v1/object/public/**',
     });
   } catch {
-    // Invalid SUPABASE_URL — skip adding remote pattern
+    // Invalid SUPABASE_URL
   }
 }
 
@@ -60,15 +60,15 @@ const nextConfig: NextConfig = {
 
   async redirects() {
     return [
-      { source: '/ycode', destination: '/editor', permanent: false },
-      { source: '/ycode/:path*', destination: '/editor/:path*', permanent: false },
+      { source: '/editor', destination: '/projects', permanent: false },
+      { source: '/editor/:path*', destination: '/ycode/:path*', permanent: false },
     ];
   },
 
   async rewrites() {
     return [
-      { source: '/editor', destination: '/ycode' },
-      { source: '/editor/:path*', destination: '/ycode/:path*' },
+      { source: '/projects/:id', destination: '/ycode' },
+      { source: '/projects/:id/:path*', destination: '/ycode/:path*' },
     ];
   },
 
@@ -84,7 +84,7 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        source: '/:path((?!ycode|editor|_next|a/).*)*',
+        source: '/:path((?!ycode|projects|_next|a/).*)*',
         headers: [
           {
             key: 'Link',
