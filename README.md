@@ -1,6 +1,6 @@
-# AVI Builder
+# Avi Builder
 
-AVI Builder, short for Advanced Visual Interface Builder, is a visual website builder and CMS maintained by AviCorp.
+Avi Builder is AviCorp’s visual website builder and CMS. The first-pass goal is Framer editor parity (freeform canvas, breakpoints, designer tools), hosted on Cloudflare Workers.
 
 ## Product URLs
 
@@ -13,7 +13,7 @@ Requirements:
 
 - Node.js 18 or later
 - Supabase project
-- Vercel project for deployment
+- Cloudflare Workers account for production
 
 Install and run locally:
 
@@ -22,8 +22,10 @@ npm install
 npm run dev
 ```
 
-Copy the required Supabase, AI, and template-service variables into `.env.local` before using the builder. Production variables are configured in Vercel.
+Copy the required Supabase, AI, and template-service variables into `.env.local` before using the builder. Production variables are configured on the `avi-builder` Cloudflare Worker.
 
-## Licensing and Attribution
+The editor public path is `/editor`. Requests to `/ycode` redirect there.
 
-AVI Builder includes modified source code from Ycode under the MIT License. The original license is preserved in [LICENSE](LICENSE), with attribution in [NOTICE](NOTICE).
+## Licensing
+
+This repository includes modified MIT-licensed source. Copyright notices are preserved in [LICENSE](LICENSE) and [NOTICE](NOTICE) as required by that license.

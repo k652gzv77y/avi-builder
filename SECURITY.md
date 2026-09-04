@@ -8,13 +8,11 @@
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability in Ycode, please report it responsibly.
+If you discover a security vulnerability in Avi Builder, report it privately.
 
-**Do not open a public issue.** Instead, email us at:
+**Do not open a public issue.** Email **manage@avibuilder.com**.
 
-**info@ycode.com**
-
-Please include:
+Include:
 
 - A description of the vulnerability
 - Steps to reproduce the issue
@@ -25,18 +23,18 @@ Please include:
 
 - **Acknowledgement**: Within 48 hours of your report
 - **Initial assessment**: Within 5 business days
-- **Resolution**: Depends on severity, but we aim to patch critical issues within 14 days
+- **Resolution**: Depends on severity; critical issues targeted within 14 days
 
 ## Disclosure Policy
 
-We follow coordinated disclosure. We ask that you:
+Coordinated disclosure. Please:
 
-1. Allow us reasonable time to investigate and fix the issue before public disclosure
-2. Avoid exploiting the vulnerability beyond what is necessary to demonstrate it
+1. Allow reasonable time to investigate and fix before public disclosure
+2. Avoid exploiting the vulnerability beyond what is needed to demonstrate it
 3. Do not access or modify other users' data
 
-We will credit reporters in the release notes (unless you prefer to remain anonymous).
+Reporters can be credited in release notes unless they prefer to stay anonymous.
 
 ## Scope
 
-This policy applies to the Ycode application code in this repository. For issues related to third-party services (Supabase, Vercel), please report to those providers directly.
+This policy applies to Avi Builder application code in this repository. Report issues in third-party services (Supabase, Cloudflare) to those providers as well.
