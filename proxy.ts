@@ -3,31 +3,23 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { applySecurityHeaders } from '@/lib/security-headers-server';
 
-/**
- * Public API routes that skip authentication.
- */
 const PUBLIC_API_PREFIXES = [
-  '/ycode/api/setup/',    // Setup wizard — needed before any user exists
-  '/ycode/api/supabase/', // Supabase config — needed for browser client init
-  '/ycode/api/auth/',     // Auth callbacks and session checks
-  '/ycode/api/v1/',       // Public API — has own API key auth
+  '/ycode/api/setup/',
+  '/ycode/api/supabase/',
+  '/ycode/api/auth/',
+  '/ycode/api/v1/',
 ];
 
-/**
- * Patterns for collection item endpoints that must be accessible on published pages
- * (load-more pagination, filter). Matched via regex since the collection ID is dynamic.
- */
 const PUBLIC_COLLECTION_ITEM_SUFFIXES = ['/items/filter', '/items/load-more'];
 
 const PUBLIC_API_EXACT = [
-  '/ycode/api/revalidate', // Cache revalidation — has own secret token auth
-  '/ycode/api/oauth/register', // RFC 7591 Dynamic Client Registration — anonymous
-  '/ycode/api/oauth/token',    // OAuth token exchange — auth is via PKCE/refresh
+  '/ycode/api/revalidate',
+  '/ycode/api/oauth/register',
+  '/ycode/api/oauth/token',
 ];
 
-const BUILDER_HOSTNAME = process.env.YCODE_BUILDER_HOSTNAME || 'avibuilder.com';
-const PUBLIC_SITE_HOSTNAME = process.env.YCODE_PUBLIC_SITE_HOSTNAME || 'beta.kolboschool.com';
-const LEGACY_BUILDER_HOSTNAMES = (process.env.YCODE_LEGACY_BUILDER_HOSTNAMES || 'ycode.kolboschool.com')
+const BUILDER_HOSTNAME = process.env.AVI_BUILDER_HOSTNAME || process.env.YCODE_BUILDER_HOSTNAME || 'avibuilder.com';
+const LEGACY_BUILDER_HOSTNAMES = (process.env.AVI_LEGACY_BUILDER_HOSTNAMES || process.env.YCODE_LEGACY_BUILDER_HOSTNAMES || 'ycode.kolboschool.com')
   .split(',')
   .map((hostname) => hostname.trim().toLowerCase())
   .filter(Boolean);
@@ -44,21 +36,22 @@ function redirectToHost(request: NextRequest, hostname: string): NextResponse {
   return NextResponse.redirect(url);
 }
 
+function isBuilderHostname(hostname: string): boolean {
+  return hostname === BUILDER_HOSTNAME || LEGACY_BUILDER_HOSTNAMES.includes(hostname);
+}
+
 function isBuilderInfrastructurePath(pathname: string): boolean {
-  return pathname.startsWith('/ycode')
+  return pathname === '/'
+    || pathname.startsWith('/projects')
+    || pathname.startsWith('/ycode')
+    || pathname.startsWith('/editor')
+    || pathname.startsWith('/login')
     || pathname.startsWith('/_next')
     || pathname.startsWith('/a/')
     || pathname === '/favicon.ico'
     || pathname.startsWith('/.well-known/');
 }
 
-/**
- * Derive the Supabase project URL and anon key from environment variables.
- * Returns null if env vars are not set (pre-setup or local dev without .env.local).
- *
- * Uses SUPABASE_URL when set (self-hosted instances), otherwise derives from
- * the project ref in the connection string (hosted Supabase).
- */
 function getSupabaseEnvConfig(): { url: string; anonKey: string } | null {
   const anonKey = process.env.SUPABASE_PUBLISHABLE_KEY
     || process.env.SUPABASE_ANON_KEY;
@@ -73,7 +66,6 @@ function getSupabaseEnvConfig(): { url: string; anonKey: string } | null {
     };
   }
 
-  // Hosted Supabase: extract project ID from connection URL
   const match = connectionUrl.match(/\/\/postgres\.([a-z0-9]+):/);
   if (!match) return null;
 
@@ -84,16 +76,13 @@ function getSupabaseEnvConfig(): { url: string; anonKey: string } | null {
 }
 
 function isPublicApiRoute(pathname: string, method: string): boolean {
-  // POST to form-submissions is public (website visitors submitting forms)
   if (pathname === '/ycode/api/form-submissions' && method === 'POST') {
     return true;
   }
 
   if (PUBLIC_API_EXACT.includes(pathname)) return true;
-
   if (PUBLIC_API_PREFIXES.some((prefix) => pathname.startsWith(prefix))) return true;
 
-  // Collection item endpoints for published pages (POST only — filter, load-more)
   if (method === 'POST' && pathname.startsWith('/ycode/api/collections/') &&
       PUBLIC_COLLECTION_ITEM_SUFFIXES.some(suffix => pathname.endsWith(suffix))) {
     return true;
@@ -102,18 +91,12 @@ function isPublicApiRoute(pathname: string, method: string): boolean {
   return false;
 }
 
-/**
- * Verify Supabase session for protected API routes.
- * Returns a 401 response if not authenticated, or null to continue.
- */
 async function verifyApiAuth(request: NextRequest): Promise<NextResponse | null> {
   if (isPublicApiRoute(request.nextUrl.pathname, request.method)) {
     return null;
   }
 
   const config = getSupabaseEnvConfig();
-
-  // If env vars aren't set (pre-setup or local dev without .env.local), let through
   if (!config) return null;
 
   let response = NextResponse.next({ request });
@@ -144,7 +127,6 @@ async function verifyApiAuth(request: NextRequest): Promise<NextResponse | null>
     );
   }
 
-  // Authenticated — pass through with any refreshed cookies
   const authResponse = NextResponse.next({ request });
   response.cookies.getAll().forEach((cookie) => {
     authResponse.cookies.set(cookie.name, cookie.value);
@@ -157,55 +139,49 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const hostname = getRequestHostname(request);
 
-  // Keep the public site and editor on distinct origins. Builder infrastructure
-  // remains on the editor origin so MCP OAuth metadata, assets, and API calls
-  // never redirect to the public site.
   if (LEGACY_BUILDER_HOSTNAMES.includes(hostname)) {
     return redirectToHost(request, BUILDER_HOSTNAME);
   }
 
-  if (hostname === BUILDER_HOSTNAME && !isBuilderInfrastructurePath(pathname)) {
-    return redirectToHost(request, PUBLIC_SITE_HOSTNAME);
+  // Builder host serves the account + canvas. Published project domains never do.
+  if (isBuilderHostname(hostname) && pathname === '/') {
+    const url = request.nextUrl.clone();
+    url.pathname = '/projects';
+    return NextResponse.redirect(url);
   }
 
-  if (hostname === PUBLIC_SITE_HOSTNAME && pathname.startsWith('/ycode')) {
+  if (!isBuilderHostname(hostname) && pathname.startsWith('/ycode')) {
     return redirectToHost(request, BUILDER_HOSTNAME);
   }
 
-  // MCP endpoints use their own token-based authentication — skip session auth.
-  // Cloud overlay proxies MUST also exempt these paths to avoid login redirects.
-  //   - `/ycode/mcp/<token>`: legacy URL-token endpoint (Cursor, Windsurf, etc.)
-  //   - `/ycode/mcp`: OAuth Bearer-token endpoint (Claude.ai web, ChatGPT)
+  if (!isBuilderHostname(hostname) && pathname.startsWith('/projects')) {
+    return redirectToHost(request, BUILDER_HOSTNAME);
+  }
+
   if (pathname === '/ycode/mcp' || pathname.startsWith('/ycode/mcp/')) {
     const response = NextResponse.next();
     response.headers.set('x-pathname', pathname);
     return response;
   }
 
-  // Debug escape hatch: skip auth on preview routes when explicitly enabled.
   const skipPreviewAuth = process.env.DISABLE_PREVIEW_AUTH === 'true'
     && pathname.startsWith('/ycode/preview');
 
-  // Protect API and preview routes with auth. `/api/templates` lives outside the
-  // `/ycode` tree (public site route group) but exposes destructive builder-only
-  // operations (apply/export), so it must be gated here too.
   if (!skipPreviewAuth && (pathname.startsWith('/ycode/api') || pathname.startsWith('/ycode/preview') || pathname.startsWith('/api/templates'))) {
     const authResponse = await verifyApiAuth(request);
     if (authResponse) {
       if (authResponse.status === 401) {
         if (pathname.startsWith('/ycode/preview')) {
-          return NextResponse.redirect(new URL('/ycode', request.url));
+          return NextResponse.redirect(new URL('/projects', request.url));
         }
         return authResponse;
       }
-      // Authenticated — pass through
       authResponse.headers.set('x-pathname', pathname);
       return authResponse;
     }
   }
 
-  const isPublicPage = !pathname.startsWith('/ycode')
-    && !pathname.startsWith('/_next')
+  const isPublicPage = !isBuilderInfrastructurePath(pathname)
     && !pathname.startsWith('/api')
     && !pathname.startsWith('/dynamic');
   const hasPaginationParams = Array.from(request.nextUrl.searchParams.keys())
@@ -221,15 +197,9 @@ export async function proxy(request: NextRequest) {
     return rewriteResponse;
   }
 
-  // Create response
   const response = NextResponse.next();
-
-  // Add pathname header for layout to determine dark mode
   response.headers.set('x-pathname', pathname);
 
-  // Cache-Control for public pages is configured centrally via next.config.ts headers().
-
-  // Apply configurable security headers to public pages only (not builder/API).
   if (isPublicPage) {
     await applySecurityHeaders(response);
   }
@@ -239,12 +209,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     */
     '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 };
