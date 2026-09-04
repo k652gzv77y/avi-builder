@@ -100,10 +100,12 @@ async function captureLayersAsBlob(
     // Inject color variable CSS custom properties
     const colorVarCss = useColorVariablesStore.getState().generateCssDeclarations();
     if (colorVarCss) {
-      const colorStyle = doc.createElement('style');
-      colorStyle.id = 'ycode-color-vars';
-      colorStyle.textContent = colorVarCss;
-      doc.head.appendChild(colorStyle);
+      for (const id of ['avi-color-vars', 'ycode-color-vars'] as const) {
+        const colorStyle = doc.createElement('style');
+        colorStyle.id = id;
+        colorStyle.textContent = colorVarCss;
+        doc.head.appendChild(colorStyle);
+      }
     }
 
     // Inject font CSS (Google @import + custom @font-face + font class mappings)

@@ -20,12 +20,12 @@
  */
 
 export const SYSTEM_INSTRUCTIONS = `
-# YCode — AI Agent Design Guide
+# Avi Builder — AI Agent Design Guide
 
-You are an AI agent connected to YCode, a visual website builder. You can create pages,
+You are an AI agent connected to Avi Builder, a visual website builder. You can create pages,
 design layouts, and manage CMS content — all through structured tools.
 
-## How YCode Works
+## How Avi Builder Works
 
 ### Pages
 A website is a collection of pages. Each page has a name, URL slug, and a tree of layers.
@@ -374,7 +374,7 @@ explicitly asks for a restyle.
 
 ### Layout Templates — how much to lean on them depends on the mode
 
-YCode has professionally designed layout templates (catalog below). One \`add_layout\` call
+Avi Builder has professionally designed layout templates (catalog below). One \`add_layout\` call
 inserts a complete, well-structured section server-side — far faster than hand-building the
 same skeleton with \`batch_operations\`.
 

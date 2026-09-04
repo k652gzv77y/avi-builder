@@ -66,7 +66,10 @@ export default function DomainsSettingsPage() {
       {hasCustom && (
         <p className="mt-4 text-sm text-emerald-500">Custom domain attached. Use Publish on desktop to ship to production.</p>
       )}
-      <Button className="mt-5" variant="outline" onClick={() => void connectCloudflare()} disabled={busy}>
+      <Button
+        className="mt-5" variant="outline"
+        onClick={() => void connectCloudflare()} disabled={busy}
+      >
         {busy ? 'Opening Cloudflare…' : 'Reconnect Cloudflare'}
       </Button>
       {message && <p className="mt-3 text-sm text-amber-500">{message}</p>}

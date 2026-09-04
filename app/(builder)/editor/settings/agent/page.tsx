@@ -27,8 +27,8 @@ import {
 } from '@/components/ui/sheet';
 import { Spinner } from '@/components/ui/spinner';
 import { Switch } from '@/components/ui/switch';
-import AgentKeyForm from '@/app/(builder)/ycode/components/ai/AgentKeyForm';
-import ProviderLogo from '@/app/(builder)/ycode/components/ai/ProviderLogo';
+import AgentKeyForm from '@/app/(builder)/editor/components/ai/AgentKeyForm';
+import ProviderLogo from '@/app/(builder)/editor/components/ai/ProviderLogo';
 import { agentSettingsApi } from '@/lib/api';
 import { AGENT_MODELS, AGENT_PROVIDERS } from '@/lib/agent/models';
 import { cn } from '@/lib/utils';

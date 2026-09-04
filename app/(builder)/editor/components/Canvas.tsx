@@ -582,14 +582,16 @@ const Canvas = React.memo(function Canvas({
     const iframeDoc = iframeRef.current.contentDocument;
     if (!iframeDoc) return;
 
-    const STYLE_ID = 'ycode-color-vars';
-    let styleEl = iframeDoc.getElementById(STYLE_ID) as HTMLStyleElement | null;
-    if (!styleEl) {
-      styleEl = iframeDoc.createElement('style');
-      styleEl.id = STYLE_ID;
-      iframeDoc.head.appendChild(styleEl);
+    const STYLE_IDS = ['avi-color-vars', 'ycode-color-vars'] as const;
+    for (const STYLE_ID of STYLE_IDS) {
+      let styleEl = iframeDoc.getElementById(STYLE_ID) as HTMLStyleElement | null;
+      if (!styleEl) {
+        styleEl = iframeDoc.createElement('style');
+        styleEl.id = STYLE_ID;
+        iframeDoc.head.appendChild(styleEl);
+      }
+      styleEl.textContent = colorVarCss;
     }
-    styleEl.textContent = colorVarCss;
   }, [iframeReady, colorVarCss]);
 
   // Inject user-defined custom CSS from `<style>` blocks in head custom code

@@ -113,7 +113,10 @@ function ImagePreview({ assetId }: { assetId: string | null }) {
             dangerouslySetInnerHTML={{ __html: asset.content }}
           />
         ) : imageUrl ? (
-          <img src={getOptimizedImageUrl(imageUrl)} alt="" className="relative w-full h-full object-contain" />
+          <img
+            src={getOptimizedImageUrl(imageUrl)} alt=""
+            className="relative w-full h-full object-contain"
+          />
         ) : (
           <span className="absolute inset-0 flex items-center justify-center">
             <Icon name="image" className="size-3 text-muted-foreground" />
@@ -483,11 +486,17 @@ export default function VariablesSpreadsheet({
                   </div>
                 </DropdownMenuContent>
               </DropdownMenu>
-              <Button size="sm" variant="ghost" onClick={() => setFolderDialogOpen(true)}>
+              <Button
+                size="sm" variant="ghost"
+                onClick={() => setFolderDialogOpen(true)}
+              >
                 <Icon name="folder" />
                 Folder
               </Button>
-              <Button size="sm" variant="secondary" onClick={() => openItem(null)}>
+              <Button
+                size="sm" variant="secondary"
+                onClick={() => openItem(null)}
+              >
                 <Icon name="plus" />
                 New Item
               </Button>
@@ -637,7 +646,10 @@ export default function VariablesSpreadsheet({
               }}
             />
             <div className="flex justify-end gap-2">
-              <Button variant="secondary" size="sm" onClick={() => setFolderDialogOpen(false)}>Cancel</Button>
+              <Button
+                variant="secondary" size="sm"
+                onClick={() => setFolderDialogOpen(false)}
+              >Cancel</Button>
               <Button size="sm" onClick={() => void handleCreateFolder()}>Create</Button>
             </div>
           </div>
@@ -659,7 +671,10 @@ export default function VariablesSpreadsheet({
               }}
             />
             <div className="flex justify-end gap-2">
-              <Button variant="secondary" size="sm" onClick={() => setRenameFolder(null)}>Cancel</Button>
+              <Button
+                variant="secondary" size="sm"
+                onClick={() => setRenameFolder(null)}
+              >Cancel</Button>
               <Button size="sm" onClick={() => void handleRenameFolder()}>Save</Button>
             </div>
           </div>

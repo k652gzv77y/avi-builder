@@ -21,7 +21,7 @@ import { isFormattableFieldType, isFormatValidForFieldType, getDefaultFormatId }
 import { flattenFieldGroups, type FieldGroup } from '@/lib/collection-field-utils';
 import { getVariableLabel } from '@/lib/cms-variables-utils';
 import type { CollectionField } from '@/types';
-import VariableFormatSelector from '@/app/(builder)/ycode/components/VariableFormatSelector';
+import VariableFormatSelector from '@/app/(builder)/editor/components/VariableFormatSelector';
 
 type VariableViewVariant = 'sidebar' | 'canvas';
 

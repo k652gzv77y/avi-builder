@@ -112,7 +112,7 @@ async function autoInitialize(
       params: {
         protocolVersion: '2025-03-26',
         capabilities: {},
-        clientInfo: { name: 'ycode-auto', version: '1.0.0' },
+        clientInfo: { name: 'avi-builder-auto', version: '1.0.0' },
       },
     },
   });

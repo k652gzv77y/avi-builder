@@ -4,6 +4,11 @@ import { NextRequest } from 'next/server';
 import { applySecurityHeaders } from '@/lib/security-headers-server';
 
 const PUBLIC_API_PREFIXES = [
+  '/editor/api/setup/',
+  '/editor/api/supabase/',
+  '/editor/api/auth/',
+  '/editor/api/v1/',
+  '/editor/api/domains/cloudflare/',
   '/ycode/api/setup/',
   '/ycode/api/supabase/',
   '/ycode/api/auth/',
@@ -14,6 +19,11 @@ const PUBLIC_API_PREFIXES = [
 const PUBLIC_COLLECTION_ITEM_SUFFIXES = ['/items/filter', '/items/load-more'];
 
 const PUBLIC_API_EXACT = [
+  '/editor/api/revalidate',
+  '/editor/api/oauth/register',
+  '/editor/api/oauth/token',
+  '/editor/api/domains/cloudflare/callback',
+  '/editor/api/supabase/oauth/callback',
   '/ycode/api/revalidate',
   '/ycode/api/oauth/register',
   '/ycode/api/oauth/token',
@@ -41,16 +51,20 @@ function isBuilderHost(hostname: string): boolean {
 
 function getBuilderPath(pathname: string, hostname: string): string | null {
   if (!isBuilderHost(hostname)) return null;
-  if (pathname === PROJECTS_AUTH_CALLBACK) return '/ycode/api/auth/callback';
-  if (pathname === '/projects/oauth/cloudflare/callback') return '/ycode/api/domains/cloudflare/callback';
-  if (pathname === '/projects/oauth/supabase/callback') return '/ycode/api/supabase/oauth/callback';
+  if (pathname === PROJECTS_AUTH_CALLBACK) return '/editor/api/auth/callback';
+  if (pathname === '/projects/oauth/cloudflare/callback') return '/editor/api/domains/cloudflare/callback';
+  if (pathname === '/projects/oauth/supabase/callback') return '/editor/api/supabase/oauth/callback';
   if (pathname === PROJECTS_ROOT) return null;
   const match = pathname.match(/^\/projects\/([^/]+)(\/.*)?$/);
   if (!match) return null;
   if (RESERVED_PROJECT_SLUGS.has(match[1])) return null;
   const rest = match[2] || '';
   if (rest.startsWith('/auth/')) return null;
-  return rest ? `/ycode${rest}` : '/ycode';
+  // Site preview routes stay under /ycode/preview (app/(site)/ycode/preview)
+  if (rest === '/preview' || rest.startsWith('/preview/')) {
+    return `/ycode${rest}`;
+  }
+  return rest ? `/editor${rest}` : '/editor';
 }
 
 function getSupabaseEnvConfig(): { url: string; anonKey: string } | null {
@@ -77,14 +91,14 @@ function getSupabaseEnvConfig(): { url: string; anonKey: string } | null {
 }
 
 function isPublicApiRoute(pathname: string, method: string): boolean {
-  if (pathname === '/ycode/api/form-submissions' && method === 'POST') {
+  if ((pathname === '/editor/api/form-submissions' || pathname === '/ycode/api/form-submissions') && method === 'POST') {
     return true;
   }
 
   if (PUBLIC_API_EXACT.includes(pathname)) return true;
   if (PUBLIC_API_PREFIXES.some((prefix) => pathname.startsWith(prefix))) return true;
 
-  if (method === 'POST' && pathname.startsWith('/ycode/api/collections/') &&
+  if (method === 'POST' && (pathname.startsWith('/editor/api/collections/') || pathname.startsWith('/ycode/api/collections/')) &&
       PUBLIC_COLLECTION_ITEM_SUFFIXES.some(suffix => pathname.endsWith(suffix))) {
     return true;
   }
@@ -165,15 +179,22 @@ export async function proxy(request: NextRequest) {
 
   const effectivePathname = builderPath ?? pathname;
 
-  if (!builderPath && effectivePathname.startsWith('/ycode')) {
-    return new NextResponse('Not Found', { status: 404 });
+  // Legacy /ycode builder paths → /editor (API + pages). Preview stays on /ycode/preview.
+  if (!builderPath && effectivePathname.startsWith('/ycode') && !effectivePathname.startsWith('/ycode/preview')) {
+    const rewritten = effectivePathname.replace(/^\/ycode/, '/editor');
+    const response = NextResponse.rewrite(new URL(rewritten + request.nextUrl.search, request.url));
+    response.headers.set('x-pathname', rewritten);
+    if (projectSlug) {
+      response.headers.set('x-avi-project-slug', projectSlug);
+    }
+    return response;
   }
 
-  if (effectivePathname === '/ycode/mcp' || effectivePathname.startsWith('/ycode/mcp/')) {
-    const response = builderPath
-      ? NextResponse.rewrite(new URL(effectivePathname + request.nextUrl.search, request.url))
-      : NextResponse.next();
-    response.headers.set('x-pathname', effectivePathname);
+  if (effectivePathname === '/editor/mcp' || effectivePathname.startsWith('/editor/mcp/')
+      || effectivePathname === '/ycode/mcp' || effectivePathname.startsWith('/ycode/mcp/')) {
+    const mcpPath = effectivePathname.replace(/^\/ycode\/mcp/, '/editor/mcp');
+    const response = NextResponse.rewrite(new URL(mcpPath + request.nextUrl.search, request.url));
+    response.headers.set('x-pathname', mcpPath);
     if (projectSlug) {
       response.headers.set('x-avi-project-slug', projectSlug);
     }
@@ -183,7 +204,12 @@ export async function proxy(request: NextRequest) {
   const skipPreviewAuth = process.env.DISABLE_PREVIEW_AUTH === 'true'
     && effectivePathname.startsWith('/ycode/preview');
 
-  if (!skipPreviewAuth && (effectivePathname.startsWith('/ycode/api') || effectivePathname.startsWith('/ycode/preview') || effectivePathname.startsWith('/api/templates'))) {
+  if (!skipPreviewAuth && (
+    effectivePathname.startsWith('/editor/api')
+    || effectivePathname.startsWith('/ycode/api')
+    || effectivePathname.startsWith('/ycode/preview')
+    || effectivePathname.startsWith('/api/templates')
+  )) {
     const authRequest = builderPath
       ? new NextRequest(new URL(effectivePathname + request.nextUrl.search, request.url), request)
       : request;
@@ -209,6 +235,7 @@ export async function proxy(request: NextRequest) {
   }
 
   const isPublicPage = !effectivePathname.startsWith('/ycode')
+    && !effectivePathname.startsWith('/editor')
     && !pathname.startsWith('/_next')
     && !pathname.startsWith('/api')
     && !pathname.startsWith('/dynamic');

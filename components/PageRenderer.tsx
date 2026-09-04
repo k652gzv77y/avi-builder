@@ -797,18 +797,31 @@ export default async function PageRenderer({
 
       {/* Inject CSS directly — React 19 hoists <style> with precedence to <head> */}
       {generatedCss && (
-        <style
-          id="ycode-styles"
-          dangerouslySetInnerHTML={{ __html: generatedCss }}
-        />
+        <>
+          <style
+            id="avi-styles"
+            dangerouslySetInnerHTML={{ __html: generatedCss }}
+          />
+          {/* Legacy id kept for one release so published injectors keep working */}
+          <style
+            id="ycode-styles"
+            dangerouslySetInnerHTML={{ __html: generatedCss }}
+          />
+        </>
       )}
 
       {/* Inject color variable CSS custom properties */}
       {colorVariablesCss && (
-        <style
-          id="ycode-color-vars"
-          dangerouslySetInnerHTML={{ __html: colorVariablesCss }}
-        />
+        <>
+          <style
+            id="avi-color-vars"
+            dangerouslySetInnerHTML={{ __html: colorVariablesCss }}
+          />
+          <style
+            id="ycode-color-vars"
+            dangerouslySetInnerHTML={{ __html: colorVariablesCss }}
+          />
+        </>
       )}
 
       {/* Warm up the Google Fonts origins. When CSS is inlined below we only

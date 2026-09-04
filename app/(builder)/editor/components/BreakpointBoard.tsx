@@ -57,7 +57,10 @@ export default function BreakpointBoard({
                   </div>
                 )}
               </div>
-              <Button size="xs" variant="ghost" className="h-6 px-2 text-[11px] text-neutral-500">
+              <Button
+                size="xs" variant="ghost"
+                className="h-6 px-2 text-[11px] text-neutral-500"
+              >
                 Edit {frame.label}
               </Button>
             </button>

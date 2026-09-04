@@ -98,7 +98,10 @@ function ImageValueField({
             dangerouslySetInnerHTML={{ __html: asset.content }}
           />
         ) : imageUrl ? (
-          <img src={getOptimizedImageUrl(imageUrl)} alt="" className="relative w-full h-full object-contain" />
+          <img
+            src={getOptimizedImageUrl(imageUrl)} alt=""
+            className="relative w-full h-full object-contain"
+          />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center">
             <Icon name="image" className="size-3 text-muted-foreground" />
@@ -362,7 +365,10 @@ export default function VariableItemSheet({
                   </DropdownMenuContent>
                 </DropdownMenu>
               )}
-              <Button size="sm" onClick={() => void handleSave()} disabled={isSaving}>
+              <Button
+                size="sm" onClick={() => void handleSave()}
+                disabled={isSaving}
+              >
                 {isSaving ? 'Saving...' : isNew ? 'Create' : 'Save'}
               </Button>
             </SheetActions>

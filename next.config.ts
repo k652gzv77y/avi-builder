@@ -86,7 +86,7 @@ const nextConfig: NextConfig = {
         // ISR manage cache headers automatically so per-URL cache-tag
         // tracking works for selective revalidateTag invalidations.
         // Manual s-maxage breaks per-URL purging on catch-all routes.
-        source: '/:path((?!ycode|projects|_next|a/).*)*',
+        source: '/:path((?!ycode|editor|projects|_next|a/).*)*',
         headers: [
           {
             // Open the TLS connection to fonts.gstatic.com while the document

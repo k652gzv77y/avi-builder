@@ -79,7 +79,10 @@ export default function CmsSettingsPage() {
           <p className="text-muted-foreground">No collections returned yet. Connect Supabase if this project has no database.</p>
         )}
       </div>
-      <Button className="mt-5" variant="outline" onClick={() => void connectSupabase()} disabled={busy}>
+      <Button
+        className="mt-5" variant="outline"
+        onClick={() => void connectSupabase()} disabled={busy}
+      >
         {busy ? 'Opening Supabase…' : 'Reconnect Supabase'}
       </Button>
       {message && <p className="mt-3 text-sm text-amber-500">{message}</p>}
