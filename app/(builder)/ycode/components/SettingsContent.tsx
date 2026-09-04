@@ -3,7 +3,7 @@
 import React from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
-import { SETTINGS_NAV_ITEMS } from '@/lib/settings-nav-items';
+import { getProjectSlugFromPath, getSettingsNavItems } from '@/lib/settings-nav-items';
 
 interface SettingsContentProps {
   children: React.ReactNode;
@@ -12,10 +12,10 @@ interface SettingsContentProps {
 export default function SettingsContent({ children }: SettingsContentProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const items = getSettingsNavItems(getProjectSlugFromPath(pathname));
 
   return (
     <div className="flex flex-1 overflow-hidden">
-      {/* Left Sidebar */}
       <div className="w-60 border-r flex flex-col px-4">
         <header className="py-5 flex justify-between">
           <span className="font-medium">Settings</span>
@@ -23,7 +23,7 @@ export default function SettingsContent({ children }: SettingsContentProps) {
 
         <div className="flex-1 overflow-y-auto">
           <div className="space-y-0">
-            {SETTINGS_NAV_ITEMS.map((item) => {
+            {items.map((item) => {
               const isActive = pathname === item.path;
 
               return (
@@ -45,7 +45,6 @@ export default function SettingsContent({ children }: SettingsContentProps) {
         </div>
       </div>
 
-      {/* Main Content */}
       <div className="flex-1 overflow-y-auto">
         {children}
       </div>
