@@ -37,12 +37,16 @@ const nextConfig: NextConfig = {
     remotePatterns: imageRemotePatterns,
   },
 
-  // Keep PostgreSQL's workerd-aware transport external so OpenNext resolves
-  // its Cloudflare implementation instead of bundling the Node transport.
-  // This works for both webpack and Turbopack
+  // Keep pg-cloudflare's workerd files in the OpenNext trace so the Worker
+  // can load the Cloudflare transport instead of the Node one.
+  outputFileTracingIncludes: {
+    '**/*': [
+      './node_modules/pg-cloudflare/dist/**',
+      './node_modules/pg-cloudflare/esm/**',
+    ],
+  },
+
   serverExternalPackages: [
-    'pg',
-    'pg-cloudflare',
     'oracledb',
     'mysql',
     'mysql2',
@@ -65,6 +69,7 @@ const nextConfig: NextConfig = {
       'better-sqlite3': './lib/stubs/db-driver-stub.ts',
       'tedious': './lib/stubs/db-driver-stub.ts',
       'pg-query-stream': './lib/stubs/db-driver-stub.ts',
+      'sharp': './lib/stubs/sharp-stub.ts',
     },
   },
 

@@ -28,7 +28,8 @@
   "hyperdrive": [
     {
       "binding": "HYPERDRIVE",
-      "id": "63de18587cd1449081ceb8a59753c273"
+      "id": "63de18587cd1449081ceb8a59753c273",
+      "localConnectionString": "postgres://postgres:postgres@127.0.0.1:5432/postgres"
     }
   ],
   "kv_namespaces": [
