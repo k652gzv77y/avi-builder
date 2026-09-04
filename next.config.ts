@@ -35,7 +35,6 @@ const nextConfig: NextConfig = {
     remotePatterns: imageRemotePatterns,
   },
 
-  // Hyperdrive + pg: nft only copies pg-cloudflare/package.json unless these files are traced.
   outputFileTracingIncludes: {
     '**/*': [
       './node_modules/pg-cloudflare/dist/**',
@@ -74,10 +73,7 @@ const nextConfig: NextConfig = {
   },
 
   async rewrites() {
-    return [
-      { source: '/projects/:id', destination: '/ycode' },
-      { source: '/projects/:id/:path*', destination: '/ycode/:path*' },
-    ];
+    return [];
   },
 
   async headers() {
