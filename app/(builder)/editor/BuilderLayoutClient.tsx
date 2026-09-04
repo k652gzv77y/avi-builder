@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import BuilderApp from './components/BuilderMain';
 import ColorTokensStyle from '@/components/ColorTokensStyle';
 import { useEditorUrl } from '@/hooks/use-editor-url';
+import { rememberProjectSlug } from '@/lib/project-url';
 import { useAuthStore } from '@/stores/useAuthStore';
 import {
   startLockExpirationCheck,
@@ -13,7 +14,14 @@ import {
   stopNotificationCleanup,
 } from '@/stores/useCollaborationPresenceStore';
 
-function BuilderLayoutInner({ children }: { children: React.ReactNode }) {
+function BuilderLayoutInner({
+  children,
+  initialSlug,
+}: {
+  children: React.ReactNode;
+  initialSlug?: string | null;
+}) {
+  rememberProjectSlug(initialSlug);
   const pathname = usePathname();
   const { routeType } = useEditorUrl();
   const { initialize } = useAuthStore();
@@ -62,10 +70,17 @@ function BuilderLayoutInner({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function BuilderLayoutClient({ children }: { children: React.ReactNode }) {
+export default function BuilderLayoutClient({
+  children,
+  initialSlug,
+}: {
+  children: React.ReactNode;
+  initialSlug?: string | null;
+}) {
+  rememberProjectSlug(initialSlug);
   return (
     <Suspense fallback={null}>
-      <BuilderLayoutInner>{children}</BuilderLayoutInner>
+      <BuilderLayoutInner initialSlug={initialSlug}>{children}</BuilderLayoutInner>
     </Suspense>
   );
 }
