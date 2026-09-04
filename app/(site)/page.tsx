@@ -1,9 +1,7 @@
 import { redirect, permanentRedirect } from 'next/navigation';
 import { connection } from 'next/server';
-import { unstable_cache } from 'next/cache';
-import Link from 'next/link';
-import { fetchHomepage, fetchErrorPage, splitPageData, reassemblePageData, slimPageData } from '@/lib/page-fetcher';
-import type { PageData } from '@/lib/page-fetcher';
+import { fetchHomepage, fetchErrorPage, slimPageData } from '@/lib/page-fetcher';
+import { loadPublishedHomepage } from '@/lib/published-home';
 import PageRenderer from '@/components/PageRenderer';
 import PasswordForm from '@/components/PasswordForm';
 import { generatePageMetadata, fetchGlobalPageSettings } from '@/lib/generate-page-metadata';
@@ -14,53 +12,12 @@ import { getSiteBaseUrl } from '@/lib/url-utils';
 import type { Redirect as RedirectType } from '@/types';
 import type { Metadata } from 'next';
 
-// Static by default for performance, dynamic only when pagination is requested
-export const revalidate = false; // Cache indefinitely until publish invalidates
-
-/**
- * Fetch homepage data from database
- * Cached with tag-based revalidation (no time-based stale cache)
- */
-async function fetchPublishedHomepage() {
-  // Tags are both 'route-/' AND 'all-pages':
-  // - route-/ lets selective invalidation purge just this page's data cache
-  // - all-pages lets full invalidation (color variables, redirects, etc.)
-  //   sweep every page's data cache in one tag invalidation call.
-  const tags = ['route-/', 'all-pages'];
-  const opts = { tags, revalidate: false as const };
-
-  const [core, layers] = await Promise.all([
-    unstable_cache(
-      async () => {
-        const data = await fetchHomepage(true);
-        if (!data) return null;
-        return splitPageData(data as PageData).core;
-      },
-      ['core-/'],
-      opts
-    )(),
-    unstable_cache(
-      async () => {
-        const data = await fetchHomepage(true);
-        if (!data) return null;
-        return splitPageData(data as PageData).layers;
-      },
-      ['layers-/'],
-      opts
-    )(),
-  ]);
-
-  if (!core) return null;
-  return reassemblePageData(core, layers || []);
-}
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 async function fetchCachedGlobalSettings() {
   try {
-    return await unstable_cache(
-      async () => fetchGlobalPageSettings(),
-      ['data-for-global-settings'],
-      { tags: ['all-pages'], revalidate: false }
-    )();
+    return await fetchGlobalPageSettings();
   } catch {
     return {
       googleSiteVerification: null,
@@ -77,106 +34,48 @@ async function fetchCachedGlobalSettings() {
   }
 }
 
-async function fetchCachedRedirects(): Promise<RedirectType[] | null> {
-  try {
-    return await unstable_cache(
-      async () => getSettingByKey('redirects') as Promise<RedirectType[] | null>,
-      ['data-for-redirects'],
-      { tags: ['all-pages'], revalidate: false }
-    )();
-  } catch {
-    return null;
-  }
-}
-
-async function fetchCachedFoldersForAuth() {
-  try {
-    return await unstable_cache(
-      async () => fetchFoldersForAuth(true),
-      ['data-for-auth-folders'],
-      { tags: ['all-pages'], revalidate: false }
-    )();
-  } catch {
-    return [];
-  }
-}
-
-async function fetchCachedErrorPage(errorCode: 401) {
-  return unstable_cache(
-    async () => {
-      const data = await fetchErrorPage(errorCode, true);
-      return data ? slimPageData(data) : null;
-    },
-    [`error-${errorCode}`],
-    { tags: ['all-pages'], revalidate: false }
-  )();
-}
-
 export default async function Home() {
-  // Check for redirects targeting the homepage
-  const redirects = await fetchCachedRedirects();
+  await connection();
+
+  const redirects = await getSettingByKey('redirects') as RedirectType[] | null;
   if (redirects && Array.isArray(redirects)) {
     const matched = matchRedirect('/', redirects);
     if (matched) {
-      if (matched.type === '302') {
-        redirect(matched.newUrl);
-      } else {
-        permanentRedirect(matched.newUrl);
-      }
+      if (matched.type === '302') redirect(matched.newUrl);
+      else permanentRedirect(matched.newUrl);
     }
   }
 
-  // Cache-first homepage path; pagination is served through internal dynamic routes.
-  const data = await fetchPublishedHomepage();
+  const data = await loadPublishedHomepage();
 
-  // If no published homepage exists, show default landing page
   if (!data || !data.pageLayers) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-white">
-        <div className="text-center p-8 flex flex-col items-center justify-center gap-2">
-          <h1 className="text-xl font-semibold text-neutral-900">
-            Welcome to AVI Builder
-          </h1>
-          <Link
-            href="/projects/kolbo-school"
-            className=" bg-blue-500 text-white text-sm font-medium h-8 flex items-center justify-center px-3 rounded-lg transition-colors"
-          >
-            Get started
-          </Link>
+        <div className="text-center p-8 max-w-md">
+          <h1 className="text-xl font-semibold text-neutral-900">This site has no published homepage yet</h1>
+          <p className="mt-2 text-sm text-neutral-500">Open Avi Builder and click Publish after you have a home page.</p>
         </div>
       </div>
     );
   }
 
-  // Load all global settings early so error pages also get global custom code
   const globalSettings = await fetchCachedGlobalSettings();
-
-  // Per-page CSS with fallback to global published_css
   const cssForPage = data.generatedCss || globalSettings.publishedCss || undefined;
-
-  // Check password protection for homepage.
-  // First evaluate without cookies() so non-protected pages can stay cacheable.
-  const folders = await fetchCachedFoldersForAuth();
+  const folders = await fetchFoldersForAuth(true);
   const protectionCheck = getPasswordProtection(data.page, folders, null);
 
-  // If homepage is protected, opt into dynamic rendering and read the auth cookie.
   if (protectionCheck.isProtected) {
-    await connection();
     const authCookie = await parseAuthCookie();
     const protection = getPasswordProtection(data.page, folders, authCookie);
-
-    // If homepage is protected and not unlocked, show 401 error page
     if (!protection.isUnlocked) {
-      const errorPageData = await fetchCachedErrorPage(401);
-
+      const errorPageData = await fetchErrorPage(401, true);
       if (errorPageData) {
-        const { page: errorPage, pageLayers: errorPageLayers, components: errorComponents } = errorPageData;
-
+        const slim = slimPageData(errorPageData);
         return (
           <PageRenderer
-            page={errorPage}
-            layers={errorPageLayers.layers || []}
-            components={errorComponents}
+            page={slim.page}
+            layers={slim.pageLayers.layers || []}
+            components={slim.components}
             generatedCss={globalSettings.publishedCss || undefined}
             colorVariablesCss={globalSettings.colorVariablesCss || undefined}
             globalCustomCodeHead={globalSettings.globalCustomCodeHead}
@@ -190,14 +89,11 @@ export default async function Home() {
           />
         );
       }
-
-      // Inline fallback if no custom 401 page exists
       return (
         <div className="min-h-screen flex items-center justify-center bg-white">
           <div className="text-center max-w-md px-4">
             <h1 className="text-6xl font-bold text-gray-900 mb-4">401</h1>
             <h2 className="text-2xl font-semibold text-gray-800 mb-4">Password Protected</h2>
-            <p className="text-gray-600 mb-8">Enter the password to continue.</p>
             <PasswordForm
               pageId={protection.protectedBy === 'page' ? protection.protectedById : undefined}
               folderId={protection.protectedBy === 'folder' ? protection.protectedById : undefined}
@@ -210,7 +106,6 @@ export default async function Home() {
     }
   }
 
-  // Render homepage
   return (
     <PageRenderer
       page={data.page}
@@ -229,52 +124,31 @@ export default async function Home() {
   );
 }
 
-// Generate metadata
 export async function generateMetadata(): Promise<Metadata> {
-  // Fetch page and global settings in parallel
   const [data, globalSettings] = await Promise.all([
-    fetchPublishedHomepage(),
+    fetchHomepage(true),
     fetchCachedGlobalSettings(),
   ]);
 
   if (!data) {
-    return {
-      title: 'Ycode',
-      description: 'Built with AVI Builder',
-    };
+    return { title: 'Kolbo School', description: 'Built with Avi Builder' };
   }
 
-  // Don't leak metadata for protected pages. Checking without cookies keeps
-  // generateMetadata fully static — no need to verify unlock state here since
-  // the page component handles access gating.
-  const folders = await fetchCachedFoldersForAuth();
+  const folders = await fetchFoldersForAuth(true);
   const protectionCheck = getPasswordProtection(data.page, folders, null);
-
   if (protectionCheck.isProtected) {
-    return {
-      title: 'Password Protected',
-      description: 'This page is password protected.',
-      robots: { index: false, follow: false },
-    };
+    return { title: 'Password Protected', robots: { index: false, follow: false } };
   }
 
-  const { meta, baseUrl } = await unstable_cache(
-    async () => ({
-      meta: await generatePageMetadata(data.page, {
-        fallbackTitle: 'Home',
-        pagePath: '/',
-        globalSeoSettings: globalSettings,
-        translations: data.translations,
-      }),
-      baseUrl: getSiteBaseUrl({ globalCanonicalUrl: globalSettings.globalCanonicalUrl }),
-    }),
-    ['data-for-route-/-meta'],
-    { tags: ['route-/', 'all-pages'], revalidate: false }
-  )();
-
+  const meta = await generatePageMetadata(data.page, {
+    fallbackTitle: 'Home',
+    pagePath: '/',
+    globalSeoSettings: globalSettings,
+    translations: data.translations,
+  });
+  const baseUrl = getSiteBaseUrl({ globalCanonicalUrl: globalSettings.globalCanonicalUrl });
   if (baseUrl) {
-    try { meta.metadataBase = new URL(baseUrl); } catch { /* invalid URL */ }
+    try { meta.metadataBase = new URL(baseUrl); } catch { /* ignore */ }
   }
-
   return meta;
 }
