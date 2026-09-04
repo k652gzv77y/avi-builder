@@ -6,28 +6,19 @@ import { parseSupabaseConfig } from './supabase-config-parser';
 import type { SupabaseConfig, SupabaseCredentials } from '@/types';
 import { withLimit } from './supabase-limiter';
 
-/**
- * Supabase Server Client
- *
- * Creates authenticated Supabase clients for server-side operations
- * Credentials are fetched from file-based storage or environment variables
- */
-
-/**
- * Explicit tenant context for code running outside of a Next.js request
- * (e.g. fire-and-forget webhook processing where headers() is unavailable).
- */
 export const tenantStore = new AsyncLocalStorage<string>();
 
-/** Run an async function with an explicit tenant context. */
 export function runWithTenantId<T>(tenantId: string, fn: () => Promise<T>): Promise<T> {
   return tenantStore.run(tenantId, fn);
 }
 
-/**
- * Get Supabase credentials from storage
- * Parses the stored config to extract all necessary details
- */
+function envAdminPair(): { url: string; key: string } | null {
+  const url = (process.env.SUPABASE_URL || '').replace(/\/+$/, '');
+  const key = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+  if (url.startsWith('http') && key) return { url, key };
+  return null;
+}
+
 async function getSupabaseCredentials(): Promise<SupabaseCredentials | null> {
   const config = await credentials.get<SupabaseConfig>('supabase_config');
 
@@ -43,10 +34,6 @@ async function getSupabaseCredentials(): Promise<SupabaseCredentials | null> {
   }
 }
 
-/**
- * Get Supabase configuration (exported for use in knex-client)
- * Alias for getSupabaseCredentials
- */
 export const getSupabaseConfig = getSupabaseCredentials;
 
 const globalForSupabase = globalThis as unknown as {
@@ -54,22 +41,19 @@ const globalForSupabase = globalThis as unknown as {
   __supabaseCredKey?: string;
 };
 
-/**
- * Get Supabase client with service role key (admin access)
- *
- * Stored on globalThis so the client survives Next.js HMR in dev mode.
- * Module-level variables get reset on each hot reload, which would
- * orphan any in-flight requests on the old client.
- */
-export async function getSupabaseAdmin(tenantId?: string): Promise<SupabaseClient | null> {
-  const creds = await getSupabaseCredentials();
+export async function getSupabaseAdmin(_tenantId?: string): Promise<SupabaseClient | null> {
+  const envPair = envAdminPair();
+  const creds = envPair ? null : await getSupabaseCredentials();
 
-  if (!creds) {
+  const projectUrl = envPair?.url || creds?.projectUrl;
+  const serviceRoleKey = envPair?.key || creds?.serviceRoleKey;
+
+  if (!projectUrl || !serviceRoleKey) {
     console.error('[getSupabaseAdmin] No credentials returned!');
     return null;
   }
 
-  const credKey = `${creds.projectUrl}:${creds.serviceRoleKey}`;
+  const credKey = `${projectUrl}:${serviceRoleKey}`;
   if (globalForSupabase.__supabaseClient && globalForSupabase.__supabaseCredKey === credKey) {
     return globalForSupabase.__supabaseClient;
   }
@@ -77,7 +61,7 @@ export async function getSupabaseAdmin(tenantId?: string): Promise<SupabaseClien
   const limitedFetch: typeof globalThis.fetch = (input, init) =>
     withLimit(() => globalThis.fetch(input, init));
 
-  globalForSupabase.__supabaseClient = createClient(creds.projectUrl, creds.serviceRoleKey, {
+  globalForSupabase.__supabaseClient = createClient(projectUrl, serviceRoleKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
@@ -90,9 +74,6 @@ export async function getSupabaseAdmin(tenantId?: string): Promise<SupabaseClien
   return globalForSupabase.__supabaseClient;
 }
 
-/**
- * Test Supabase connection with full config
- */
 export async function testSupabaseConnection(
   config: SupabaseConfig
 ): Promise<{ success: boolean; error?: string }> {
@@ -126,19 +107,10 @@ export async function testSupabaseConnection(
   }
 }
 
-/**
- * Get tenant ID from request headers.
- *
- * Base implementation: always returns null (single-tenant, no scoping needed).
- * Overridden via path alias in multi-tenant deployments.
- */
 export async function getTenantIdFromHeaders(): Promise<string | null> {
   return null;
 }
 
-/**
- * Execute raw SQL query
- */
 export async function executeSql(sql: string): Promise<{ success: boolean; error?: string }> {
   const client = await getSupabaseAdmin();
 
