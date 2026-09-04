@@ -12,6 +12,22 @@ const CLOUDFLARE_SCOPES = [
   'user-details.read',
 ].join(' ');
 
+function base64Url(bytes: Uint8Array) {
+  let binary = '';
+  bytes.forEach((b) => {
+    binary += String.fromCharCode(b);
+  });
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+async function createPkce() {
+  const verifierBytes = crypto.getRandomValues(new Uint8Array(32));
+  const verifier = base64Url(verifierBytes);
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+  const challenge = base64Url(new Uint8Array(digest));
+  return { verifier, challenge };
+}
+
 export async function GET(request: NextRequest) {
   const project = request.nextUrl.searchParams.get('project') || 'unknown';
   const clientId = await getWorkerVar('CLOUDFLARE_OAUTH_CLIENT_ID');
@@ -26,11 +42,23 @@ export async function GET(request: NextRequest) {
     }, { status: 501 });
   }
 
+  const { verifier, challenge } = await createPkce();
   const url = new URL('https://dash.cloudflare.com/oauth2/auth');
   url.searchParams.set('client_id', clientId);
   url.searchParams.set('redirect_uri', redirectUri);
   url.searchParams.set('response_type', 'code');
   url.searchParams.set('scope', CLOUDFLARE_SCOPES);
   url.searchParams.set('state', project);
-  return NextResponse.json({ url: url.toString() });
+  url.searchParams.set('code_challenge', challenge);
+  url.searchParams.set('code_challenge_method', 'S256');
+
+  const res = NextResponse.json({ url: url.toString() });
+  res.cookies.set('avi_cf_pkce', verifier, {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 600,
+  });
+  return res;
 }
