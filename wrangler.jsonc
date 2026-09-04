@@ -9,11 +9,8 @@
     "AVI_RUNTIME": "cloudflare",
     "REQUIRE_HYPERDRIVE": "true",
     "YCODE_BUILDER_HOSTNAME": "avibuilder.com",
-    "YCODE_LEGACY_BUILDER_HOSTNAMES": "ycode.kolboschool.com",
-    "CLOUDFLARE_OAUTH_CLIENT_ID": "cfoc_icjUtMlmDzZ0fKVBUhMqAnu9h19SqTvvjMkzdP8J29489e87",
-    "CLOUDFLARE_OAUTH_REDIRECT_URI": "https://avibuilder.com/projects/oauth/cloudflare/callback",
-    "SUPABASE_OAUTH_CLIENT_ID": "948126f7-401c-456e-975d-3a9d697892c2",
-    "SUPABASE_OAUTH_REDIRECT_URI": "https://avibuilder.com/projects/oauth/supabase/callback"
+    "AVI_BUILDER_HOSTNAME": "avibuilder.com",
+    "YCODE_LEGACY_BUILDER_HOSTNAMES": "ycode.kolboschool.com"
   },
   "assets": {
     "directory": ".open-next/assets",
