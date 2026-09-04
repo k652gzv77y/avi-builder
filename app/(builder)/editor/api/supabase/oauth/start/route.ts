@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getWorkerVar } from '@/lib/worker-env';
+import { PROJECT_SLUG_HEADER } from '@/lib/project-url';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
-  const project = request.nextUrl.searchParams.get('project') || 'unknown';
+  const headerSlug = request.headers.get(PROJECT_SLUG_HEADER) || '';
+  const project =
+    request.nextUrl.searchParams.get('project') ||
+    headerSlug ||
+    'unknown';
   const clientId = await getWorkerVar('SUPABASE_OAUTH_CLIENT_ID');
   const redirectUri =
     (await getWorkerVar('SUPABASE_OAUTH_REDIRECT_URI')) ||
@@ -22,5 +27,16 @@ export async function GET(request: NextRequest) {
   url.searchParams.set('redirect_uri', redirectUri);
   url.searchParams.set('response_type', 'code');
   url.searchParams.set('state', project);
-  return NextResponse.json({ url: url.toString() });
+
+  const res = NextResponse.json({ url: url.toString() });
+  if (project && project !== 'unknown') {
+    res.cookies.set('avi_oauth_project', project, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 600,
+    });
+  }
+  return res;
 }
