@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { getProjectSlugFromPath } from '@/lib/settings-nav-items';
+import { getCurrentProjectSlug } from '@/lib/project-url';
 
 interface CollectionRow {
   id?: string;
@@ -11,15 +12,20 @@ interface CollectionRow {
 }
 
 export default function CmsSettingsPage() {
-  const slug = getProjectSlugFromPath(usePathname());
+  const pathname = usePathname();
+  const slug = getProjectSlugFromPath(pathname) || getCurrentProjectSlug() || '';
   const searchParams = useSearchParams();
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [collections, setCollections] = useState<CollectionRow[] | null>(null);
 
   useEffect(() => {
+    if (!slug) return;
     if (searchParams.get('supabase') === 'connected') {
       setMessage('Supabase authorized.');
+    }
+    if (searchParams.get('error')) {
+      setMessage(`Connect failed (${searchParams.get('error')}). Try Reconnect Supabase again.`);
     }
     let cancelled = false;
     fetch(`/projects/${slug}/api/collections`)
@@ -38,10 +44,15 @@ export default function CmsSettingsPage() {
   }, [searchParams, slug]);
 
   async function connectSupabase() {
+    const project = slug || getCurrentProjectSlug();
+    if (!project) {
+      setMessage('Open this page from a project first.');
+      return;
+    }
     setBusy(true);
     setMessage(null);
     try {
-      const res = await fetch(`/projects/${slug}/api/supabase/oauth/start?project=${encodeURIComponent(slug)}`);
+      const res = await fetch(`/projects/${project}/api/supabase/oauth/start?project=${encodeURIComponent(project)}`);
       const data = await res.json().catch(() => ({}));
       if (data.url) {
         window.location.href = data.url;
@@ -61,7 +72,7 @@ export default function CmsSettingsPage() {
     <div className="max-w-xl">
       <h1 className="text-lg font-medium">CMS / Supabase</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        Collections already load from the project database. One-click OAuth is for attaching a different Supabase project later.
+        Collections already load from the project database. One-click OAuth attaches a Supabase project to this Avi project.
       </p>
       <div className="mt-5 rounded-xl border px-4 py-3 text-sm">
         {collections === null ? (
@@ -81,7 +92,7 @@ export default function CmsSettingsPage() {
       </div>
       <Button
         className="mt-5" variant="outline"
-        onClick={() => void connectSupabase()} disabled={busy}
+        onClick={() => void connectSupabase()} disabled={busy || !slug}
       >
         {busy ? 'Opening Supabase…' : 'Reconnect Supabase'}
       </Button>
