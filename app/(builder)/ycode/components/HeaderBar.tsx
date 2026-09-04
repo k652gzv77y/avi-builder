@@ -276,11 +276,18 @@ export default function HeaderBar({
       <div className="flex items-center gap-2">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="secondary" size="sm" className="size-8!">
-              <AviBuilderMark className="size-4 text-secondary-foreground" />
+            <Button
+              variant="secondary" size="sm"
+              className="size-8! p-0"
+            >
+              <AviBuilderMark className="size-5 text-secondary-foreground" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
+            <DropdownMenuItem onClick={() => router.push('/projects')}>
+              Back to dashboard
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
             {canManageSettings && (
               <DropdownMenuItem onClick={() => router.push('/projects/kolbo-school/settings/general')}>
                 Settings
@@ -414,8 +421,14 @@ export default function HeaderBar({
       <div className="flex gap-1.5 items-center justify-center">
         <LocaleSelector />
         <div className="h-5"><Separator orientation="vertical" /></div>
-        <Button size="xs" variant="ghost" asChild>
-          <a href={baseUrl + publishedUrl} target="_blank" rel="noopener noreferrer">
+        <Button
+          size="xs" variant="ghost"
+          asChild
+        >
+          <a
+            href={baseUrl + publishedUrl} target="_blank"
+            rel="noopener noreferrer"
+          >
             {baseUrl || 'https://beta.kolboschool.com'}
           </a>
         </Button>

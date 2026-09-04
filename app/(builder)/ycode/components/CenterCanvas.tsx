@@ -68,7 +68,7 @@ import { getTranslationValue, applyCmsTranslations, extractLayerTranslatableItem
 import { cn } from '@/lib/utils';
 import { getCollectionVariable, canDeleteLayer, findLayerById, findParentCollectionLayer, canLayerHaveLink, updateLayerProps, removeRichTextSublayer, isRichTextLayer, getLayerCmsFieldBinding } from '@/lib/layer-utils';
 import { CANVAS_BORDER, CANVAS_PADDING, updateViewportOverrides } from '@/lib/canvas-utils';
-import { BREAKPOINTS } from '@/lib/breakpoint-utils';
+import { BREAKPOINTS, DEFAULT_CANVAS_BREAKPOINT_FRAMES } from '@/lib/breakpoint-utils';
 import { buildFieldGroupsForLayer, flattenFieldGroups, filterFieldGroupsByType, SIMPLE_TEXT_FIELD_TYPES } from '@/lib/collection-field-utils';
 import { getPaginationLayerKind, PAGINATION_VARIABLE_LABELS, type PaginationVariableKey } from '@/lib/pagination-text-utils';
 import { buildFieldVariableData } from '@/lib/variable-format-utils';
@@ -788,10 +788,15 @@ const CenterCanvas = React.memo(function CenterCanvas({
     autoInit: true,
   });
 
-  // Parse viewport width
+  // Parse viewport width — prefer the active freeform frame width when set.
+  const [activeFrameId, setActiveFrameId] = useState<string | null>('desktop');
+  const [activeCanvasWidth, setActiveCanvasWidth] = useState<number>(
+    DEFAULT_CANVAS_BREAKPOINT_FRAMES[0].width,
+  );
   const viewportWidth = useMemo(() => {
+    if (activeCanvasWidth > 0) return activeCanvasWidth;
     return parseInt(viewportSizes[viewportMode].width);
-  }, [viewportMode]);
+  }, [activeCanvasWidth, viewportMode]);
 
   // Calculate default iframe height to fill canvas — track current container height
   // so the white canvas always fills all the available vertical space, even when the
@@ -2662,8 +2667,15 @@ const CenterCanvas = React.memo(function CenterCanvas({
               >
                 <BreakpointFrames
                   active={viewportMode}
+                  activeFrameId={activeFrameId}
                   zoom={zoom}
-                  onSelect={(mode) => setViewportMode(mode)}
+                  previewUrl={previewUrl || undefined}
+                  onSelect={(mode, frame) => {
+                    setActiveFrameId(frame.id);
+                    setActiveCanvasWidth(frame.width);
+                    setViewportMode(mode);
+                  }}
+                  onActiveWidthChange={setActiveCanvasWidth}
                 >
                 {/* Sizer: occupies the SCALED footprint so the scroll area,
                     centering, and drop shadow match the visible canvas size. */}

@@ -23,6 +23,7 @@ const DRAFT_ONLY_SETTING_KEYS = new Set([
   'ai_model',
   'ai_enabled_models',
   'ai_agent_enabled',
+  'canvas_breakpoint_frames',
 ]);
 
 /** Builder-only keys that must not purge the public cache. Agent secrets
