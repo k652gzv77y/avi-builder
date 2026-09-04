@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getWorkerVar } from '@/lib/worker-env';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   const project = request.nextUrl.searchParams.get('project') || 'unknown';
-  const clientId = process.env.CLOUDFLARE_OAUTH_CLIENT_ID;
+  const clientId = await getWorkerVar('CLOUDFLARE_OAUTH_CLIENT_ID');
   const redirectUri =
-    process.env.CLOUDFLARE_OAUTH_REDIRECT_URI ||
+    (await getWorkerVar('CLOUDFLARE_OAUTH_REDIRECT_URI')) ||
     `${request.nextUrl.origin}/projects/oauth/cloudflare/callback`;
 
   if (!clientId) {
     return NextResponse.json({
       error: 'Cloudflare OAuth is not configured',
-      hint: 'Create a Cloudflare OAuth app, then set CLOUDFLARE_OAUTH_CLIENT_ID and CLOUDFLARE_OAUTH_CLIENT_SECRET. Redirect URI must be https://avibuilder.com/projects/oauth/cloudflare/callback',
+      hint: 'CLOUDFLARE_OAUTH_CLIENT_ID is not visible to the Worker runtime yet.',
     }, { status: 501 });
   }
 

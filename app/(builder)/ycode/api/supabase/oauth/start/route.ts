@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getWorkerVar } from '@/lib/worker-env';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   const project = request.nextUrl.searchParams.get('project') || 'unknown';
-  const clientId = process.env.SUPABASE_OAUTH_CLIENT_ID;
+  const clientId = await getWorkerVar('SUPABASE_OAUTH_CLIENT_ID');
   const redirectUri =
-    process.env.SUPABASE_OAUTH_REDIRECT_URI ||
+    (await getWorkerVar('SUPABASE_OAUTH_REDIRECT_URI')) ||
     `${request.nextUrl.origin}/projects/oauth/supabase/callback`;
 
   if (!clientId) {
     return NextResponse.json({
       error: 'Supabase OAuth is not configured',
-      hint: 'Create a Supabase org OAuth app, then set SUPABASE_OAUTH_CLIENT_ID and SUPABASE_OAUTH_CLIENT_SECRET. Redirect URI must be https://avibuilder.com/projects/oauth/supabase/callback',
+      hint: 'SUPABASE_OAUTH_CLIENT_ID is not visible to the Worker runtime yet.',
     }, { status: 501 });
   }
 
