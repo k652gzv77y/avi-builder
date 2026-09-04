@@ -1,8 +1,10 @@
 'use client';
 
 import { Suspense } from 'react';
+import dynamic from 'next/dynamic';
 import { usePathname } from 'next/navigation';
-import YCodeEditorShell from './YCodeEditorShell';
+
+const YCodeEditorShell = dynamic(() => import('./YCodeEditorShell'), { ssr: false });
 
 function isLightRoute(pathname: string | null) {
   if (!pathname) return false;
