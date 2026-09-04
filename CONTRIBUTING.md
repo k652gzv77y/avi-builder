@@ -1,6 +1,6 @@
-# Contributing to AVI Builder
+# Contributing to Avi Builder
 
-AVI Builder is maintained in [k652gzv77y/avi-builder](https://github.com/k652gzv77y/avi-builder).
+Avi Builder is maintained in [k652gzv77y/avi-builder](https://github.com/k652gzv77y/avi-builder).
 
 ## Development Setup
 
@@ -9,7 +9,7 @@ AVI Builder is maintained in [k652gzv77y/avi-builder](https://github.com/k652gzv
 3. Copy the required Supabase and service credentials into `.env.local`.
 4. Run `npm run dev`.
 
-Open issues and pull requests in the AVI Builder repository. Changes that modify the builder data model, publishing, authentication, or integrations should include focused tests.
+Open issues and pull requests in the Avi Builder repository. Changes that modify the builder data model, publishing, authentication, or integrations should include focused tests.
 
 ## Attribution
 

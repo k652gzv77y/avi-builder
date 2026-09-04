@@ -31,17 +31,17 @@ interface Release {
 /**
  * GET /ycode/api/updates/releases
  *
- * Fetch all releases from the AVI Builder repository.
+ * Fetch all releases from the Avi Builder repository.
  */
 export async function GET() {
   try {
-    // Fetch releases published by AVI Builder.
+    // Fetch releases published by Avi Builder.
     const response = await fetch(
       `https://api.github.com/repos/${AVI_BUILDER_REPOSITORY}/releases`,
       {
         headers: {
           'Accept': 'application/vnd.github.v3+json',
-          'User-Agent': 'AVI-Builder-Update-Checker',
+          'User-Agent': 'Avi-Builder-Update-Checker',
         },
         cache: 'no-store',
       }

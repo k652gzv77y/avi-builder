@@ -70,7 +70,7 @@ export const apps: AppDefinition[] = [
   {
     id: 'airtable',
     name: 'Airtable',
-    description: 'One-way sync from Airtable tables to your AVI Builder collections with real-time webhook support.',
+    description: 'One-way sync from Airtable tables to your Avi Builder collections with real-time webhook support.',
     logo: airtableLogo,
     categories: ['popular', 'cms-data'],
     implemented: true,
@@ -79,7 +79,7 @@ export const apps: AppDefinition[] = [
   {
     id: 'webflow',
     name: 'Webflow',
-    description: 'Migrate Webflow CMS collections into AVI Builder and paste Webflow designs with global styles intact.',
+    description: 'Migrate Webflow CMS collections into Avi Builder and paste Webflow designs with global styles intact.',
     logo: webflowLogo,
     categories: ['popular', 'cms-data'],
     implemented: true,

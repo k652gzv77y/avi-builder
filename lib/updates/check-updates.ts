@@ -1,5 +1,5 @@
 /**
- * Check AVI Builder releases from the product repository.
+ * Check Avi Builder releases from the product repository.
  */
 
 const AVI_BUILDER_REPOSITORY = process.env.AVI_BUILDER_REPOSITORY || 'k652gzv77y/avi-builder';
@@ -40,7 +40,7 @@ function compareVersions(a: string, b: string): number {
 }
 
 /**
- * Check for updates from the AVI Builder repository.
+ * Check for updates from the Avi Builder repository.
  */
 export async function checkForUpdates(currentVersion: string): Promise<CheckUpdatesResult> {
   try {
@@ -49,7 +49,7 @@ export async function checkForUpdates(currentVersion: string): Promise<CheckUpda
       {
         headers: {
           'Accept': 'application/vnd.github.v3+json',
-          'User-Agent': 'AVI-Builder-Update-Checker',
+          'User-Agent': 'Avi-Builder-Update-Checker',
         },
         cache: 'no-store',
       }
@@ -81,10 +81,10 @@ export async function checkForUpdates(currentVersion: string): Promise<CheckUpda
       : `https://github.com/${AVI_BUILDER_REPOSITORY}`;
     const updateMethod = isVercel ? 'github-sync' : 'git-pull';
     const steps = [
-      `Open <a href="${repositoryUrl}" target="_blank" class="underline font-semibold">the AVI Builder repository</a>`,
+      `Open <a href="${repositoryUrl}" target="_blank" class="underline font-semibold">the Avi Builder repository</a>`,
       'Merge or pull the release you want to deploy',
       'Deploy the selected branch through Vercel',
-      'Reload AVI Builder after deployment to apply any migrations',
+      'Reload Avi Builder after deployment to apply any migrations',
     ];
 
     return {
