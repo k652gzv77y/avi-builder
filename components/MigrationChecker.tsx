@@ -7,11 +7,6 @@ import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import BuilderLoading from '@/components/BuilderLoading';
 
-/**
- * Migration Checker Component: Checks for and runs pending migrations before allowing
- * builder access. This prevents the builder from trying to query tables that don't exist yet.
- */
-
 interface MigrationCheckerProps {
   onComplete: () => void;
 }
@@ -20,8 +15,6 @@ export default function MigrationChecker({ onComplete }: MigrationCheckerProps) 
   const [isChecking, setIsChecking] = useState(true);
   const [progress, setProgress] = useState('Checking database status...');
   const [error, setError] = useState<string | null>(null);
-
-  // Ref to ensure migration only runs once (prevents React Strict Mode double-run)
   const hasRunRef = useRef(false);
 
   const checkAndRunMigrations = useCallback(async () => {
@@ -30,7 +23,6 @@ export default function MigrationChecker({ onComplete }: MigrationCheckerProps) 
       setProgress('Checking and running migrations...');
       setError(null);
 
-      // Single API call: checks AND runs migrations if needed
       const response = await fetch(projectsPath('/api/setup/migrate'), {
         method: 'POST',
       });
@@ -38,7 +30,7 @@ export default function MigrationChecker({ onComplete }: MigrationCheckerProps) 
       if (!response.ok) {
         console.error('Migration request failed');
         console.error(await response.json());
-        onComplete(); // Allow builder to load anyway
+        onComplete();
         return;
       }
 
@@ -50,7 +42,6 @@ export default function MigrationChecker({ onComplete }: MigrationCheckerProps) 
         return;
       }
 
-      // Successfully ran migrations, allow builder to load
       onComplete();
     } catch (err) {
       console.error('Failed to run migrations:', err);
@@ -60,7 +51,6 @@ export default function MigrationChecker({ onComplete }: MigrationCheckerProps) 
   }, [onComplete]);
 
   useEffect(() => {
-    // Skip if already run (React Strict Mode protection)
     if (hasRunRef.current) {
       return;
     }
@@ -74,19 +64,16 @@ export default function MigrationChecker({ onComplete }: MigrationCheckerProps) 
   };
 
   const handleSkip = () => {
-    // Allow user to skip and try to use builder anyway (risky but their choice)
     onComplete();
   };
 
-  // Always show this component while checking migrations
   if (!isChecking && !error) {
     return null;
   }
 
-  // Show error state
   if (error) {
     return (
-      <div className="fixed inset-0 z-[100] bg-neutral-950 flex items-center justify-center">
+      <div className="fixed inset-0 z-[100] bg-background text-foreground flex items-center justify-center">
         <div className="max-w-md w-full mx-4">
           <div className="flex-1 flex items-center text-center flex-col gap-1">
             <Label size="sm">
@@ -113,6 +100,5 @@ export default function MigrationChecker({ onComplete }: MigrationCheckerProps) 
     );
   }
 
-  // Show loading state
   return <BuilderLoading message={progress} />;
 }
