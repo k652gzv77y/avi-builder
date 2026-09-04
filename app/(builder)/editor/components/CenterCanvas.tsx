@@ -2204,7 +2204,7 @@ const CenterCanvas = React.memo(function CenterCanvas({
   return (
     <div className="flex-1 min-w-0 flex flex-col relative">
       {/* Top Bar */}
-      <div className="grid grid-cols-3 items-center p-4 border-b bg-background">
+      <div className="grid h-10 grid-cols-3 items-center border-b bg-background px-2">
         {/* Page Selector or Back to Page Button */}
         {editingComponentId ? (
           <Button
@@ -2560,7 +2560,7 @@ const CenterCanvas = React.memo(function CenterCanvas({
       {/* Canvas Area */}
       <div
         ref={canvasContainerRef}
-        className="flex-1 relative overflow-hidden bg-neutral-50 dark:bg-neutral-950/80 select-none"
+        className="flex-1 relative overflow-hidden bg-[var(--builder-canvas)] select-none"
       >
         {/* Loading skeleton overlay when draft is being fetched */}
         {isDraftLoading && (
@@ -2682,7 +2682,7 @@ const CenterCanvas = React.memo(function CenterCanvas({
                 {/* Sizer: occupies the SCALED footprint so the scroll area,
                     centering, and drop shadow match the visible canvas size. */}
                 <div
-                  className={editingComponentId ? 'relative' : 'bg-white shadow-3xl relative'}
+                  className={editingComponentId ? 'relative' : 'relative overflow-hidden rounded-[10px] bg-white shadow-[0_18px_40px_rgba(0,0,0,0.08)] outline outline-black/5 dark:bg-[#111] dark:outline-white/10'}
                   style={{
                     width: `${effectiveCanvasWidth * (zoom / 100)}px`,
                     height: `${finalIframeHeight * (zoom / 100)}px`,
@@ -2988,7 +2988,7 @@ const CenterCanvas = React.memo(function CenterCanvas({
         className="flex flex-col bg-neutral-50 dark:bg-neutral-950"
         style={{
           position: 'fixed',
-          top: '3.5rem', // h-14 header height
+          top: 'var(--builder-header-height)',
           left: 0,
           right: 0,
           bottom: 0,

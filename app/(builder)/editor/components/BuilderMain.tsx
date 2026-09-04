@@ -26,6 +26,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 // 2. Internal components
 import AiChatPanel from '../components/ai/AiChatPanel';
 import CenterCanvas from '../components/CenterCanvas';
+import BuilderToolRail from '../components/BuilderToolRail';
 import HeaderBar from '../components/HeaderBar';
 import LeftSidebar from '../components/LeftSidebar';
 import SettingsContent from '../components/SettingsContent';
@@ -2330,16 +2331,16 @@ export default function BuilderApp({ children }: BuilderAppProps = {} as Builder
           <LocalizationContent>{children}</LocalizationContent>
         ) : routeType === 'profile' ? (
           <ProfileContent>{children}</ProfileContent>
-        ) : routeType === 'forms' ? (
-          <>{children}</>
         ) : routeType === 'integrations' ? (
           <IntegrationsContent>{children}</IntegrationsContent>
         ) : (
           <>
+            <BuilderToolRail />
+            {routeType === 'forms' ? <>{children}</> : null}
             {/* Left Sidebar - Pages & Layers
                 - Hidden in CMS mode
                 - For editor role: only shown when "Pages" tab is active */}
-            <div className={activeTab === 'cms' || (isEditor && activeTab !== 'pages') ? 'hidden' : 'contents'}>
+            <div className={routeType === 'forms' || activeTab === 'cms' || (isEditor && activeTab !== 'pages') ? 'hidden' : 'contents'}>
               <LeftSidebar
                 onLayerSelect={(layerId) => {
                   setSelectedLayerId(layerId);
@@ -2361,7 +2362,7 @@ export default function BuilderApp({ children }: BuilderAppProps = {} as Builder
             </div>
 
             {/* CMS View - kept mounted for instant switching */}
-            <div className={activeTab === 'cms' ? 'flex flex-1 min-w-0 overflow-hidden' : 'hidden'}>
+            <div className={routeType !== 'forms' && activeTab === 'cms' ? 'flex flex-1 min-w-0 overflow-hidden' : 'hidden'}>
               <Suspense fallback={null}>
                 <CMS />
               </Suspense>
@@ -2379,7 +2380,7 @@ export default function BuilderApp({ children }: BuilderAppProps = {} as Builder
             </div>
 
             {/* Design View - kept mounted for instant switching */}
-            <div className={activeTab !== 'cms' ? 'contents' : 'hidden'}>
+            <div className={routeType !== 'forms' && activeTab !== 'cms' ? 'contents' : 'hidden'}>
               {/* Center Canvas - Preview */}
               <CenterCanvas
                 currentPageId={currentPageId}

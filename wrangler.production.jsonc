@@ -4,6 +4,9 @@
   "account_id": "ed21b04052e50e8fbf1ee544dea3e938",
   "workers_dev": true,
   "main": ".open-next/worker.js",
+  "build": {
+    "command": "npx opennextjs-cloudflare build"
+  },
   "compatibility_date": "2026-09-01",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "vars": {
@@ -25,7 +28,8 @@
   "hyperdrive": [
     {
       "binding": "HYPERDRIVE",
-      "id": "63de18587cd1449081ceb8a59753c273"
+      "id": "63de18587cd1449081ceb8a59753c273",
+      "localConnectionString": "postgres://postgres:postgres@127.0.0.1:5432/postgres"
     }
   ],
   "kv_namespaces": [

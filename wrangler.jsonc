@@ -1,19 +1,19 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "avi-builder-staging",
+  "name": "avi-builder",
   "account_id": "ed21b04052e50e8fbf1ee544dea3e938",
   "main": ".open-next/worker.js",
+  "build": {
+    "command": "npx opennextjs-cloudflare build"
+  },
   "compatibility_date": "2026-09-01",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "vars": {
     "AVI_RUNTIME": "cloudflare",
     "REQUIRE_HYPERDRIVE": "true",
     "YCODE_BUILDER_HOSTNAME": "avibuilder.com",
-    "YCODE_LEGACY_BUILDER_HOSTNAMES": "ycode.kolboschool.com",
-    "CLOUDFLARE_OAUTH_CLIENT_ID": "cfoc_icjUtMlmDzZ0fKVBUhMqAnu9h19SqTvvjMkzdP8J29489e87",
-    "CLOUDFLARE_OAUTH_REDIRECT_URI": "https://avibuilder.com/projects/oauth/cloudflare/callback",
-    "SUPABASE_OAUTH_CLIENT_ID": "948126f7-401c-456e-975d-3a9d697892c2",
-    "SUPABASE_OAUTH_REDIRECT_URI": "https://avibuilder.com/projects/oauth/supabase/callback"
+    "AVI_BUILDER_HOSTNAME": "avibuilder.com",
+    "YCODE_LEGACY_BUILDER_HOSTNAMES": "ycode.kolboschool.com"
   },
   "assets": {
     "directory": ".open-next/assets",
@@ -22,13 +22,14 @@
   "services": [
     {
       "binding": "WORKER_SELF_REFERENCE",
-      "service": "avi-builder-staging"
+      "service": "avi-builder"
     }
   ],
   "hyperdrive": [
     {
       "binding": "HYPERDRIVE",
-      "id": "63de18587cd1449081ceb8a59753c273"
+      "id": "63de18587cd1449081ceb8a59753c273",
+      "localConnectionString": "postgres://postgres:postgres@127.0.0.1:5432/postgres"
     }
   ],
   "kv_namespaces": [

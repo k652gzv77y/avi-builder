@@ -46,7 +46,10 @@ function getRequestHostname(request: NextRequest): string {
 }
 
 function isBuilderHost(hostname: string): boolean {
-  return hostname === BUILDER_HOSTNAME || hostname === `www.${BUILDER_HOSTNAME}`;
+  return hostname === BUILDER_HOSTNAME
+    || hostname === `www.${BUILDER_HOSTNAME}`
+    || hostname === 'localhost'
+    || hostname === '127.0.0.1';
 }
 
 function getBuilderPath(pathname: string, hostname: string): string | null {
@@ -169,8 +172,14 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL(PROJECTS_ROOT, request.url));
   }
 
-  if (onBuilder && (pathname.endsWith('/welcome') || pathname === '/welcome')) {
-    return NextResponse.redirect(new URL(projectSlug ? `/projects/${projectSlug}` : PROJECTS_ROOT, request.url));
+  // The first-run wizard must stay reachable on localhost so `npm run dev`
+  // can finish setup. On the public builder host, never trap a live install
+  // on /welcome — send those requests back to the project or dashboard.
+  if (pathname === '/welcome' || pathname.endsWith('/welcome')) {
+    const isLocalBuilder = hostname === 'localhost' || hostname === '127.0.0.1';
+    if (onBuilder && !isLocalBuilder) {
+      return NextResponse.redirect(new URL(projectSlug ? `/projects/${projectSlug}` : PROJECTS_ROOT, request.url));
+    }
   }
 
   if (!onBuilder && (pathname.startsWith('/projects') || pathname.startsWith('/ycode') || pathname.endsWith('/welcome'))) {

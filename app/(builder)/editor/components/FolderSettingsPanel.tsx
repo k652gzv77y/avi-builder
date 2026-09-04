@@ -34,6 +34,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import Icon from '@/components/ui/icon';
+import { builderOverlayLeft } from '@/lib/builder-chrome';
 import { buildFolderPath, isDescendantFolder, generateUniqueFolderSlug, generateSlug, sanitizeSlug, isReservedRootSlug } from '@/lib/page-utils';
 
 export interface FolderSettingsPanelHandle {
@@ -476,14 +477,14 @@ const FolderSettingsPanel = React.forwardRef<FolderSettingsPanelHandle, FolderSe
       {/* Backdrop */}
       <div
         className="fixed inset-0 z-40"
-        style={{ left: `${leftSidebarWidth}px` }}
+        style={{ left: `${builderOverlayLeft(leftSidebarWidth)}px` }}
         onClick={handleClose}
       />
 
       {/* Panel */}
       <div
-        className="fixed top-14 bottom-0 w-125 bg-background border-r z-50 flex flex-col"
-        style={{ left: `${leftSidebarWidth}px` }}
+        className="fixed top-10 bottom-0 w-125 bg-background border-r z-50 flex flex-col"
+        style={{ left: `${builderOverlayLeft(leftSidebarWidth)}px` }}
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4">
