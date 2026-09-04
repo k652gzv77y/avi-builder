@@ -6,6 +6,7 @@
  */
 
 const RESERVED_PROJECT_SLUGS = new Set(['oauth', 'auth']);
+const PROJECTS_FALLBACK = '/projects';
 
 /** Set by proxy.ts on rewritten /projects/:slug requests so server routes can resolve the slug. */
 export const PROJECT_SLUG_HEADER = 'x-avi-project-slug';
@@ -22,10 +23,19 @@ export function getProjectSlugFromHeaders(headers: Headers | null | undefined): 
   return value && !RESERVED_PROJECT_SLUGS.has(value) ? value : null;
 }
 
+/** Last known slug for this isolate (SSR header or client URL). */
+let rememberedProjectSlug: string | null = null;
+
+export function rememberProjectSlug(slug: string | null | undefined): void {
+  if (slug && !RESERVED_PROJECT_SLUGS.has(slug)) {
+    rememberedProjectSlug = slug;
+  }
+}
+
 /** Current project slug from the browser URL (client-only). */
 export function getCurrentProjectSlug(): string | null {
-  if (typeof window === 'undefined') return null;
-  return getProjectSlugFromPath(window.location.pathname);
+  if (typeof window === 'undefined') return rememberedProjectSlug;
+  return getProjectSlugFromPath(window.location.pathname) ?? rememberedProjectSlug;
 }
 
 /**
@@ -48,8 +58,12 @@ export function projectsPath(
 
   slug = slug ?? getCurrentProjectSlug();
 
+  // Rewrites send /projects/:slug → /editor. During SSR there is no window, so
+  // throwing here 500s the canvas (login form Link, etc). Never throw.
   if (!slug) {
-    throw new Error(`Cannot resolve project URL for "${suffix}" — no /projects/:slug in the path`);
+    if (!suffix) return PROJECTS_FALLBACK;
+    const path = suffix.startsWith('/') ? suffix : `/${suffix}`;
+    return path.startsWith('/projects') ? path : `${PROJECTS_FALLBACK}${path}`;
   }
 
   if (!suffix) return `/projects/${slug}`;
