@@ -1,21 +1,28 @@
-/**
- * Settings navigation items for the settings sidebar.
- * Extracted for reuse and to allow cloud overlay to filter items.
- */
-
 export interface SettingsNavItem {
   id: string;
   label: string;
   path: string;
 }
 
-export const SETTINGS_NAV_ITEMS: SettingsNavItem[] = [
-  { id: 'general', label: 'General', path: '/projects/kolbo-school/settings/general' },
-  { id: 'agent', label: 'Agent', path: '/projects/kolbo-school/settings/agent' },
-  { id: 'users', label: 'Users', path: '/projects/kolbo-school/settings/users' },
-  { id: 'redirects', label: 'Redirects', path: '/projects/kolbo-school/settings/redirects' },
-  { id: 'security', label: 'Security', path: '/projects/kolbo-school/settings/security' },
-  { id: 'email', label: 'Email', path: '/projects/kolbo-school/settings/email' },
-  { id: 'templates', label: 'Templates', path: '/projects/kolbo-school/settings/templates' },
-  { id: 'updates', label: 'Updates', path: '/projects/kolbo-school/settings/updates' },
-];
+export function getProjectSlugFromPath(pathname: string | null): string {
+  const match = pathname?.match(/^\/projects\/([^/]+)/);
+  return match?.[1] || 'kolbo-school';
+}
+
+export function getSettingsNavItems(slug = 'kolbo-school'): SettingsNavItem[] {
+  const root = `/projects/${slug}/settings`;
+  return [
+    { id: 'general', label: 'General', path: `${root}/general` },
+    { id: 'domains', label: 'Domains', path: `${root}/domains` },
+    { id: 'cms', label: 'CMS / Supabase', path: `${root}/cms` },
+    { id: 'agent', label: 'Agent', path: `${root}/agent` },
+    { id: 'users', label: 'Users', path: `${root}/users` },
+    { id: 'redirects', label: 'Redirects', path: `${root}/redirects` },
+    { id: 'security', label: 'Security', path: `${root}/security` },
+    { id: 'email', label: 'Email', path: `${root}/email` },
+    { id: 'templates', label: 'Templates', path: `${root}/templates` },
+    { id: 'updates', label: 'Updates', path: `${root}/updates` },
+  ];
+}
+
+export const SETTINGS_NAV_ITEMS = getSettingsNavItems();
