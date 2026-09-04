@@ -5,21 +5,36 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { getProjectSlugFromPath } from '@/lib/settings-nav-items';
 
+interface CollectionRow {
+  id?: string;
+  name?: string;
+}
+
 export default function CmsSettingsPage() {
   const slug = getProjectSlugFromPath(usePathname());
   const searchParams = useSearchParams();
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [connected, setConnected] = useState(false);
+  const [collections, setCollections] = useState<CollectionRow[] | null>(null);
 
   useEffect(() => {
     if (searchParams.get('supabase') === 'connected') {
-      setConnected(true);
-      window.localStorage.setItem(`avi:sb:${slug}`, 'connected');
+      setMessage('Supabase authorized.');
     }
-    if (window.localStorage.getItem(`avi:sb:${slug}`) === 'connected') {
-      setConnected(true);
-    }
+    let cancelled = false;
+    fetch(`/projects/${slug}/api/collections`)
+      .then((res) => res.json())
+      .then((payload) => {
+        if (cancelled) return;
+        const rows = Array.isArray(payload?.data) ? payload.data : [];
+        setCollections(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setCollections([]);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [searchParams, slug]);
 
   async function connectSupabase() {
@@ -40,19 +55,33 @@ export default function CmsSettingsPage() {
     }
   }
 
+  const live = collections && collections.length > 0;
+
   return (
-    <div className="mx-auto max-w-2xl px-8 py-10">
+    <div className="max-w-xl">
       <h1 className="text-lg font-medium">CMS / Supabase</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        One-click connect uses your Supabase login. After consent you pick which Supabase project feeds this Avi project’s CMS.
+        Collections already load from the project database. One-click OAuth is for attaching a different Supabase project later.
       </p>
-      {connected ? (
-        <p className="mt-5 text-sm text-emerald-500">Supabase account connected. Project picker is next — Avi will list your Supabase projects so you can attach one.</p>
-      ) : (
-        <Button className="mt-5" onClick={() => void connectSupabase()} disabled={busy}>
-          {busy ? 'Opening Supabase…' : 'Connect Supabase'}
-        </Button>
-      )}
+      <div className="mt-5 rounded-xl border px-4 py-3 text-sm">
+        {collections === null ? (
+          <p className="text-muted-foreground">Checking CMS…</p>
+        ) : live ? (
+          <>
+            <p className="text-emerald-500">Connected — {collections.length} collection{collections.length === 1 ? '' : 's'} live.</p>
+            <ul className="mt-3 space-y-1 text-muted-foreground">
+              {collections.slice(0, 12).map((row) => (
+                <li key={row.id || row.name}>{row.name || row.id}</li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <p className="text-muted-foreground">No collections returned yet. Connect Supabase if this project has no database.</p>
+        )}
+      </div>
+      <Button className="mt-5" variant="outline" onClick={() => void connectSupabase()} disabled={busy}>
+        {busy ? 'Opening Supabase…' : 'Reconnect Supabase'}
+      </Button>
       {message && <p className="mt-3 text-sm text-amber-500">{message}</p>}
     </div>
   );

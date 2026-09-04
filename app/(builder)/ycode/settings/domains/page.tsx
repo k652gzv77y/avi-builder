@@ -5,22 +5,31 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { getProjectSlugFromPath } from '@/lib/settings-nav-items';
 
+const KNOWN_HOSTS: Record<string, { host: string; role: string }[]> = {
+  'kolbo-school': [
+    { host: 'kolbo-school.avibuilder.com', role: 'Preview' },
+    { host: 'kolboschool.com', role: 'Production' },
+    { host: 'www.kolboschool.com', role: 'Production' },
+    { host: 'beta.kolboschool.com', role: 'Staging' },
+  ],
+};
+
 export default function DomainsSettingsPage() {
   const slug = getProjectSlugFromPath(usePathname());
   const searchParams = useSearchParams();
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [connected, setConnected] = useState(false);
+  const hosts = KNOWN_HOSTS[slug] || [{ host: `${slug}.avibuilder.com`, role: 'Preview' }];
+  const hasCustom = hosts.some((h) => !h.host.endsWith('.avibuilder.com'));
 
   useEffect(() => {
     if (searchParams.get('cloudflare') === 'connected') {
-      setConnected(true);
-      window.localStorage.setItem(`avi:cf:${slug}`, 'connected');
+      setMessage('Cloudflare authorized. Pick a zone next to attach more hosts.');
     }
-    if (window.localStorage.getItem(`avi:cf:${slug}`) === 'connected') {
-      setConnected(true);
+    if (searchParams.get('error')) {
+      setMessage('Cloudflare declined or the client is still private / redirect URI mismatch.');
     }
-  }, [searchParams, slug]);
+  }, [searchParams]);
 
   async function connectCloudflare() {
     setBusy(true);
@@ -41,18 +50,25 @@ export default function DomainsSettingsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-8 py-10">
+    <div className="max-w-xl">
       <h1 className="text-lg font-medium">Domains</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        Preview is {slug}.avibuilder.com until you attach a zone you control.
+        This project already has hosts. Publish still ships the live site to the production host. Connect Cloudflare only when you need Avi to create records on a zone you own.
       </p>
-      {connected ? (
-        <p className="mt-5 text-sm text-emerald-500">Cloudflare account connected. Zone picker is next — Avi will list your zones so you can attach one to this project.</p>
-      ) : (
-        <Button className="mt-5" onClick={() => void connectCloudflare()} disabled={busy}>
-          {busy ? 'Opening Cloudflare…' : 'Connect Cloudflare'}
-        </Button>
+      <ul className="mt-5 divide-y rounded-xl border">
+        {hosts.map((row) => (
+          <li key={row.host} className="flex items-center justify-between px-4 py-3 text-sm">
+            <span className="truncate pr-3">{row.host}</span>
+            <span className="shrink-0 text-muted-foreground">{row.role}</span>
+          </li>
+        ))}
+      </ul>
+      {hasCustom && (
+        <p className="mt-4 text-sm text-emerald-500">Custom domain attached. Use Publish on desktop to ship to production.</p>
       )}
+      <Button className="mt-5" variant="outline" onClick={() => void connectCloudflare()} disabled={busy}>
+        {busy ? 'Opening Cloudflare…' : 'Reconnect Cloudflare'}
+      </Button>
       {message && <p className="mt-3 text-sm text-amber-500">{message}</p>}
     </div>
   );
