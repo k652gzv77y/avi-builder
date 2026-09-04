@@ -39,8 +39,9 @@ npm run deploy:worker
 ```
 
 Workers Builds often runs `npx wrangler deploy` (or `versions upload`) on
-preview branches without a prior OpenNext build. The `@opennextjs/cloudflare`
-patch makes `deploy` and `upload` build the worker when `.open-next` is missing.
+preview branches without a prior OpenNext build. `wrangler.jsonc` `build.command`
+runs `opennextjs-cloudflare build` first so `.open-next/worker.js` exists. The
+`@opennextjs/cloudflare` patch does the same when Wrangler delegates to OpenNext.
 
 Before the first deploy, add the Hyperdrive binding id and use the actual
 Cloudflare account in Wrangler. The dashboard Worker and `wrangler.jsonc`
