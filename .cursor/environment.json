@@ -1,0 +1,17 @@
+{
+  "name": "Avi Builder",
+  "install": "npm ci",
+  "terminals": [
+    {
+      "name": "dev",
+      "command": "AVI_BUILDER_HOSTNAME=localhost npm run dev",
+      "description": "Next.js dev server for Avi Builder on port 3002. Open http://localhost:3002/projects (dashboard) or http://localhost:3002/ycode (editor). AVI_BUILDER_HOSTNAME=localhost lets the builder routes resolve locally instead of redirecting to the production hostname. Add SUPABASE_* secrets in the Secrets panel to enable database-backed features; without them the app runs in its first-run setup state."
+    }
+  ],
+  "ports": [
+    {
+      "name": "dev server",
+      "port": 3002
+    }
+  ]
+}
