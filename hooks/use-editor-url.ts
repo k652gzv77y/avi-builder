@@ -70,11 +70,11 @@ export function useEditorUrl() {
   // Parse current URL to determine state
   const urlState = useMemo((): EditorUrlState => {
     // Match new patterns:
-    // - /ycode/layers/[id] → layer editing
-    // - /ycode/pages/[id] → page view (with optional ?edit query param for settings)
-    // - /ycode/collections → base collections view (no ID)
-    // - /ycode/collections/[id] → specific collection view (with optional ?new or ?edit=itemId query params)
-    // - /ycode/components/[id] → component editing
+    // - /projects/:slug/layers/[id] → layer editing
+    // - /projects/:slug/pages/[id] → page view (with optional ?edit query param for settings)
+    // - /projects/:slug/collections → base collections view (no ID)
+    // - /projects/:slug/collections/[id] → specific collection view (with optional ?new or ?edit=itemId query params)
+    // - /projects/:slug/components/[id] → component editing
 
     const layersMatch = pathname?.match(/^\/projects\/([^/]+)\/layers\/([^/]+)$/);
     const pageMatch = pathname?.match(/^\/projects\/([^/]+)\/pages\/([^/]+)$/);
@@ -226,7 +226,7 @@ export function useEditorUrl() {
       };
     }
 
-    // For /ycode base route
+    // For /projects/:slug base route
     return {
       type: null,
       resourceId: null,

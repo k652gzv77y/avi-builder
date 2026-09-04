@@ -2,7 +2,7 @@
 import { projectsPath } from '@/lib/project-url';
 
 /**
- * Ycode Builder Main Component
+ * Avi Builder Main Component
  *
  * Three-panel editor layout inspired by modern design tools
  *
@@ -293,7 +293,7 @@ export default function BuilderApp({ children }: BuilderAppProps = {} as Builder
   }, [editingComponentId, editingComponentVariantId, currentPageId, setDraftLayers]);
 
   // Import paste: insert layers produced by an import (Webflow / Figma).
-  // Placement mirrors Ycode's own copy/paste: insert inside the selected layer
+  // Placement mirrors Avi Builder's own copy/paste: insert inside the selected layer
   // when it can hold children, otherwise drop in as a sibling next to it; with
   // nothing suitable selected, fall back to the page root (body).
   const insertImportedLayers = useCallback((layers: Layer[], placement?: ExternalPastePlacement) => {
@@ -450,7 +450,7 @@ export default function BuilderApp({ children }: BuilderAppProps = {} as Builder
     setSelectedLayerId(layers[0].id);
   }, [canEditStructure, editingComponentId, components, currentPageId, getCurrentLayers, updateCurrentLayers, setSelectedLayerId, pasteInside, pasteAfter]);
 
-  // Normal Ycode paste (internal clipboard) — extracted from keydown so it
+  // Normal Avi Builder paste (internal clipboard) — extracted from keydown so it
   // can run inside the paste event handler after Figma detection fails.
   const handleNormalPaste = useCallback(() => {
     if (!canEditStructure) return;

@@ -1806,7 +1806,7 @@ const LAYER_NAME_TO_HTML_TAG: Record<string, string> = {
   // Filter
   filter: 'div',
 
-  // Checkbox / radio (the input itself is valid HTML; these are Ycode wrapper names)
+  // Checkbox / radio (the input itself is valid HTML; these are Avi Builder wrapper names)
   checkbox: 'input',
   radio: 'input',
 };

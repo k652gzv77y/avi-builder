@@ -2,7 +2,7 @@
  * Static export — asset bundlers.
  *
  * Two flavours:
- *   - public assets   : Ycode template placeholders that live in /public.
+ *   - public assets   : Avi Builder template placeholders that live in /public.
  *                        We read referenced URLs off disk and add them to
  *                        the output set so S3/GitHub-hosted exports don't
  *                        404 on projectsPath(`/layouts/assets/*`).
@@ -22,7 +22,7 @@ import { getSupabaseAdmin } from '@/lib/supabase-server'
 import { mediaContentType, type OutputFile } from './writers/types'
 
 /**
- * SEO-proxy URL pattern Ycode emits for asset variables: `/a/<22-char hash>/<filename>`.
+ * SEO-proxy URL pattern Avi Builder emits for asset variables: `/a/<22-char hash>/<filename>`.
  *
  * Stops at `?` and `&` so query-string variants (e.g. `?width=320`, `?width=1920`)
  * collapse to a single bundled file. Without this, separate files would be
@@ -128,7 +128,7 @@ async function fetchAssetByProxyUrl(
 }
 
 /**
- * Read referenced Ycode template placeholders from /public and append them
+ * Read referenced Avi Builder template placeholders from /public and append them
  * to the output list. Only the URLs actually used are pulled in.
  */
 export async function collectPublicAssets(urlPaths: string[]): Promise<OutputFile[]> {

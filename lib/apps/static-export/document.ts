@@ -45,7 +45,7 @@ export interface PageRenderContext {
 /**
  * Render the visible body content of a page.
  *
- * Ycode wraps each page's layers in a synthetic `body` layer whose children
+ * Avi Builder wraps each page's layers in a synthetic `body` layer whose children
  * are the real content. We render those children directly so the output
  * doesn't carry an extra wrapper `<div>`.
  */
@@ -123,7 +123,7 @@ function resolveSeoImage(image: PageSeo['image']): string | null {
 // Swiper bundling
 // =============================================================================
 
-// Swiper assets. We bundle Ycode's `public/swiper-minimal.css` rather than
+// Swiper assets. We bundle Avi Builder's `public/swiper-minimal.css` rather than
 // loading the full `swiper-bundle.min.css` from a CDN because the bundle
 // sets `.swiper { display: block }` and `.swiper-slide { display: block }`
 // which override the user's Tailwind `flex` utility at equal specificity.
@@ -274,8 +274,8 @@ const SLIDER_BOOT_SCRIPT = `
 
 /**
  * Minimal interactions runtime for the static export. Reads a JSON blob
- * Ycode emits per-page and wires click→display toggles + breakpoint-aware
- * on-load hiding. Intentionally a tiny subset of what Ycode's React
+ * Avi Builder emits per-page and wires click→display toggles + breakpoint-aware
+ * on-load hiding. Intentionally a tiny subset of what Avi Builder's React
  * AnimationInitializer + GSAP do at runtime.
  */
 const INTERACTIONS_BOOT_SCRIPT = `

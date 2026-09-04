@@ -139,7 +139,7 @@ export default function ApiPage() {
       <div className="max-w-3xl mx-auto">
 
         <header className="pt-8 pb-6 flex items-center justify-between">
-          <span className="text-base font-medium">Ycode API</span>
+          <span className="text-base font-medium">Avi API</span>
           <Button
             variant="secondary"
             size="sm"

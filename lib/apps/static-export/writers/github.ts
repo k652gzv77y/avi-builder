@@ -51,8 +51,8 @@ export async function createGithubWriter(config: ExportConfig): Promise<Writer> 
 
 async function pushViaApi(config: ExportConfig, files: OutputFile[]): Promise<number> {
   const { githubRepo: repo, githubBranch: branch, githubToken: token } = config
-  const authorName = config.githubAuthorName.trim() || 'Ycode Static Export'
-  const authorEmail = config.githubAuthorEmail.trim() || 'static-export@ycode.local'
+  const authorName = config.githubAuthorName.trim() || 'Avi Static Export'
+  const authorEmail = config.githubAuthorEmail.trim() || 'static-export@avi.local'
 
   const headers = apiHeaders(token)
 
@@ -287,8 +287,8 @@ async function bootstrapEmptyRepo(
   headers: HeadersInit,
 ): Promise<void> {
   const author = { name: authorName, email: authorEmail }
-  // base64 of "Ycode static export — initializing repository\n"
-  const content = Buffer.from('Ycode static export — initializing repository\n', 'utf-8').toString('base64')
+  // base64 of "Avi Builder static export — initializing repository\n"
+  const content = Buffer.from('Avi Builder static export — initializing repository\n', 'utf-8').toString('base64')
 
   const res = await fetch(
     `${GITHUB_API}/repos/${repo}/contents/.ycode-init`,
@@ -296,7 +296,7 @@ async function bootstrapEmptyRepo(
       method: 'PUT',
       headers,
       body: JSON.stringify({
-        message: 'Initialize repository for Ycode static export',
+        message: 'Initialize repository for Avi Builder static export',
         content,
         branch,
         author,

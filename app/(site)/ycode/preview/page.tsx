@@ -117,7 +117,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
   if (!data) {
     return {
-      title: 'Preview - Ycode',
+      title: 'Preview - Avi Builder',
       description: 'Preview - Built with AVI Builder',
     };
   }

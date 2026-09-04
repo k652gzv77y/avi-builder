@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 const INTEGRATIONS_ITEMS = [
   { id: 'apps', label: 'Apps', path: projectsPath('/integrations/apps') },
   { id: 'webhooks', label: 'Webhooks', path: projectsPath('/integrations/webhooks') },
-  { id: 'api', label: 'Ycode API', path: projectsPath('/integrations/api') },
+  { id: 'api', label: 'Avi API', path: projectsPath('/integrations/api') },
   { id: 'mcp', label: 'MCP', path: projectsPath('/integrations/mcp') },
 ];
 

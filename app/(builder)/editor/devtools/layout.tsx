@@ -4,8 +4,8 @@ import { projectsPath } from '@/lib/project-url';
 /**
  * Devtools Layout
  *
- * Requires authentication for all /ycode/devtools/* pages.
- * Redirects to /ycode (login screen) if not authenticated.
+ * Requires authentication for all /projects/:slug/devtools/* pages.
+ * Redirects to /projects/:slug if not authenticated.
  */
 
 import { useEffect } from 'react';

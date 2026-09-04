@@ -8,13 +8,13 @@ import { projectsPath } from '@/lib/project-url';
  * Intercepts the browser paste event and dispatches by source:
  *   1. Webflow XSCP payload   → shared import pipeline (`lib/import`)
  *   2. Figma plugin payload   → Figma converter (`lib/figma`)
- *   3. Anything else          → normal Ycode internal paste (`onNormalPaste`)
+ *   3. Anything else          → normal Avi Builder internal paste (`onNormalPaste`)
  *
  * Both design-tool branches produce `Layer[]` and hand them to the same
  * `insertLayers` callback, so insertion/placement logic lives in one place.
  *
  * Runs on the `paste` event (not keydown) so we can read `clipboardData`. The
- * Ycode canvas is a same-origin iframe, so a paste fired while focus is inside
+ * Avi Builder canvas is a same-origin iframe, so a paste fired while focus is inside
  * it never reaches the top document — we therefore bind the handler to the top
  * document AND every same-origin iframe document, re-attaching as iframes load.
  */
@@ -61,7 +61,7 @@ interface UseImportPasteOptions {
    * target; otherwise the host falls back to its default selection-based rule.
    */
   insertLayers: (layers: Layer[], placement?: ExternalPastePlacement) => void;
-  /** Fall back to Ycode's internal clipboard paste. */
+  /** Fall back to Avi Builder's internal clipboard paste. */
   onNormalPaste: () => void;
 }
 
@@ -420,7 +420,7 @@ export function useImportPaste({
             );
           }
         } catch (error) {
-          console.error('[useImportPaste] Ycode cross-project paste failed:', error);
+          console.error('[useImportPaste] Avi cross-project paste failed:', error);
           toast.error('Failed to paste', {
             id: toastId,
             description: error instanceof Error ? error.message : 'Unknown error',
@@ -502,7 +502,7 @@ export function useImportPaste({
 
     const text = readClipboardText(e.clipboardData);
 
-    // 0. Internal Ycode bundle — a self-contained copy (layers + their styles,
+    // 0. Internal Avi clipboard bundle — a self-contained copy (layers + their styles,
     // components, assets, fonts) that works across tabs/browsers/projects. Parse
     // it here; if it's there but unparseable (truncated), fall back to the
     // in-memory clipboard so same-tab paste still works.
@@ -564,7 +564,7 @@ export function useImportPaste({
       return;
     }
 
-    // 3. Normal Ycode internal paste.
+    // 3. Normal Avi Builder internal paste.
     e.preventDefault();
     if (!isProcessingRef.current) onNormalPaste();
   }, [enabled, importWebflow, importFigma, importYcode, onNormalPaste]);

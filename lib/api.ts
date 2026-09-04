@@ -1,5 +1,5 @@
 /**
- * API Client for Ycode Builder
+ * API Client for Avi Builder
  *
  * Handles communication with Next.js API routes
  */

@@ -151,7 +151,7 @@ export async function POST(
       event: 'test',
       timestamp: new Date().toISOString(),
       data: {
-        message: 'This is a test webhook from Ycode',
+        message: 'This is a test webhook from Avi Builder',
         webhook_id: webhook.id,
         webhook_name: webhook.name,
       },
@@ -162,7 +162,7 @@ export async function POST(
     // Build headers
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      'User-Agent': 'Ycode-Webhook/1.0',
+      'User-Agent': 'Avi-Builder-Webhook/1.0',
       'X-Ycode-Event': 'test',
     };
 

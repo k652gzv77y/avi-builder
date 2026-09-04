@@ -227,14 +227,14 @@ export async function exportSite(presetJobId?: string): Promise<ExportJob> {
             pageCustomCodeBody: resolved.pageCustomCodeBody,
           })
 
-          // Collect Ycode's built-in placeholder URLs referenced from this
+          // Collect Avi Builder's built-in placeholder URLs referenced from this
           // page so we can ship them alongside the HTML for fully
           // self-contained hosting (collect before relativizing).
           for (const match of html.matchAll(/\/projects\/[^/]+\/layouts\/assets\/[^"'\s)]+/g)) {
             referencedAssetPaths.add(match[0])
           }
 
-          // When a page contains a slider, bundle Ycode's minimal Swiper CSS
+          // When a page contains a slider, bundle Avi Builder's minimal Swiper CSS
           // from /public — the export's <link> in <head> points at this path.
           if (resolved.hasSlider) {
             referencedAssetPaths.add(SWIPER_CSS_PATH)

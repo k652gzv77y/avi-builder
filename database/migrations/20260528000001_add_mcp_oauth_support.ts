@@ -6,7 +6,7 @@ import { projectsPath } from '@/lib/project-url';
  *
  * Adds two new tables and extends `mcp_tokens` with OAuth-related columns so that
  * Claude.ai web and ChatGPT custom connectors (which require OAuth + PKCE per the
- * MCP authorization spec 2025-06-18) can authenticate against the YCode MCP server.
+ * MCP authorization spec 2025-06-18) can authenticate against the Avi Builder MCP server.
  *
  * The existing URL-token flow (projectsPath(`/mcp/[token]`)) remains unchanged for
  * backward compatibility with Cursor, Windsurf, Claude Desktop, and Claude Code.

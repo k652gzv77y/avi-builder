@@ -8,7 +8,7 @@ import ConsentForm from './ConsentForm';
  * OAuth Consent Page
  *
  * Server component that validates the OAuth request server-side:
- *  - Requires a logged-in YCode user (redirects to login with ?next= otherwise).
+ *  - Requires a logged-in Avi Builder user (redirects to login with ?next= otherwise).
  *  - Looks up the registered client by `client_id`.
  *  - Validates the supplied `redirect_uri` was registered at DCR time.
  *  - Enforces the MCP-required PKCE method (S256).
@@ -118,7 +118,7 @@ export default async function AuthorizePage({
     return (
       <ErrorPanel
         title="Unknown client"
-        message="The application requesting access has not been registered with this YCode instance."
+        message="The application requesting access has not been registered with this Avi Builder instance."
       />
     );
   }

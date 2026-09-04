@@ -81,7 +81,7 @@ export interface ProviderStreamOptions {
 }
 
 /**
- * An LLM backend. The BYOK Anthropic provider ships in this repo; the Ycode
+ * An LLM backend. The BYOK Anthropic provider ships in this repo; the Avi Builder
  * Cloud overlay registers a hosted provider implementing the same interface.
  */
 export interface AgentProvider {

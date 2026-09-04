@@ -1,10 +1,10 @@
 # Framer Parity Checklist
 
 Use this document to select the first builder capabilities to implement. Check the
-`Implement first` box for any item you want prioritized. Existing Ycode support
+`Implement first` box for any item you want prioritized. Existing Avi Builder support
 is marked separately from parity work so we do not rebuild working capabilities.
 
-Legend: `[x]` present in Ycode, `[~]` partial or needs verification, `[ ]` missing
+Legend: `[x]` present in Avi Builder, `[~]` partial or needs verification, `[ ]` missing
 or materially below Framer's workflow.
 
 ## 1. Project, Canvas, and Pages

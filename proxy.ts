@@ -179,9 +179,16 @@ export async function proxy(request: NextRequest) {
 
   const effectivePathname = builderPath ?? pathname;
 
-  // Legacy /ycode builder paths → /editor (API + pages). Preview stays on /ycode/preview.
-  if (!builderPath && effectivePathname.startsWith('/ycode') && !effectivePathname.startsWith('/ycode/preview')) {
-    const rewritten = effectivePathname.replace(/^\/ycode/, '/editor');
+  // Legacy /ycode paths. Preview stays on /ycode/preview.
+  // Product pages redirect to /projects/:slug; API/MCP rewrite to /editor handlers.
+  if (!builderPath && pathname.startsWith('/ycode') && !pathname.startsWith('/ycode/preview')) {
+    const isApiOrMcp = pathname.startsWith('/ycode/api') || pathname.startsWith('/ycode/mcp');
+    if (!isApiOrMcp && onBuilder) {
+      const rest = pathname.replace(/^\/ycode/, '') || '';
+      const target = projectSlug ? `/projects/${projectSlug}${rest}` : PROJECTS_ROOT;
+      return NextResponse.redirect(new URL(target + request.nextUrl.search, request.url));
+    }
+    const rewritten = pathname.replace(/^\/ycode/, '/editor');
     const response = NextResponse.rewrite(new URL(rewritten + request.nextUrl.search, request.url));
     response.headers.set('x-pathname', rewritten);
     if (projectSlug) {

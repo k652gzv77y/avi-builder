@@ -8,7 +8,7 @@ import type { AgentProviderId } from '@/lib/agent/models';
  *
  * For self-hosters (BYOK), each provider's API key comes from the settings
  * store or the environment; the model is configurable with a sensible default.
- * The Ycode Cloud overlay supplies its own hosted resolution.
+ * The Avi Builder Cloud overlay supplies its own hosted resolution.
  */
 
 /** Default model when nothing is configured. Overridable via ANTHROPIC_MODEL or settings. */
@@ -35,7 +35,7 @@ export const MAX_TOOL_TURNS = 24;
  * gets a resumable "ran out of time" error instead of a silent cut.
  *
  * The default matches vercel.json's 300s (the Vercel hobby-plan ceiling).
- * Deployments that raise maxDuration in their own vercel.json (e.g. Ycode
+ * Deployments that raise maxDuration in their own vercel.json (e.g. Avi Builder
  * Cloud at 800s) must set AI_CHAT_MAX_DURATION (seconds) to the same value.
  * The 60s buffer below `maxDuration` must cover one full provider turn plus
  * its tool calls and the end-of-run snapshot/CSS work.

@@ -1,7 +1,7 @@
 /**
  * Layer style resolution.
  *
- * Ycode renders from the flat `layer.classes` string, but a layer can reference
+ * Avi Builder renders from the flat `layer.classes` string, but a layer can reference
  * an ordered stack of reusable `LayerStyle`s (`styleIds`, low -> high priority)
  * plus per-layer `styleOverrides` (highest). This module is the single place
  * that flattens that stack into the conflict-free string the renderer prints —
@@ -33,7 +33,7 @@ function classPrefix(cls: string): string {
  * wins). Stacking two utilities for the same property (e.g. base `bg-[#f3f4f6]`
  * and combo `bg-[#19292a]`) doesn't cascade by attribute order in the compiled
  * stylesheet, so the wrong one can win. We therefore drop the earlier
- * conflicting class, keeping the later one. Reuses Ycode's own property-aware
+ * conflicting class, keeping the later one. Reuses Avi Builder's own property-aware
  * conflict detection, which (unlike tailwind-merge) correctly separates
  * background-color vs background-image, font-size vs text-color, etc.
  */

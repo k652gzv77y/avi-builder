@@ -4,7 +4,7 @@ import { projectsPath } from '@/lib/project-url';
 
 import { useEffect, useState } from 'react';
 import LayerRendererPublic from '@/components/LayerRendererPublic';
-import YcodeBadge from '@/components/YcodeBadge';
+import AviBadge from '@/components/AviBadge';
 import type { PageData } from '@/lib/page-fetcher';
 
 interface ErrorProps {
@@ -91,7 +91,7 @@ export default function Error({ error, reset }: ErrorProps) {
         {customCodeBody && (
           <div dangerouslySetInnerHTML={{ __html: customCodeBody }} />
         )}
-        {showBadge && <YcodeBadge />}
+        {showBadge && <AviBadge />}
       </>
     );
   }
@@ -111,7 +111,7 @@ export default function Error({ error, reset }: ErrorProps) {
           Try Again
         </button>
       </div>
-      {showBadge && <YcodeBadge />}
+      {showBadge && <AviBadge />}
     </div>
   );
 }

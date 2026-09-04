@@ -2,7 +2,7 @@ import knex, { Knex } from 'knex';
 import knexfileConfig from '../knexfile';
 
 /**
- * Knex Client for Ycode Migrations
+ * Knex Client for Avi Builder Migrations
  *
  * Creates a knex instance connected to the user's Supabase PostgreSQL database
  * Uses configuration from knexfile.ts based on NODE_ENV

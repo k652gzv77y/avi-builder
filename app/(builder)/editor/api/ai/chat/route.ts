@@ -22,7 +22,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 // This route's maxDuration is set in vercel.json (300s — the Vercel hobby-plan
 // ceiling), NOT exported here: a route-level export always overrides
-// vercel.json, which would prevent paid deployments (e.g. Ycode Cloud) from
+// vercel.json, which would prevent paid deployments (e.g. Avi Builder Cloud) from
 // raising it in their own vercel.json. Deployments that raise it must also set
 // AI_CHAT_MAX_DURATION to match, so the agent loop (MAX_RUN_MS in
 // lib/agent/config.ts) stops itself before Vercel hard-kills the function

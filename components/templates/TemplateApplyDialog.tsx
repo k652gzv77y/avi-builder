@@ -64,7 +64,7 @@ export function TemplateApplyDialog({
       onOpenChange(false);
       onSuccess?.();
 
-      // Navigate to /ycode to refresh the whole app with new content
+      // Navigate to /projects/:slug to refresh the whole app with new content
       window.location.href = projectsPath('');
     } catch (err) {
       console.error('[TemplateApplyDialog] Error:', err);

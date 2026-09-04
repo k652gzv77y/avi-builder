@@ -4,7 +4,7 @@ import BuilderApp from '../components/BuilderMain';
 
 /**
  * Base route for collections view
- * URL: /ycode/collections
+ * URL: /projects/:slug/collections
  *
  * This route renders the same BuilderApp component.
  * Shows all collections or empty state when no collections exist.

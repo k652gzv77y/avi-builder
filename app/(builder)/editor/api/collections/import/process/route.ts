@@ -61,7 +61,7 @@ function extractFilenameFromUrl(url: string): string {
 async function downloadAndUploadAsset(url: string): Promise<UploadedAsset | null> {
   try {
     const response = await fetch(sanitizeUrl(url), {
-      headers: { 'User-Agent': 'Ycode-CSV-Import/1.0' },
+      headers: { 'User-Agent': 'Avi-Builder-CSV-Import/1.0' },
     });
 
     if (!response.ok) {

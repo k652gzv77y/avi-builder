@@ -80,7 +80,7 @@ export default function GeneralSettingsPage() {
   const [customCodeBody, setCustomCodeBody] = useState(storedCustomCodeBody || '');
   const [isSavingCustomCode, setIsSavingCustomCode] = useState(false);
 
-  // Initialize Ycode badge from store
+  // Initialize Avi badge from store
   const storedYcodeBadge = getSettingByKey('ycode_badge') as boolean | null;
   const [ycodeBadge, setYcodeBadge] = useState(storedYcodeBadge ?? true);
   const [isSavingWebsite, setIsSavingWebsite] = useState(false);
@@ -496,7 +496,7 @@ export default function GeneralSettingsPage() {
                     <FieldDescription>
                       {isCloudVersion()
                         ? 'Upgrade to a project plan in order to disable the badge.'
-                        : 'Help support Ycode by displaying this badge on your website.'}
+                        : 'Help support Avi Builder by displaying this badge on your website.'}
                     </FieldDescription>
                   </FieldContent>
                   <Switch
@@ -566,7 +566,7 @@ export default function GeneralSettingsPage() {
                     Google Analytics Measurement ID
                   </FieldLabel>
                   <FieldDescription>
-                    Seamlessly integrate Google Analytics into your Ycode site. As the site owner, you are responsible for ensuring your site complies with privacy regulations, such as GDPR, and handles data appropriately.
+                    Seamlessly integrate Google Analytics into your Avi Builder site. As the site owner, you are responsible for ensuring your site complies with privacy regulations, such as GDPR, and handles data appropriately.
                   </FieldDescription>
                   <Input
                     id="google-analytics-measurement-id"
@@ -648,7 +648,7 @@ export default function GeneralSettingsPage() {
                   <Tabs value={activeSeoTab} onValueChange={handleSitemapTabChange}>
                     <TabsList className="w-full">
                       <TabsTrigger value="no-sitemap">No sitemap</TabsTrigger>
-                      <TabsTrigger value="ycode-sitemap">Ycode generated</TabsTrigger>
+                      <TabsTrigger value="ycode-sitemap">Avi generated</TabsTrigger>
                       <TabsTrigger value="custom-sitemap">Custom XML</TabsTrigger>
                     </TabsList>
 

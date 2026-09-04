@@ -1,7 +1,7 @@
 import BuilderLayoutClient from './BuilderLayoutClient';
 
 /**
- * YCode Editor Layout (Server Component)
+ * Avi Builder Editor Layout (Server Component)
  * 
  * Forces dynamic rendering for all /ycode/* routes.
  * This is required because:

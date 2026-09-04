@@ -268,5 +268,5 @@ export function unauthorizedJson(message: string): Response {
  */
 export function buildWwwAuthenticateHeader(baseUrl: string): string {
   const resourceMetadata = `${baseUrl}/.well-known/oauth-protected-resource`;
-  return `Bearer realm="ycode", resource_metadata="${resourceMetadata}"`;
+  return `Bearer realm="avi-builder", resource_metadata="${resourceMetadata}"`;
 }
