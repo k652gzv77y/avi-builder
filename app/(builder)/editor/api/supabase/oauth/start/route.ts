@@ -28,7 +28,13 @@ export async function GET(request: NextRequest) {
   url.searchParams.set('response_type', 'code');
   url.searchParams.set('state', project);
 
-  const res = NextResponse.json({ url: url.toString() });
+  const wantsJson = request.nextUrl.searchParams.get('json') === '1'
+    || (request.headers.get('accept') || '').includes('application/json');
+
+  const res = wantsJson
+    ? NextResponse.json({ url: url.toString() })
+    : NextResponse.redirect(url.toString());
+
   if (project && project !== 'unknown') {
     res.cookies.set('avi_oauth_project', project, {
       httpOnly: true,
