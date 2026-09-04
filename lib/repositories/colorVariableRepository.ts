@@ -7,6 +7,13 @@
 
 import { getSupabaseAdmin } from '@/lib/supabase-server';
 import { generateContentHash } from '@/lib/hash-utils';
+import { getSettingsByKeys } from '@/lib/repositories/settingsRepository';
+import {
+  COLOR_MODE_VALUES_SETTING_KEY,
+  VARIABLE_MODES_SETTING_KEY,
+  type ColorModeValuesSetting,
+  type VariableModesSetting,
+} from '@/lib/variable-collections';
 import type { ColorVariable } from '@/types';
 
 export interface CreateColorVariableData {
@@ -19,9 +26,6 @@ export interface UpdateColorVariableData {
   value?: string;
 }
 
-/**
- * Convert a stored color value (#hex or #hex/opacity) to a CSS-ready value.
- */
 function toCssValue(val: string): string {
   const parts = val.split('/');
   if (parts.length < 2) return val;
@@ -33,16 +37,46 @@ function toCssValue(val: string): string {
   return `rgba(${r},${g},${b},${opacity})`;
 }
 
-/**
- * Generate a `:root { ... }` CSS string with all color variable declarations.
- * Returns null if no variables exist.
- */
+function findDarkModeId(modes: VariableModesSetting | null | undefined): string | null {
+  const list = modes?.colors || [];
+  const dark = list.find((mode) => mode.name.trim().toLowerCase() === 'dark' || mode.id.toLowerCase() === 'dark');
+  return dark?.id || null;
+}
+
 export async function generateColorVariablesCss(): Promise<string | null> {
   try {
     const colorVars = await getAllColorVariables();
     if (colorVars.length === 0) return null;
-    const declarations = colorVars.map((v) => `--${v.id}: ${toCssValue(v.value)};`).join(' ');
-    return `:root { ${declarations} }`;
+
+    const settings = await getSettingsByKeys([
+      VARIABLE_MODES_SETTING_KEY,
+      COLOR_MODE_VALUES_SETTING_KEY,
+    ]);
+    const modes = settings[VARIABLE_MODES_SETTING_KEY] as VariableModesSetting | undefined;
+    const modeValues = (settings[COLOR_MODE_VALUES_SETTING_KEY] || {}) as ColorModeValuesSetting;
+    const darkModeId = findDarkModeId(modes);
+
+    const lightDecls = colorVars.map((v) => `--${v.id}: ${toCssValue(v.value)};`).join(' ');
+    const darkDecls = darkModeId
+      ? colorVars
+          .map((v) => {
+            const darkValue = modeValues[v.id]?.[darkModeId];
+            if (!darkValue) return null;
+            return `--${v.id}: ${toCssValue(darkValue)};`;
+          })
+          .filter(Boolean)
+          .join(' ')
+      : '';
+
+    if (!darkDecls) {
+      return `:root { ${lightDecls} }`;
+    }
+
+    return [
+      `:root { ${lightDecls} }`,
+      `html.dark { ${darkDecls} }`,
+      `@media (prefers-color-scheme: dark) { html:not(.light) { ${darkDecls} } }`,
+    ].join(' ');
   } catch {
     return null;
   }
@@ -66,151 +100,4 @@ export async function getAllColorVariables(): Promise<ColorVariable[]> {
   }
 
   return data || [];
-}
-
-export async function getColorVariableById(id: string): Promise<ColorVariable | null> {
-  const client = await getSupabaseAdmin();
-
-  if (!client) {
-    throw new Error('Supabase not configured');
-  }
-
-  const { data, error } = await client
-    .from('color_variables')
-    .select('*')
-    .eq('id', id)
-    .single();
-
-  if (error) {
-    if (error.code === 'PGRST116') {
-      return null;
-    }
-    throw new Error(`Failed to fetch color variable: ${error.message}`);
-  }
-
-  return data;
-}
-
-export async function createColorVariable(
-  variableData: CreateColorVariableData
-): Promise<ColorVariable> {
-  const client = await getSupabaseAdmin();
-
-  if (!client) {
-    throw new Error('Supabase not configured');
-  }
-
-  // Get max sort_order to append at end
-  const { data: maxRow } = await client
-    .from('color_variables')
-    .select('sort_order')
-    .order('sort_order', { ascending: false })
-    .limit(1)
-    .single();
-  const nextOrder = (maxRow?.sort_order ?? -1) + 1;
-
-  const { data, error } = await client
-    .from('color_variables')
-    .insert({ ...variableData, sort_order: nextOrder })
-    .select()
-    .single();
-
-  if (error) {
-    throw new Error(`Failed to create color variable: ${error.message}`);
-  }
-
-  return data;
-}
-
-export async function updateColorVariable(
-  id: string,
-  updates: UpdateColorVariableData
-): Promise<ColorVariable> {
-  const client = await getSupabaseAdmin();
-
-  if (!client) {
-    throw new Error('Supabase not configured');
-  }
-
-  const { data, error } = await client
-    .from('color_variables')
-    .update({ ...updates, updated_at: new Date().toISOString() })
-    .eq('id', id)
-    .select()
-    .single();
-
-  if (error) {
-    throw new Error(`Failed to update color variable: ${error.message}`);
-  }
-
-  return data;
-}
-
-export async function deleteColorVariable(id: string): Promise<void> {
-  const client = await getSupabaseAdmin();
-
-  if (!client) {
-    throw new Error('Supabase not configured');
-  }
-
-  const { error } = await client
-    .from('color_variables')
-    .delete()
-    .eq('id', id);
-
-  if (error) {
-    throw new Error(`Failed to delete color variable: ${error.message}`);
-  }
-}
-
-export async function reorderColorVariables(
-  orderedIds: string[]
-): Promise<void> {
-  const client = await getSupabaseAdmin();
-
-  if (!client) {
-    throw new Error('Supabase not configured');
-  }
-
-  // Fetch full rows so upsert includes all NOT NULL columns
-  const { data: existing, error: fetchError } = await client
-    .from('color_variables')
-    .select('*')
-    .in('id', orderedIds);
-
-  if (fetchError) {
-    throw new Error(`Failed to fetch color variables for reorder: ${fetchError.message}`);
-  }
-
-  const existingMap = new Map((existing || []).map((v) => [v.id, v]));
-  const now = new Date().toISOString();
-
-  const updates = orderedIds
-    .map((id, index) => {
-      const row = existingMap.get(id);
-      if (!row) return null;
-      return { ...row, sort_order: index, updated_at: now };
-    })
-    .filter(Boolean);
-
-  const { error } = await client
-    .from('color_variables')
-    .upsert(updates, { onConflict: 'id' });
-
-  if (error) {
-    throw new Error(`Failed to reorder color variables: ${error.message}`);
-  }
-}
-
-/**
- * Compute a deterministic hash of all color variables.
- * Used to detect changes between publishes — color variables have no
- * draft/published model so we compare the current state against a
- * stored snapshot hash.
- */
-export async function getColorVariablesHash(): Promise<string> {
-  const variables = await getAllColorVariables();
-  return generateContentHash(
-    variables.map(v => ({ id: v.id, name: v.name, value: v.value, sort_order: v.sort_order }))
-  );
 }
