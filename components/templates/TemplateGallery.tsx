@@ -1,4 +1,5 @@
 'use client';
+import { projectsPath } from '@/lib/project-url';
 
 /**
  * TemplateGallery Component
@@ -93,7 +94,7 @@ export function TemplateGallery({
       }
 
       onApplySuccess?.();
-      window.location.href = '/projects/kolbo-school';
+      window.location.href = projectsPath('');
     } catch (err) {
       console.error('[TemplateGallery] Apply error:', err);
       setApplyError(

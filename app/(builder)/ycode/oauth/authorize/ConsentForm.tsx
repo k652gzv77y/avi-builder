@@ -1,5 +1,7 @@
 'use client';
 
+import { projectsPath } from '@/lib/project-url';
+
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -31,7 +33,7 @@ export default function ConsentForm(props: ConsentFormProps) {
     setError(null);
 
     try {
-      const response = await fetch('/projects/kolbo-school/api/oauth/authorize', {
+      const response = await fetch(projectsPath('/api/oauth/authorize'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

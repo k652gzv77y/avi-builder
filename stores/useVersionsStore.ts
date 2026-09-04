@@ -8,6 +8,7 @@
 'use client';
 
 import { create } from 'zustand';
+import { projectsPath } from '@/lib/project-url';
 import type { Version, VersionEntityType, VersionHistoryItem } from '@/types';
 
 // Entity key for tracking (combines type and id)
@@ -217,7 +218,7 @@ export const useVersionsStore = create<VersionsStore>((set, get) => ({
 
     try {
       const response = await fetch(
-        `/projects/kolbo-school/api/versions?entityType=${entityType}&entityId=${entityId}&limit=100`
+        projectsPath(`/api/versions?entityType=${entityType}&entityId=${entityId}&limit=100`)
       );
       const result = await response.json();
 
@@ -394,7 +395,7 @@ export const useVersionsStore = create<VersionsStore>((set, get) => ({
     // Fetch if not cached
     if (!version) {
       try {
-        const response = await fetch(`/projects/kolbo-school/api/versions/${versionId}`);
+        const response = await fetch(projectsPath(`/api/versions/${versionId}`));
         const result = await response.json();
         if (result.data) {
           version = result.data;
@@ -425,7 +426,7 @@ export const useVersionsStore = create<VersionsStore>((set, get) => ({
       // Fetch if not cached
       if (!previousVersion) {
         try {
-          const response = await fetch(`/projects/kolbo-school/api/versions/${previousVersionId}`);
+          const response = await fetch(projectsPath(`/api/versions/${previousVersionId}`));
           const result = await response.json();
           if (result.data) {
             previousVersion = result.data;
@@ -480,7 +481,7 @@ export const useVersionsStore = create<VersionsStore>((set, get) => ({
     // Fetch if not cached
     if (!version) {
       try {
-        const response = await fetch(`/projects/kolbo-school/api/versions/${versionId}`);
+        const response = await fetch(projectsPath(`/api/versions/${versionId}`));
         const result = await response.json();
         if (result.data) {
           version = result.data;
@@ -554,7 +555,7 @@ export const useVersionsStore = create<VersionsStore>((set, get) => ({
 
     if (!version) {
       try {
-        const response = await fetch(`/projects/kolbo-school/api/versions/${versionId}`);
+        const response = await fetch(projectsPath(`/api/versions/${versionId}`));
         const result = await response.json();
         if (result.data) {
           version = result.data;

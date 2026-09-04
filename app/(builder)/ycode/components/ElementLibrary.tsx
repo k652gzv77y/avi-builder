@@ -1,5 +1,7 @@
 'use client';
 
+import { projectsPath } from '@/lib/project-url';
+
 /**
  * Element Library Slide-Out Panel
  *
@@ -1107,7 +1109,7 @@ export default function ElementLibrary({ isOpen, onClose, liveLayerUpdates }: El
     }
 
     try {
-      const response = await fetch(`/projects/kolbo-school/api/layouts/${layoutKey}`, {
+      const response = await fetch(projectsPath(`/api/layouts/${layoutKey}`), {
         method: 'DELETE',
       });
 
@@ -1152,7 +1154,7 @@ export default function ElementLibrary({ isOpen, onClose, liveLayerUpdates }: El
       const newLayoutKey = layoutName.toLowerCase().replace(/\s+/g, '-');
 
       // Call API to update layout
-      const response = await fetch(`/projects/kolbo-school/api/layouts/${oldLayoutKey}`, {
+      const response = await fetch(projectsPath(`/api/layouts/${oldLayoutKey}`), {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

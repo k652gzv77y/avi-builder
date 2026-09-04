@@ -1,5 +1,7 @@
 'use client';
 
+import { projectsPath } from '@/lib/project-url';
+
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -811,7 +813,7 @@ function ConnectAgentState() {
         <button
           type="button"
           className="text-xs text-muted-foreground underline hover:text-foreground"
-          onClick={() => router.push('/projects/kolbo-school/settings/agent')}
+          onClick={() => router.push(projectsPath('/settings/agent'))}
         >
           Open Agent settings
         </button>

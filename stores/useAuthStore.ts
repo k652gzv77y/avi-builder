@@ -5,6 +5,7 @@
  */
 
 import { create } from 'zustand';
+import { projectsPath } from '@/lib/project-url';
 import { createBrowserClient } from '../lib/supabase-browser';
 import { extractRoleFromUser } from '@/lib/roles';
 import type { Provider, User, Session } from '@supabase/supabase-js';
@@ -109,7 +110,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/projects/kolbo-school`,
+          emailRedirectTo: `${window.location.origin}${projectsPath('')}`,
           // Note: Email confirmation should be disabled in Supabase Dashboard
           // (Authentication → Providers → Email → Disable "Confirm email")
           // This is recommended for self-hosted single-admin setups
@@ -201,7 +202,7 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
           // Exchange the PKCE code on the server, then return to the canonical
           // project route with its session cookies in place. The callback is
           // shared by every project, while `next` keeps the selected project.
-          redirectTo: `${window.location.origin}/projects/auth/callback?next=${encodeURIComponent('/projects/kolbo-school')}`,
+          redirectTo: `${window.location.origin}/projects/auth/callback?next=${encodeURIComponent('/projects')}`,
         },
       });
 

@@ -5,7 +5,7 @@
  *   - public assets   : Ycode template placeholders that live in /public.
  *                        We read referenced URLs off disk and add them to
  *                        the output set so S3/GitHub-hosted exports don't
- *                        404 on `/projects/kolbo-school/layouts/assets/*`.
+ *                        404 on projectsPath(`/layouts/assets/*`).
  *   - Supabase assets : user-uploaded files rendered via the `/a/<hash>/<name>`
  *                        proxy URL pattern. We decode the hash back to an
  *                        asset UUID, look up the row, fetch `public_url`,

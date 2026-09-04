@@ -1,5 +1,7 @@
 'use client';
 
+import { projectsPath } from '@/lib/project-url';
+
 import { useState, useEffect } from 'react';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -45,16 +47,16 @@ export default function McpPage() {
   const [generatedToken, setGeneratedToken] = useState<McpToken | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [mcpBearerUrl, setMcpBearerUrl] = useState('/projects/kolbo-school/mcp');
+  const [mcpBearerUrl, setMcpBearerUrl] = useState(projectsPath('/mcp'));
 
   useEffect(() => {
     fetchTokens();
-    setMcpBearerUrl(`${window.location.origin}/projects/kolbo-school/mcp`);
+    setMcpBearerUrl(`${window.location.origin}${projectsPath('/mcp')}`);
   }, []);
 
   const fetchTokens = async () => {
     try {
-      const response = await fetch('/projects/kolbo-school/api/mcp-tokens');
+      const response = await fetch(projectsPath('/api/mcp-tokens'));
       const result = await response.json();
       if (result.data) {
         setTokens(result.data);
@@ -71,7 +73,7 @@ export default function McpPage() {
 
     setIsGenerating(true);
     try {
-      const response = await fetch('/projects/kolbo-school/api/mcp-tokens', {
+      const response = await fetch(projectsPath('/api/mcp-tokens'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newTokenName.trim() }),
@@ -96,7 +98,7 @@ export default function McpPage() {
     if (!tokenToDelete) return;
 
     try {
-      await fetch(`/projects/kolbo-school/api/mcp-tokens/${tokenToDelete.id}`, {
+      await fetch(projectsPath(`/api/mcp-tokens/${tokenToDelete.id}`), {
         method: 'DELETE',
       });
       setTokens(tokens.filter(t => t.id !== tokenToDelete.id));

@@ -1,5 +1,7 @@
 'use client';
 
+import { projectsPath } from '@/lib/project-url';
+
 /**
  * Unified clipboard-paste importer.
  *
@@ -183,7 +185,7 @@ export function useImportPaste({
 
   /** Point the user at the Webflow Design settings to connect a published site. */
   const openWebflowSettings = useCallback(() => {
-    router.push('/projects/kolbo-school/integrations/apps?app=webflow');
+    router.push(projectsPath('/integrations/apps?app=webflow'));
   }, [router]);
 
   const importWebflow = useCallback(async (text: string, placement?: ExternalPastePlacement) => {

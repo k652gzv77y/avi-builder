@@ -1,5 +1,7 @@
 'use client';
 
+import { projectsPath } from '@/lib/project-url';
+
 /**
  * Layer Context Menu Component
  *
@@ -659,7 +661,7 @@ function LayerContextMenuInner({
       }
 
       // Call API to save layout
-      const response = await fetch('/projects/kolbo-school/api/layouts', {
+      const response = await fetch(projectsPath('/api/layouts'), {
         method: 'POST',
         body: formData,
       });

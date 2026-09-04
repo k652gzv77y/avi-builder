@@ -1,5 +1,7 @@
 'use client';
 
+import { projectsPath } from '@/lib/project-url';
+
 import React, { useEffect, useLayoutEffect, useRef, useCallback, useState } from 'react';
 import { useFilterStore } from '@/stores/useFilterStore';
 import { LOAD_MORE_APPENDED_ATTR } from '@/components/LoadMoreCollection';
@@ -29,7 +31,7 @@ interface FilterableCollectionProps {
   collectionLayerClasses?: string[];
   collectionLayerTag?: string;
   isPublished?: boolean;
-  /** Preview mode forces server-rendered links to use the `/projects/kolbo-school/preview` prefix. */
+  /** Preview mode forces server-rendered links to use the projectsPath(`/preview`) prefix. */
   isPreview?: boolean;
   /** Item ID of the dynamic-page collection being rendered (for `current-page` link keywords). */
   pageCollectionItemId?: string;
@@ -746,7 +748,7 @@ export default function FilterableCollection({
     abortRef.current = controller;
     inFlightRequestKeyRef.current = requestKey;
 
-    fetch(`/projects/kolbo-school/api/collections/${collectionId}/items/filter`, {
+    fetch(projectsPath(`/api/collections/${collectionId}/items/filter`), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

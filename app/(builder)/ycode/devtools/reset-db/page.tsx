@@ -1,5 +1,7 @@
 'use client';
 
+import { projectsPath } from '@/lib/project-url';
+
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Spinner } from '@/components/ui/spinner';
@@ -23,7 +25,7 @@ export default function ResetDatabasePage() {
       setLoading(true);
       setError(null);
 
-      const response = await fetch('/projects/kolbo-school/api/devtools/reset-db', {
+      const response = await fetch(projectsPath('/api/devtools/reset-db'), {
         method: 'POST',
       });
 
@@ -33,7 +35,7 @@ export default function ResetDatabasePage() {
         throw new Error(result.error || 'Failed to reset database');
       }
 
-      window.location.href = '/projects/kolbo-school';
+      window.location.href = projectsPath('');
     } catch (err) {
       console.error('Error resetting database:', err);
       setError(err instanceof Error ? err.message : 'Failed to reset database');

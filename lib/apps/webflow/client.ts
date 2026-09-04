@@ -4,11 +4,12 @@
  */
 
 import { ToastError } from '@/lib/toast-error';
+import { projectsPath } from '@/lib/project-url';
 import { WEBFLOW_SETTINGS } from './constants';
 import type { WebflowImport, WebflowSite, SyncResult } from './types';
 
-const BASE = '/projects/kolbo-school/api/apps/webflow';
-const SETTINGS_BASE = '/projects/kolbo-school/api/apps/webflow/settings';
+const BASE = projectsPath('/api/apps/webflow');
+const SETTINGS_BASE = projectsPath('/api/apps/webflow/settings');
 const JSON_HEADERS = { 'Content-Type': 'application/json' } as const;
 
 async function jsonFetch<T>(url: string, init?: RequestInit): Promise<T> {

@@ -1,5 +1,7 @@
 'use client';
 
+import { projectsPath } from '@/lib/project-url';
+
 /**
  * Invite User Button Component
  *
@@ -56,14 +58,14 @@ export const InviteUserButton: React.FC<InviteUserButtonProps> = ({
       setError(null);
       setSuccess(null);
 
-      const response = await fetch('/projects/kolbo-school/api/auth/invite', {
+      const response = await fetch(projectsPath('/api/auth/invite'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           email: email.trim(),
-          redirectTo: window.location.origin + '/projects/kolbo-school/accept-invite',
+          redirectTo: window.location.origin + projectsPath('/accept-invite'),
         }),
       });
 

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { projectsPath } from '@/lib/project-url';
 import { promises as fs } from 'fs';
 import path from 'path';
 
@@ -92,7 +93,7 @@ export async function PATCH(
     const previewImageRegex = /previewImage:\s*'[^']*'/;
     const updatedLayoutSectionWithImage = updatedLayoutSection.replace(
       previewImageRegex, 
-      `previewImage: '/projects/kolbo-school/layouts/previews/${uniqueNewLayoutKey}.webp'`
+      `previewImage: projectsPath('/layouts/previews/${uniqueNewLayoutKey}.webp')`
     );
 
     // Replace the section in the file

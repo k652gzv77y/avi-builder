@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { projectsPath } from '@/lib/project-url';
 import { getAuthUser } from '@/lib/supabase-auth';
 import { getClient } from '@/lib/repositories/mcpOAuthClientRepository';
 import { createCode } from '@/lib/repositories/mcpOAuthCodeRepository';
@@ -9,7 +10,7 @@ export const revalidate = 0;
 /**
  * POST /ycode/api/oauth/authorize
  *
- * Called by the consent page (`/projects/kolbo-school/oauth/authorize`) when the user
+ * Called by the consent page (projectsPath(`/oauth/authorize`)) when the user
  * approves or denies an OAuth request. Validates the session, client,
  * and PKCE parameters; on approve issues a single-use code and 302s
  * back to `redirect_uri`.

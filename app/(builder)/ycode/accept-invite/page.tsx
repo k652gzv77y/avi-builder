@@ -1,4 +1,5 @@
 'use client';
+import { projectsPath } from '@/lib/project-url';
 
 /**
  * Accept Invite Page
@@ -87,7 +88,7 @@ export default function AcceptInvitePage() {
 
         if (session?.user) {
           // User is already authenticated, redirect to app
-          router.push('/projects/kolbo-school');
+          router.push(projectsPath(''));
           return;
         }
 
@@ -147,7 +148,7 @@ export default function AcceptInvitePage() {
       }
 
       // Success! Redirect to the app
-      router.push('/projects/kolbo-school');
+      router.push(projectsPath(''));
     } catch (err) {
       console.error('Error setting password:', err);
       setError('Failed to set password. Please try again.');

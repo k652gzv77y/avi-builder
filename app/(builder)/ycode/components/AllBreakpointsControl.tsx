@@ -1,5 +1,7 @@
 'use client';
 
+import { projectsPath } from '@/lib/project-url';
+
 import { useMemo, useState } from 'react';
 import BreakpointBoard from './BreakpointBoard';
 
@@ -7,7 +9,7 @@ export default function AllBreakpointsControl() {
   const [open, setOpen] = useState(false);
   const previewUrl = useMemo(() => {
     if (typeof window === 'undefined') return '';
-    return '/projects/kolbo-school/preview';
+    return projectsPath('/preview');
   }, []);
 
   return (

@@ -1,5 +1,7 @@
 'use client';
 
+import { projectsPath } from '@/lib/project-url';
+
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 
@@ -696,9 +698,9 @@ export default function AirtableSettings({
                 onDelete={() => setConnectionToDelete(conn)}
                 onGoToCollection={() => {
                   if (onCloseAndNavigate) {
-                    onCloseAndNavigate(`/projects/kolbo-school/collections/${conn.collectionId}`);
+                    onCloseAndNavigate(projectsPath(`/collections/${conn.collectionId}`));
                   } else {
-                    router.push(`/projects/kolbo-school/collections/${conn.collectionId}`);
+                    router.push(projectsPath(`/collections/${conn.collectionId}`));
                   }
                 }}
                 onStartEdit={() => handleStartEdit(conn)}

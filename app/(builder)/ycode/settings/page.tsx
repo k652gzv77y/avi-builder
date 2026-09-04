@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
+import { projectsPath } from '@/lib/project-url';
 
 export default function SettingsPage() {
-  redirect('/projects/kolbo-school/settings/general');
+  redirect(projectsPath('/settings/general'));
 }

@@ -1,5 +1,7 @@
 'use client';
 
+import { projectsPath } from '@/lib/project-url';
+
 /**
  * LayerRendererPublic - public-only layer renderer.
  *
@@ -1312,7 +1314,7 @@ const LayerItem: React.FC<{
         });
 
         try {
-          const response = await fetch('/projects/kolbo-school/api/form-submissions', {
+          const response = await fetch(projectsPath('/api/form-submissions'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

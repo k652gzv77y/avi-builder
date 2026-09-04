@@ -1,5 +1,7 @@
 'use client';
 
+import { projectsPath } from '@/lib/project-url';
+
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -54,8 +56,8 @@ function getChangeTitle(change: PublishPreviewChange): string {
 
 function getChangeHref(category: ExpandableCategory, change: PublishPreviewChange): string | null {
   if (change.status === 'deleted') return null;
-  if (category === 'pages') return `/projects/kolbo-school/pages/${change.id}`;
-  if (category === 'components') return `/projects/kolbo-school/components/${change.id}`;
+  if (category === 'pages') return projectsPath(`/pages/${change.id}`);
+  if (category === 'components') return projectsPath(`/components/${change.id}`);
   return null;
 }
 

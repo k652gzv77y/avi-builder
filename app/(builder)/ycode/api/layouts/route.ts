@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { projectsPath } from '@/lib/project-url';
 import { promises as fs } from 'fs';
 import path from 'path';
 import crypto from 'crypto';
@@ -206,7 +207,7 @@ async function downloadAndLocalizeAssets(
       const existingFilename = existingHashes[hash];
 
       if (existingFilename) {
-        localUrlMap[assetId] = `/projects/kolbo-school/layouts/assets/${existingFilename}`;
+        localUrlMap[assetId] = projectsPath(`/layouts/assets/${existingFilename}`);
         continue;
       }
 
@@ -226,7 +227,7 @@ async function downloadAndLocalizeAssets(
 
       await fs.writeFile(path.join(LAYOUT_ASSETS_DIR, finalFilename), outputBuffer);
       existingHashes[hash] = finalFilename;
-      localUrlMap[assetId] = `/projects/kolbo-school/layouts/assets/${finalFilename}`;
+      localUrlMap[assetId] = projectsPath(`/layouts/assets/${finalFilename}`);
     } catch (error) {
       console.warn(`Failed to download asset ${assetId}:`, error);
     }
@@ -436,7 +437,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Update image extension if key was modified
-    const finalImagePath = `/projects/kolbo-school/layouts/previews/${uniqueLayoutKey}${imageExtension}`;
+    const finalImagePath = projectsPath(`/layouts/previews/${uniqueLayoutKey}${imageExtension}`);
 
     // If we had to make the key unique, also rename the saved image file
     if (uniqueLayoutKey !== layoutKey && imageFile) {

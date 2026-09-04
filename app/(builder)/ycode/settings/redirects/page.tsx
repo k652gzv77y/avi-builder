@@ -1,5 +1,7 @@
 'use client';
 
+import { projectsPath } from '@/lib/project-url';
+
 import { useState, useEffect } from 'react';
 import {
   FieldDescription,
@@ -50,7 +52,7 @@ export default function RedirectsSettingsPage() {
       try {
         setIsLoading(true);
         setError(null);
-        const response = await fetch('/projects/kolbo-school/api/settings/redirects');
+        const response = await fetch(projectsPath('/api/settings/redirects'));
         if (response.ok) {
           const result = await response.json();
           setRedirects(result.data || []);
@@ -76,7 +78,7 @@ export default function RedirectsSettingsPage() {
     try {
       setIsSaving(true);
       setError(null);
-      const response = await fetch('/projects/kolbo-school/api/settings/redirects', {
+      const response = await fetch(projectsPath('/api/settings/redirects'), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ value: newRedirects }),

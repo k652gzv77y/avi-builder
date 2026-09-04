@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
+import { projectsPath } from '@/lib/project-url';
 
 export default function IntegrationsPage() {
-  redirect('/projects/kolbo-school/integrations/apps');
+  redirect(projectsPath('/integrations/apps'));
 }

@@ -1,5 +1,7 @@
 'use client';
 
+import { projectsPath } from '@/lib/project-url';
+
 import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -2748,7 +2750,7 @@ const LayerItemImpl: React.FC<{
         });
 
         try {
-          const response = await fetch('/projects/kolbo-school/api/form-submissions', {
+          const response = await fetch(projectsPath('/api/form-submissions'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

@@ -1,5 +1,7 @@
 'use client';
 
+import { projectsPath } from '@/lib/project-url';
+
 import { memo } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -44,9 +46,9 @@ function LocaleSelectorComponent() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        {canManageSettings && !pathname?.startsWith('/projects/kolbo-school/localization') && (
+        {canManageSettings && !pathname?.startsWith(projectsPath('/localization')) && (
           <>
-            <DropdownMenuItem onClick={() => router.push('/projects/kolbo-school/localization')}>
+            <DropdownMenuItem onClick={() => router.push(projectsPath('/localization'))}>
               Manage locales & translations
             </DropdownMenuItem>
             <DropdownMenuSeparator />

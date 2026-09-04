@@ -1,5 +1,7 @@
 'use client';
 
+import { projectsPath } from '@/lib/project-url';
+
 import { useEffect, useState } from 'react';
 import LayerRendererPublic from '@/components/LayerRendererPublic';
 import type { PageData } from '@/lib/page-fetcher';
@@ -24,7 +26,7 @@ export default function Error({ error, reset }: ErrorProps) {
 
     async function fetchErrorPage() {
       try {
-        const response = await fetch('/projects/kolbo-school/api/error-page?code=500&published=false');
+        const response = await fetch(projectsPath('/api/error-page?code=500&published=false'));
         if (response.ok) {
           const data = await response.json();
           setErrorPageData(data.pageData);

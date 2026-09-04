@@ -1,5 +1,7 @@
 'use client';
 
+import { projectsPath } from '@/lib/project-url';
+
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -127,7 +129,7 @@ export default function GeneralSettingsPage() {
     // Fetch missing assets
     Promise.all(
       idsToFetch.map((id) =>
-        fetch(`/projects/kolbo-school/api/assets/${id}`)
+        fetch(projectsPath(`/api/assets/${id}`))
           .then((res) => (res.ok ? res.json() : null))
           .then((result) => result?.data as Asset | null)
           .catch(() => null)
@@ -289,7 +291,7 @@ export default function GeneralSettingsPage() {
     try {
       setIsResetting(true);
 
-      const response = await fetch('/projects/kolbo-school/api/devtools/reset-db', {
+      const response = await fetch(projectsPath('/api/devtools/reset-db'), {
         method: 'POST',
       });
 
@@ -299,7 +301,7 @@ export default function GeneralSettingsPage() {
         throw new Error(result.error || 'Failed to reset project');
       }
 
-      window.location.href = '/projects/kolbo-school';
+      window.location.href = projectsPath('');
     } catch (err) {
       console.error('Error resetting project:', err);
       toast.error(err instanceof Error ? err.message : 'Failed to reset project');
@@ -412,7 +414,7 @@ export default function GeneralSettingsPage() {
                       />
                     ) : (
                       <Image
-                        src={'/projects/kolbo-school-webclip.png'}
+                        src={'/brand/avi-webclip-light.png'}
                         alt="Web clip preview"
                         width={64}
                         height={64}

@@ -1,5 +1,7 @@
 'use client';
 
+import { projectsPath } from '@/lib/project-url';
+
 import { useCallback, useRef, useEffect, useState, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEditorUrl } from '@/hooks/use-editor-url';
@@ -154,7 +156,7 @@ export default function HeaderBar({
   useEffect(() => {
     const checkForUpdates = async () => {
       try {
-        const response = await fetch('/projects/kolbo-school/api/updates/check');
+        const response = await fetch(projectsPath('/api/updates/check'));
         if (response.ok) {
           const data = await response.json();
           setHasUpdate(data.available === true);
@@ -232,7 +234,7 @@ export default function HeaderBar({
       setActiveSidebarTab('layers');
       const params = new URLSearchParams(window.location.search);
       params.set('preview', 'true');
-      router.push(`/projects/kolbo-school/layers/${currentPageId}?${params.toString()}`);
+      router.push(projectsPath(`/layers/${currentPageId}?${params.toString()}`));
       return;
     }
     updateQueryParams({ preview: 'true' });
@@ -289,7 +291,7 @@ export default function HeaderBar({
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             {canManageSettings && (
-              <DropdownMenuItem onClick={() => router.push('/projects/kolbo-school/settings/general')}>
+              <DropdownMenuItem onClick={() => router.push(projectsPath('/settings/general'))}>
                 Settings
               </DropdownMenuItem>
             )}
@@ -298,7 +300,7 @@ export default function HeaderBar({
             </DropdownMenuItem>
             {canManageSettings && (
               <>
-                <DropdownMenuItem onClick={() => router.push('/projects/kolbo-school/integrations/apps')}>
+                <DropdownMenuItem onClick={() => router.push(projectsPath('/integrations/apps'))}>
                   Integrations
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setShowTransferDialog(true)}>
@@ -321,7 +323,7 @@ export default function HeaderBar({
               Keyboard shortcuts
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => router.push('/projects/kolbo-school/profile')}>
+            <DropdownMenuItem onClick={() => router.push(projectsPath('/profile'))}>
               My profile
             </DropdownMenuItem>
             <DropdownMenuItem onClick={async () => { await signOut(); }}>
@@ -409,7 +411,7 @@ export default function HeaderBar({
                 const isDesignRoute = routeType === 'layers' || routeType === 'page' || routeType === 'component';
                 if (isDesignRoute) setLastDesignUrl(window.location.pathname + window.location.search);
                 setOptimisticNav('forms');
-                router.push('/projects/kolbo-school/forms');
+                router.push(projectsPath('/forms'));
               }}
             >
               <Icon name="form" />

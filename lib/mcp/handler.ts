@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import { projectsPath } from '@/lib/project-url';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { validateToken } from '@/lib/repositories/mcpTokenRepository';
@@ -7,8 +8,8 @@ import { getCachedToken, setCachedToken } from '@/lib/mcp/token-cache';
 
 /**
  * Shared MCP HTTP handler used by both the URL-token endpoint
- * (`/projects/kolbo-school/mcp/[token]`) and the OAuth Bearer-token endpoint
- * (`/projects/kolbo-school/mcp`).
+ * (projectsPath(`/mcp/[token]`)) and the OAuth Bearer-token endpoint
+ * (projectsPath(`/mcp`)).
  *
  * Authentication is the only thing that differs between the two — once a
  * token is validated, the request body, session lifecycle, transport, and

@@ -1,5 +1,7 @@
 'use client';
 
+import { projectsPath } from '@/lib/project-url';
+
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
@@ -588,9 +590,9 @@ export default function WebflowSettings({
                   onRemove={() => setImportToRemove(importRecord)}
                   onOpenCollection={(collectionId) => {
                     if (onCloseAndNavigate) {
-                      onCloseAndNavigate(`/projects/kolbo-school/collections/${collectionId}`);
+                      onCloseAndNavigate(projectsPath(`/collections/${collectionId}`));
                     } else {
-                      router.push(`/projects/kolbo-school/collections/${collectionId}`);
+                      router.push(projectsPath(`/collections/${collectionId}`));
                     }
                   }}
                 />

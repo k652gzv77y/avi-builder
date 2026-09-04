@@ -10,6 +10,7 @@
  */
 
 import { createBrowserClient as createSupabaseBrowserClient } from '@supabase/ssr';
+import { projectsPath } from '@/lib/project-url';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 let browserClient: SupabaseClient | null = null;
@@ -31,7 +32,7 @@ export function resetBrowserClient(): void {
  */
 async function getSupabaseConfig(): Promise<{ url: string; anonKey: string } | null> {
   if (!configPromise) {
-    configPromise = fetch('/projects/kolbo-school/api/supabase/config')
+    configPromise = fetch(projectsPath('/api/supabase/config'))
       .then(async (res) => {
         if (!res.ok) {
           // Handle 404 (not configured) gracefully - expected during setup

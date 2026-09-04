@@ -1,5 +1,7 @@
 'use client';
 
+import { projectsPath } from '@/lib/project-url';
+
 /**
  * Slider Settings Component
  *
@@ -141,7 +143,7 @@ export default function SliderSettings({ layer, onLayerUpdate, allLayers, fieldG
   const handleAddSlide = useCallback(() => {
     if (!sliderLayer || !slidesLayer) return;
     const slideNumber = (slidesLayer.children?.length ?? 0) + 1;
-    const slide = createSlideLayer(`Slide ${slideNumber}`, '/projects/kolbo-school/layouts/assets/placeholder-2.webp');
+    const slide = createSlideLayer(`Slide ${slideNumber}`, projectsPath('/layouts/assets/placeholder-2.webp'));
     if (!slide) return;
 
     // When editing a component, write to the component draft — not the page store,

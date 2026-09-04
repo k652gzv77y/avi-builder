@@ -230,7 +230,7 @@ export async function exportSite(presetJobId?: string): Promise<ExportJob> {
           // Collect Ycode's built-in placeholder URLs referenced from this
           // page so we can ship them alongside the HTML for fully
           // self-contained hosting (collect before relativizing).
-          for (const match of html.matchAll(/\/projects\/kolbo-school\/layouts\/assets\/[^"'\s)]+/g)) {
+          for (const match of html.matchAll(/\/projects\/[^/]+\/layouts\/assets\/[^"'\s)]+/g)) {
             referencedAssetPaths.add(match[0])
           }
 

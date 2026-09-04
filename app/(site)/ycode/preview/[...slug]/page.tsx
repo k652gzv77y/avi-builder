@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { projectsPath } from '@/lib/project-url';
 import type { Metadata } from 'next';
 import { fetchPageByPath, fetchErrorPage } from '@/lib/page-fetcher';
 import PageRenderer from '@/components/PageRenderer';
@@ -82,7 +83,7 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
           passwordProtection={{
             pageId: protection.protectedBy === 'page' ? protection.protectedById : undefined,
             folderId: protection.protectedBy === 'folder' ? protection.protectedById : undefined,
-            redirectUrl: `/projects/kolbo-school/preview/${slugPath}`,
+            redirectUrl: projectsPath(`/preview/${slugPath}`),
             isPublished: false,
           }}
         />
@@ -99,7 +100,7 @@ export default async function Page({ params }: { params: Promise<{ slug: string 
           <PasswordForm
             pageId={protection.protectedBy === 'page' ? protection.protectedById : undefined}
             folderId={protection.protectedBy === 'folder' ? protection.protectedById : undefined}
-            redirectUrl={`/projects/kolbo-school/preview/${slugPath}`}
+            redirectUrl={projectsPath(`/preview/${slugPath}`)}
             isPublished={false}
           />
         </div>

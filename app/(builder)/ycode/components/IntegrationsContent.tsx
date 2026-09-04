@@ -1,14 +1,16 @@
 'use client';
 
+import { projectsPath } from '@/lib/project-url';
+
 import React from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
 const INTEGRATIONS_ITEMS = [
-  { id: 'apps', label: 'Apps', path: '/projects/kolbo-school/integrations/apps' },
-  { id: 'webhooks', label: 'Webhooks', path: '/projects/kolbo-school/integrations/webhooks' },
-  { id: 'api', label: 'Ycode API', path: '/projects/kolbo-school/integrations/api' },
-  { id: 'mcp', label: 'MCP', path: '/projects/kolbo-school/integrations/mcp' },
+  { id: 'apps', label: 'Apps', path: projectsPath('/integrations/apps') },
+  { id: 'webhooks', label: 'Webhooks', path: projectsPath('/integrations/webhooks') },
+  { id: 'api', label: 'Ycode API', path: projectsPath('/integrations/api') },
+  { id: 'mcp', label: 'MCP', path: projectsPath('/integrations/mcp') },
 ];
 
 interface IntegrationsContentProps {

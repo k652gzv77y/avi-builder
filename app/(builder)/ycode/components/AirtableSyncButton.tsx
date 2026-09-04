@@ -1,5 +1,7 @@
 'use client';
 
+import { projectsPath } from '@/lib/project-url';
+
 import { useState, useEffect, useCallback, memo } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -86,7 +88,7 @@ function AirtableSyncButton({ collectionId, onSyncComplete }: AirtableSyncButton
         >
           {isSyncing ? 'Syncing data...' : 'Sync data now'}
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => router.push('/projects/kolbo-school/integrations/apps?app=airtable')}>
+        <DropdownMenuItem onClick={() => router.push(projectsPath('/integrations/apps?app=airtable'))}>
           Go to settings
         </DropdownMenuItem>
       </DropdownMenuContent>

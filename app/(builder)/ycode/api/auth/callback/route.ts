@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createRouteClient } from '@/lib/supabase-route-client';
 
 const PROJECTS_ROOT = '/projects';
-const DEFAULT_PROJECT_PATH = '/projects/kolbo-school';
+const DEFAULT_PROJECT_PATH = '/projects';
 
 function getSafeProjectPath(value: string | null): string {
   if (!value || !value.startsWith('/projects/')) return DEFAULT_PROJECT_PATH;

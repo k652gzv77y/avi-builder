@@ -1,5 +1,7 @@
 'use client';
 
+import { projectsPath } from '@/lib/project-url';
+
 import type { Locale } from '@/types';
 
 interface LocaleSelectorProps {
@@ -27,7 +29,7 @@ export default function LocaleSelector({
   localizedPageUrls,
 }: LocaleSelectorProps) {
   // Detect if we're in preview mode
-  const isPreviewMode = typeof window !== 'undefined' && window.location.pathname.startsWith('/projects/kolbo-school/preview');
+  const isPreviewMode = typeof window !== 'undefined' && window.location.pathname.startsWith(projectsPath('/preview'));
 
   // Get default locale (fallback when no locale is detected)
   const defaultLocale = availableLocales.find(l => l.is_default) || availableLocales[0];
@@ -42,7 +44,7 @@ export default function LocaleSelector({
     // Prefer the server-resolved URL (translated slugs); fall back to naive prefixing
     const precomputed = localizedPageUrls?.[selectedLocaleId];
     const newUrl = precomputed
-      ? (isPreviewMode ? `/projects/kolbo-school/preview${precomputed}` : precomputed)
+      ? (isPreviewMode ? projectsPath(`/preview${precomputed}`) : precomputed)
       : buildLocalizedUrl(currentPageSlug, selectedLocale, currentLocale || null, isPreviewMode);
 
     // Redirect to the new URL
@@ -99,6 +101,6 @@ function buildLocalizedUrl(
     : pathWithoutLocale ? `${targetLocale.code}/${pathWithoutLocale}` : targetLocale.code;
 
   // Add appropriate prefix
-  const prefix = isPreviewMode ? '/projects/kolbo-school/preview' : '';
+  const prefix = isPreviewMode ? projectsPath('/preview') : '';
   return localizedPath ? `${prefix}/${localizedPath}` : (prefix || '/');
 }

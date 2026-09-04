@@ -1,5 +1,7 @@
 'use client';
 
+import { projectsPath } from '@/lib/project-url';
+
 import { useState, useEffect } from 'react';
 import { Label } from '@/components/ui/label';
 import {
@@ -54,7 +56,7 @@ export default function ApiPage() {
 
   const fetchApiKeys = async () => {
     try {
-      const response = await fetch('/projects/kolbo-school/api/api-keys');
+      const response = await fetch(projectsPath('/api/api-keys'));
       const result = await response.json();
       if (result.data) {
         setApiKeys(result.data);
@@ -71,7 +73,7 @@ export default function ApiPage() {
 
     setIsGenerating(true);
     try {
-      const response = await fetch('/projects/kolbo-school/api/api-keys', {
+      const response = await fetch(projectsPath('/api/api-keys'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: newKeyName.trim() }),
@@ -97,7 +99,7 @@ export default function ApiPage() {
     if (!keyToDelete) return;
 
     try {
-      await fetch(`/projects/kolbo-school/api/api-keys/${keyToDelete.id}`, {
+      await fetch(projectsPath(`/api/api-keys/${keyToDelete.id}`), {
         method: 'DELETE',
       });
       setApiKeys(apiKeys.filter(k => k.id !== keyToDelete.id));

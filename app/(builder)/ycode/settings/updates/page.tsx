@@ -1,5 +1,7 @@
 'use client';
 
+import { projectsPath } from '@/lib/project-url';
+
 import { useState, useEffect } from 'react';
 import { marked } from 'marked';
 import { Badge } from '@/components/ui/badge';
@@ -76,7 +78,7 @@ export default function UpdatesSettingsPage() {
   const checkForUpdates = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/projects/kolbo-school/api/updates/check');
+      const response = await fetch(projectsPath('/api/updates/check'));
       if (response.ok) {
         const data = await response.json();
         setUpdateInfo(data);
@@ -103,7 +105,7 @@ export default function UpdatesSettingsPage() {
     setReleasesLoading(true);
     setReleasesError(null);
     try {
-      const response = await fetch('/projects/kolbo-school/api/updates/releases');
+      const response = await fetch(projectsPath('/api/updates/releases'));
       if (response.ok) {
         const data: ReleasesResponse = await response.json();
         setReleases(data.releases || []);

@@ -1,5 +1,7 @@
 'use client';
 
+import { projectsPath } from '@/lib/project-url';
+
 import React, { useEffect, useMemo, useState, useCallback, useRef, startTransition, Suspense, lazy } from 'react';
 import { Button } from '@/components/ui/button';
 import Icon from '@/components/ui/icon';
@@ -337,7 +339,7 @@ const LeftSidebar = React.memo(function LeftSidebar({
               const targetPageId = currentPageId || (pages.length > 0 ? pages[0].id : null);
               if (targetPageId) {
                 const segment = newTab === 'layers' ? 'layers' : 'pages';
-                const newPath = `/projects/kolbo-school/${segment}/${targetPageId}${window.location.search}`;
+                const newPath = projectsPath(`/${segment}/${targetPageId}${window.location.search}`);
                 window.history.replaceState(null, '', newPath);
               }
             }}

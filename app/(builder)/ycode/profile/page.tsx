@@ -1,5 +1,7 @@
 'use client';
 
+import { projectsPath } from '@/lib/project-url';
+
 import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
@@ -136,7 +138,7 @@ export default function ProfilePage() {
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await fetch('/projects/kolbo-school/api/profile/avatar', {
+      const response = await fetch(projectsPath('/api/profile/avatar'), {
         method: 'POST',
         body: formData,
       });
@@ -172,7 +174,7 @@ export default function ProfilePage() {
     setNameError(null);
 
     try {
-      const response = await fetch('/projects/kolbo-school/api/profile/name', {
+      const response = await fetch(projectsPath('/api/profile/name'), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: nameInput.trim() }),
@@ -211,7 +213,7 @@ export default function ProfilePage() {
     setEmailError(null);
 
     try {
-      const response = await fetch('/projects/kolbo-school/api/profile/email', {
+      const response = await fetch(projectsPath('/api/profile/email'), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -263,7 +265,7 @@ export default function ProfilePage() {
     setPasswordError(null);
 
     try {
-      const response = await fetch('/projects/kolbo-school/api/profile/password', {
+      const response = await fetch(projectsPath('/api/profile/password'), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -306,7 +308,7 @@ export default function ProfilePage() {
     setDeleteError(null);
 
     try {
-      const response = await fetch('/projects/kolbo-school/api/profile', {
+      const response = await fetch(projectsPath('/api/profile'), {
         method: 'DELETE',
       });
 

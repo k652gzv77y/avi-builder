@@ -1,5 +1,7 @@
 'use client';
 
+import { projectsPath } from '@/lib/project-url';
+
 /**
  * LoadMoreCollection
  *
@@ -22,7 +24,7 @@ interface LoadMoreCollectionProps {
   layerTemplate?: Layer[];
   /** Optional: item IDs for multi-reference filtering */
   itemIds?: string[];
-  /** Preview mode forces server-rendered links to use the `/projects/kolbo-school/preview` prefix. */
+  /** Preview mode forces server-rendered links to use the projectsPath(`/preview`) prefix. */
   isPreview?: boolean;
   /** Item ID of the dynamic-page collection being rendered (for `current-page` link keywords). */
   pageCollectionItemId?: string;
@@ -64,7 +66,7 @@ export default function LoadMoreCollection({
 
     try {
       const response = await fetch(
-        `/projects/kolbo-school/api/collections/${collectionId}/items/load-more`,
+        projectsPath(`/api/collections/${collectionId}/items/load-more`),
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

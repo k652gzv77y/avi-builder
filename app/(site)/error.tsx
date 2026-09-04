@@ -1,5 +1,7 @@
 'use client';
 
+import { projectsPath } from '@/lib/project-url';
+
 import { useEffect, useState } from 'react';
 import LayerRendererPublic from '@/components/LayerRendererPublic';
 import YcodeBadge from '@/components/YcodeBadge';
@@ -26,7 +28,7 @@ export default function Error({ error, reset }: ErrorProps) {
 
     async function fetchErrorPage() {
       try {
-        const response = await fetch('/projects/kolbo-school/api/error-page?code=500&published=true');
+        const response = await fetch(projectsPath('/api/error-page?code=500&published=true'));
         if (response.ok) {
           const data = await response.json();
           setErrorPageData(data.pageData);

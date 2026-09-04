@@ -10,10 +10,11 @@ import type {
   AirtableFieldMapping,
 } from './types';
 
-const BASE = '/projects/kolbo-school/api/apps/airtable';
+const BASE = projectsPath('/api/apps/airtable');
 const JSON_HEADERS = { 'Content-Type': 'application/json' } as const;
 
 import { ToastError } from '@/lib/toast-error';
+import { projectsPath } from '@/lib/project-url';
 
 async function jsonFetch<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, init);

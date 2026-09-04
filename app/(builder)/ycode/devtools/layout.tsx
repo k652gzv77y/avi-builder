@@ -1,4 +1,5 @@
 'use client';
+import { projectsPath } from '@/lib/project-url';
 
 /**
  * Devtools Layout
@@ -18,7 +19,7 @@ export default function DevtoolsLayout({ children }: { children: React.ReactNode
 
   useEffect(() => {
     if (!isLoading && !session) {
-      router.push('/projects/kolbo-school');
+      router.push(projectsPath(''));
     }
   }, [isLoading, session, router]);
 

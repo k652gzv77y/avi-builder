@@ -1,5 +1,7 @@
 'use client';
 
+import { projectsPath } from '@/lib/project-url';
+
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
@@ -29,7 +31,7 @@ export default function MigrationChecker({ onComplete }: MigrationCheckerProps) 
       setError(null);
 
       // Single API call: checks AND runs migrations if needed
-      const response = await fetch('/projects/kolbo-school/api/setup/migrate', {
+      const response = await fetch(projectsPath('/api/setup/migrate'), {
         method: 'POST',
       });
 

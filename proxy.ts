@@ -174,6 +174,9 @@ export async function proxy(request: NextRequest) {
       ? NextResponse.rewrite(new URL(effectivePathname + request.nextUrl.search, request.url))
       : NextResponse.next();
     response.headers.set('x-pathname', effectivePathname);
+    if (projectSlug) {
+      response.headers.set('x-avi-project-slug', projectSlug);
+    }
     return response;
   }
 
@@ -193,6 +196,9 @@ export async function proxy(request: NextRequest) {
         return authResponse;
       }
       authResponse.headers.set('x-pathname', effectivePathname);
+      if (projectSlug) {
+        authResponse.headers.set('x-avi-project-slug', projectSlug);
+      }
       if (builderPath) {
         const rewriteUrl = request.nextUrl.clone();
         rewriteUrl.pathname = effectivePathname;
@@ -224,6 +230,9 @@ export async function proxy(request: NextRequest) {
     : NextResponse.next();
 
   response.headers.set('x-pathname', effectivePathname);
+  if (projectSlug) {
+    response.headers.set('x-avi-project-slug', projectSlug);
+  }
 
   if (isPublicPage) {
     await applySecurityHeaders(response);

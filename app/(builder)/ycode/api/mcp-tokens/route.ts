@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { projectsPath } from '@/lib/project-url';
 import { getAllTokens, createToken } from '@/lib/repositories/mcpTokenRepository';
 import { noCache } from '@/lib/api-response';
 
@@ -40,7 +41,7 @@ export async function POST(request: NextRequest) {
 
     const host = request.headers.get('host') || 'localhost:3000';
     const protocol = request.headers.get('x-forwarded-proto') || 'http';
-    const mcpUrl = `${protocol}://${host}/projects/kolbo-school/mcp/${token.token}`;
+    const mcpUrl = `${protocol}://${host}${projectsPath('/mcp/' + token.token, request.headers)}`;
 
     return noCache({
       data: {

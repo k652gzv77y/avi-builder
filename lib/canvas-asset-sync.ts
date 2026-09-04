@@ -1,5 +1,7 @@
 'use client';
 
+import { projectsPath } from '@/lib/project-url';
+
 /**
  * Canvas asset sync
  *
@@ -73,7 +75,7 @@ export async function syncLayerAssets(layers: Layer[]): Promise<void> {
   const results = await Promise.all(
     missing.map(async (id) => {
       try {
-        const res = await fetch(`/projects/kolbo-school/api/assets/${id}`);
+        const res = await fetch(projectsPath(`/api/assets/${id}`));
         if (!res.ok) return null;
         const json = await res.json();
         return (json?.data as Asset) ?? null;

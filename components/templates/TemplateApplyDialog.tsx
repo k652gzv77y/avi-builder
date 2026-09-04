@@ -1,4 +1,5 @@
 'use client';
+import { projectsPath } from '@/lib/project-url';
 
 /**
  * TemplateApplyDialog Component
@@ -64,7 +65,7 @@ export function TemplateApplyDialog({
       onSuccess?.();
 
       // Navigate to /ycode to refresh the whole app with new content
-      window.location.href = '/projects/kolbo-school';
+      window.location.href = projectsPath('');
     } catch (err) {
       console.error('[TemplateApplyDialog] Error:', err);
       setError(err instanceof Error ? err.message : 'Failed to apply template');
