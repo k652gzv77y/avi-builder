@@ -68,6 +68,7 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       { source: '/editor', destination: '/projects', permanent: false },
+      { source: '/ycode', destination: '/projects', permanent: false },
       { source: '/editor/:path*', destination: '/ycode/:path*', permanent: false },
     ];
   },
@@ -84,15 +85,6 @@ const nextConfig: NextConfig = {
           {
             key: 'Cache-Control',
             value: 'public, max-age=31536000, immutable',
-          },
-        ],
-      },
-      {
-        source: '/:path((?!ycode|projects|_next|a/).*)*',
-        headers: [
-          {
-            key: 'Link',
-            value: '<https://fonts.gstatic.com>; rel=preconnect; crossorigin',
           },
         ],
       },
