@@ -11,6 +11,12 @@ interface CollectionRow {
   name?: string;
 }
 
+function collectionUrls(slug: string) {
+  const urls = ['/editor/api/collections', '/ycode/api/collections'];
+  if (slug) urls.unshift(`/projects/${slug}/api/collections`);
+  return urls;
+}
+
 export default function CmsSettingsPage() {
   const pathname = usePathname();
   const slug = getProjectSlugFromPath(pathname) || getCurrentProjectSlug() || '';
@@ -20,50 +26,41 @@ export default function CmsSettingsPage() {
   const [collections, setCollections] = useState<CollectionRow[] | null>(null);
 
   useEffect(() => {
-    if (!slug) return;
     if (searchParams.get('supabase') === 'connected') {
       setMessage('Supabase authorized.');
     }
     if (searchParams.get('error')) {
-      setMessage(`Connect failed (${searchParams.get('error')}). Try Reconnect Supabase again.`);
+      setMessage(`Connect failed (${searchParams.get('error')}). Try Reconnect again.`);
     }
     let cancelled = false;
-    fetch(`/projects/${slug}/api/collections`)
-      .then((res) => res.json())
-      .then((payload) => {
-        if (cancelled) return;
-        const rows = Array.isArray(payload?.data) ? payload.data : [];
-        setCollections(rows);
-      })
-      .catch(() => {
-        if (!cancelled) setCollections([]);
-      });
+    (async () => {
+      for (const url of collectionUrls(slug)) {
+        try {
+          const res = await fetch(url);
+          if (!res.ok) continue;
+          const payload = await res.json();
+          const rows = Array.isArray(payload?.data) ? payload.data : [];
+          if (!cancelled) {
+            setCollections(rows);
+            return;
+          }
+        } catch {
+          /* try next alias */
+        }
+      }
+      if (!cancelled) setCollections([]);
+    })();
     return () => {
       cancelled = true;
     };
   }, [searchParams, slug]);
 
-  async function connectSupabase() {
-    const project = slug || getCurrentProjectSlug();
-    if (!project) {
-      setMessage('Open this page from a project first.');
-      return;
-    }
+  function connectSupabase() {
+    const project = slug || getCurrentProjectSlug() || 'kolbo-school';
     setBusy(true);
-    setMessage(null);
-    try {
-      const res = await fetch(`/projects/${project}/api/supabase/oauth/start?project=${encodeURIComponent(project)}`);
-      const data = await res.json().catch(() => ({}));
-      if (data.url) {
-        window.location.href = data.url;
-        return;
-      }
-      setMessage(data.hint || data.error || 'Supabase OAuth is not configured.');
-    } catch {
-      setMessage('Could not start Supabase connect.');
-    } finally {
-      setBusy(false);
-    }
+    window.location.assign(
+      `/projects/${project}/api/supabase/oauth/start?project=${encodeURIComponent(project)}`,
+    );
   }
 
   const live = collections && collections.length > 0;
@@ -72,7 +69,7 @@ export default function CmsSettingsPage() {
     <div className="max-w-xl">
       <h1 className="text-lg font-medium">CMS / Supabase</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        Collections already load from the project database. One-click OAuth attaches a Supabase project to this Avi project.
+        Collections load from the project database. Reconnect attaches a different Supabase project via OAuth.
       </p>
       <div className="mt-5 rounded-xl border px-4 py-3 text-sm">
         {collections === null ? (
@@ -87,13 +84,10 @@ export default function CmsSettingsPage() {
             </ul>
           </>
         ) : (
-          <p className="text-muted-foreground">No collections returned yet. Connect Supabase if this project has no database.</p>
+          <p className="text-muted-foreground">No collections returned yet. Use Reconnect Supabase if this project has no database.</p>
         )}
       </div>
-      <Button
-        className="mt-5" variant="outline"
-        onClick={() => void connectSupabase()} disabled={busy || !slug}
-      >
+      <Button className="mt-5" variant="outline" onClick={connectSupabase} disabled={busy}>
         {busy ? 'Opening Supabase…' : 'Reconnect Supabase'}
       </Button>
       {message && <p className="mt-3 text-sm text-amber-500">{message}</p>}
