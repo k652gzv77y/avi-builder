@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "avi-builder-staging",
+  "name": "avi-builder",
   "account_id": "ed21b04052e50e8fbf1ee544dea3e938",
   "main": ".open-next/worker.js",
   "compatibility_date": "2026-09-01",
@@ -22,7 +22,7 @@
   "services": [
     {
       "binding": "WORKER_SELF_REFERENCE",
-      "service": "avi-builder-staging"
+      "service": "avi-builder"
     }
   ],
   "hyperdrive": [

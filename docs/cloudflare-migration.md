@@ -22,8 +22,9 @@ rollback target until the staging Worker passes the verification checklist.
 5. Add the existing runtime secrets with `wrangler secret put`; do not place
    Supabase secret keys, database passwords, AI keys, OAuth secrets, or cron
    secrets in `wrangler.jsonc`.
-6. Create a non-production route such as `staging.avibuilder.com/*` and deploy
-   the `avi-builder-staging` Worker there. Leave `avibuilder.com` on Vercel.
+6. Workers Builds is connected to the `avi-builder` Worker, so the `name`
+   field in `wrangler.jsonc` must stay `avi-builder`. Leave `avibuilder.com`
+   on Vercel until the Worker is verified.
 
 The first deployment creates the `DOShardedTagCache` Durable Object declared in
 `wrangler.jsonc`. Do not remove its migration entry after deployment: it holds
@@ -38,9 +39,8 @@ npm run deploy:worker
 ```
 
 Before the first deploy, add the Hyperdrive binding id and use the actual
-Cloudflare account in Wrangler. Keep the Worker name as
-`avi-builder-staging` until staging validation passes; rename it or add a
-production environment only at cutover.
+Cloudflare account in Wrangler. The dashboard Worker and `wrangler.jsonc`
+`name` must both be `avi-builder` or Workers Builds fails before compile.
 
 ## Required validation before DNS cutover
 
