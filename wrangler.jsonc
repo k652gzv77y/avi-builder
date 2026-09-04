@@ -3,6 +3,12 @@
   "name": "avi-builder-staging",
   "account_id": "ed21b04052e50e8fbf1ee544dea3e938",
   "main": ".open-next/worker.js",
+  // Generate the OpenNext worker entrypoint (.open-next/worker.js) before
+  // wrangler deploy/versions upload. Without this, a CI that only runs
+  // `next build` leaves no worker entrypoint and the upload fails.
+  "build": {
+    "command": "npm run build:worker"
+  },
   "compatibility_date": "2026-09-01",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "vars": {
