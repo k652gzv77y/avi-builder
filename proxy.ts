@@ -8,6 +8,7 @@ const PUBLIC_API_PREFIXES = [
   '/ycode/api/supabase/',
   '/ycode/api/auth/',
   '/ycode/api/v1/',
+  '/ycode/api/domains/cloudflare/',
 ];
 
 const PUBLIC_COLLECTION_ITEM_SUFFIXES = ['/items/filter', '/items/load-more'];
@@ -16,11 +17,14 @@ const PUBLIC_API_EXACT = [
   '/ycode/api/revalidate',
   '/ycode/api/oauth/register',
   '/ycode/api/oauth/token',
+  '/ycode/api/domains/cloudflare/callback',
+  '/ycode/api/supabase/oauth/callback',
 ];
 
 const BUILDER_HOSTNAME = process.env.YCODE_BUILDER_HOSTNAME || 'avibuilder.com';
 const PROJECTS_ROOT = '/projects';
 const PROJECTS_AUTH_CALLBACK = `${PROJECTS_ROOT}/auth/callback`;
+const RESERVED_PROJECT_SLUGS = new Set(['oauth', 'auth']);
 const LEGACY_BUILDER_HOSTNAMES = (process.env.YCODE_LEGACY_BUILDER_HOSTNAMES || 'ycode.kolboschool.com')
   .split(',')
   .map((hostname) => hostname.trim().toLowerCase())
@@ -33,9 +37,12 @@ function getRequestHostname(request: NextRequest): string {
 
 function getBuilderPath(pathname: string): string | null {
   if (pathname === PROJECTS_AUTH_CALLBACK) return '/ycode/api/auth/callback';
+  if (pathname === '/projects/oauth/cloudflare/callback') return '/ycode/api/domains/cloudflare/callback';
+  if (pathname === '/projects/oauth/supabase/callback') return '/ycode/api/supabase/oauth/callback';
   if (pathname === PROJECTS_ROOT) return null;
   const match = pathname.match(/^\/projects\/([^/]+)(\/.*)?$/);
   if (!match) return null;
+  if (RESERVED_PROJECT_SLUGS.has(match[1])) return null;
   const rest = match[2] || '';
   if (rest.startsWith('/auth/')) return null;
   return rest ? `/ycode${rest}` : '/ycode';
@@ -129,7 +136,9 @@ export async function proxy(request: NextRequest) {
   const hostname = getRequestHostname(request);
   const builderPath = getBuilderPath(pathname);
   const projectMatch = pathname.match(/^\/projects\/([^/]+)/);
-  const projectPrefix = projectMatch ? `/projects/${projectMatch[1]}` : '/projects/kolbo-school';
+  const projectPrefix = projectMatch && !RESERVED_PROJECT_SLUGS.has(projectMatch[1])
+    ? `/projects/${projectMatch[1]}`
+    : '/projects';
 
   if (LEGACY_BUILDER_HOSTNAMES.includes(hostname)) {
     return new NextResponse('Not Found', { status: 404 });
