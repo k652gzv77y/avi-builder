@@ -1,4 +1,5 @@
-import { getProjectSlugFromPath as slugFromPath } from '@/lib/project-url';
+import { getProjectSlugFromPath as slugFromPath, getCurrentProjectSlug } from '@/lib/project-url';
+
 export interface SettingsNavItem {
   id: string;
   label: string;
@@ -6,11 +7,11 @@ export interface SettingsNavItem {
 }
 
 export function getProjectSlugFromPath(pathname: string | null): string {
-  return slugFromPath(pathname) || 'project';
+  return slugFromPath(pathname) || getCurrentProjectSlug() || '';
 }
 
-export function getSettingsNavItems(slug = 'project'): SettingsNavItem[] {
-  const root = `/projects/${slug}/settings`;
+export function getSettingsNavItems(slug = ''): SettingsNavItem[] {
+  const root = slug ? `/projects/${slug}/settings` : '/projects';
   return [
     { id: 'general', label: 'General', path: `${root}/general` },
     { id: 'domains', label: 'Domains', path: `${root}/domains` },
