@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(request: NextRequest) {
+  const project = request.nextUrl.searchParams.get('project') || 'unknown';
   const clientId = process.env.CLOUDFLARE_OAUTH_CLIENT_ID;
   const redirectUri =
     process.env.CLOUDFLARE_OAUTH_REDIRECT_URI ||
-    `${request.nextUrl.origin}/projects/kolbo-school/api/domains/cloudflare/callback`;
+    `${request.nextUrl.origin}/projects/oauth/cloudflare/callback`;
 
   if (!clientId) {
     return NextResponse.json({
       error: 'Cloudflare OAuth is not configured',
-      hint: 'Create a Cloudflare OAuth app with zone:read and zone:edit, then set CLOUDFLARE_OAUTH_CLIENT_ID and CLOUDFLARE_OAUTH_CLIENT_SECRET on the Worker.',
+      hint: 'Create a Cloudflare OAuth app, then set CLOUDFLARE_OAUTH_CLIENT_ID and CLOUDFLARE_OAUTH_CLIENT_SECRET. Redirect URI must be https://avibuilder.com/projects/oauth/cloudflare/callback',
     }, { status: 501 });
   }
 
@@ -17,6 +18,6 @@ export async function GET(request: NextRequest) {
   url.searchParams.set('client_id', clientId);
   url.searchParams.set('redirect_uri', redirectUri);
   url.searchParams.set('response_type', 'code');
-  url.searchParams.set('scope', 'account:read zone:read zone:edit');
+  url.searchParams.set('state', project);
   return NextResponse.json({ url: url.toString() });
 }

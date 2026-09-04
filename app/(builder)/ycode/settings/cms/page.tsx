@@ -1,9 +1,12 @@
 'use client';
 
 import { useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { getProjectSlugFromPath } from '@/lib/settings-nav-items';
 
 export default function CmsSettingsPage() {
+  const slug = getProjectSlugFromPath(usePathname());
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -11,13 +14,13 @@ export default function CmsSettingsPage() {
     setBusy(true);
     setMessage(null);
     try {
-      const res = await fetch('/projects/kolbo-school/api/supabase/oauth/start');
+      const res = await fetch(`/projects/${slug}/api/supabase/oauth/start?project=${encodeURIComponent(slug)}`);
       const data = await res.json().catch(() => ({}));
       if (data.url) {
         window.location.href = data.url;
         return;
       }
-      setMessage(data.hint || data.error || 'Add SUPABASE_OAUTH_CLIENT_ID to enable one-click project pick.');
+      setMessage(data.hint || data.error || 'Add SUPABASE_OAUTH_CLIENT_ID on the Worker.');
     } catch {
       setMessage('Could not start Supabase connect.');
     } finally {
@@ -29,7 +32,7 @@ export default function CmsSettingsPage() {
     <div className="mx-auto max-w-2xl px-8 py-10">
       <h1 className="text-lg font-medium">CMS / Supabase</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        Collections and variables stay in this editor. Connect a customer Supabase project for live CMS data — no pasted keys.
+        One-click connect uses your Supabase login. After consent you pick which Supabase project feeds this Avi project’s CMS.
       </p>
       <Button className="mt-5" onClick={() => void connectSupabase()} disabled={busy}>
         {busy ? 'Opening Supabase…' : 'Connect Supabase'}
