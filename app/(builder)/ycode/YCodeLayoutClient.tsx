@@ -3,6 +3,7 @@
 import { Suspense, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import YCodeBuilder from './components/YCodeBuilderMain';
+import ColorTokensStyle from '@/components/ColorTokensStyle';
 import { useEditorUrl } from '@/hooks/use-editor-url';
 import { useAuthStore } from '@/stores/useAuthStore';
 import {
@@ -36,14 +37,29 @@ function YCodeLayoutInner({ children }: { children: React.ReactNode }) {
     prefixRoutes.some((route) => pathname?.includes(route)) ||
     exactSuffixes.some((route) => pathname?.endsWith(route))
   ) {
-    return <>{children}</>;
+    return (
+      <>
+        <ColorTokensStyle />
+        {children}
+      </>
+    );
   }
 
   if (routeType === 'settings' || routeType === 'localization' || routeType === 'profile' || routeType === 'forms' || routeType === 'integrations') {
-    return <YCodeBuilder>{children}</YCodeBuilder>;
+    return (
+      <>
+        <ColorTokensStyle />
+        <YCodeBuilder>{children}</YCodeBuilder>
+      </>
+    );
   }
 
-  return <YCodeBuilder />;
+  return (
+    <>
+      <ColorTokensStyle />
+      <YCodeBuilder />
+    </>
+  );
 }
 
 export default function YCodeLayoutClient({ children }: { children: React.ReactNode }) {

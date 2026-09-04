@@ -19,33 +19,33 @@ function shouldApplyDark(): boolean {
 
 function applyClass(dark: boolean) {
   document.documentElement.classList.toggle('dark', dark);
+  document.documentElement.classList.toggle('light', !dark);
 }
 
-/**
- * Builder follows the saved theme (default system).
- * Published sites follow the device light/dark setting so color tokens swap.
- */
 export default function DarkModeProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   useEffect(() => {
-    const isPreviewRoute = pathname?.includes('/preview');
-    const onBuilder = isBuilderHost();
-    const isBuilderRoute = onBuilder && !isPreviewRoute && pathname?.startsWith('/projects/');
+    const apply = () => {
+      const onBuilder = isBuilderHost();
+      const isPreviewRoute = pathname?.includes('/preview');
+      const isBuilderRoute = onBuilder && !isPreviewRoute && (pathname === '/projects' || pathname?.startsWith('/projects'));
+      if (isBuilderRoute || !onBuilder) {
+        applyClass(isBuilderRoute ? shouldApplyDark() : window.matchMedia('(prefers-color-scheme: dark)').matches);
+      }
+    };
 
-    if (isBuilderRoute) {
-      applyClass(shouldApplyDark());
-      const mq = window.matchMedia('(prefers-color-scheme: dark)');
-      const onChange = () => applyClass(shouldApplyDark());
-      mq.addEventListener('change', onChange);
-      return () => mq.removeEventListener('change', onChange);
-    }
-
+    apply();
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    applyClass(mq.matches);
-    const onChange = () => applyClass(mq.matches);
+    const onChange = () => apply();
     mq.addEventListener('change', onChange);
-    return () => mq.removeEventListener('change', onChange);
+    window.addEventListener('storage', onChange);
+    window.addEventListener('avi-theme-change', onChange);
+    return () => {
+      mq.removeEventListener('change', onChange);
+      window.removeEventListener('storage', onChange);
+      window.removeEventListener('avi-theme-change', onChange);
+    };
   }, [pathname]);
 
   return <>{children}</>;
