@@ -9,7 +9,9 @@
     "AVI_RUNTIME": "cloudflare",
     "REQUIRE_HYPERDRIVE": "true",
     "YCODE_BUILDER_HOSTNAME": "avibuilder.com",
-    "YCODE_LEGACY_BUILDER_HOSTNAMES": "ycode.kolboschool.com"
+    "YCODE_LEGACY_BUILDER_HOSTNAMES": "ycode.kolboschool.com",
+    "CLOUDFLARE_OAUTH_REDIRECT_URI": "https://avibuilder.com/projects/oauth/cloudflare/callback",
+    "SUPABASE_OAUTH_REDIRECT_URI": "https://avibuilder.com/projects/oauth/supabase/callback"
   },
   "assets": {
     "directory": ".open-next/assets",
