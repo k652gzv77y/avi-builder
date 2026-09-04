@@ -1,0 +1,25 @@
+/* Sign-in used bg-neutral-950 + white text. Follow builder tokens instead. */
+.min-h-screen.bg-neutral-950 {
+  background-color: var(--background) !important;
+  color: var(--foreground) !important;
+}
+
+.min-h-screen.bg-neutral-950 .text-white {
+  color: var(--foreground) !important;
+}
+
+.min-h-screen.bg-neutral-950 .text-white\/50 {
+  color: var(--muted-foreground) !important;
+}
+
+.min-h-screen.bg-neutral-950 .text-white\/80 {
+  color: var(--foreground) !important;
+}
+
+.min-h-screen.bg-neutral-950 .border-white\/25 {
+  border-color: var(--border) !important;
+}
+
+.min-h-screen.bg-neutral-950 .hover\:bg-white\/10:hover {
+  background-color: var(--secondary) !important;
+}
