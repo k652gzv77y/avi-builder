@@ -21,7 +21,6 @@ import { toast } from 'sonner';
 // 3. ShadCN UI
 import Icon from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Empty,
@@ -54,6 +53,7 @@ import { useCanvasTextEditorStore } from '@/stores/useCanvasTextEditorStore';
 // 4b. Internal components
 import Canvas from './Canvas';
 import CanvasBuildSkeleton from './CanvasBuildSkeleton';
+import BreakpointFrames from './BreakpointFrames';
 import { CollectionFieldSelector } from './CollectionFieldSelector';
 import AiActivityOverlay from '@/components/AiActivityOverlay';
 import SelectionOverlay from '@/components/SelectionOverlay';
@@ -124,9 +124,7 @@ const viewportSizes: Record<ViewportMode, { width: string; label: string; icon: 
 };
 
 interface ViewportZoomControlsProps {
-  viewportMode: ViewportMode;
   zoom: number;
-  onViewportChange: (mode: ViewportMode) => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
   onResetZoom: () => void;
@@ -134,11 +132,9 @@ interface ViewportZoomControlsProps {
   onAutofit: () => void;
 }
 
-/** Shared viewport toggle + zoom dropdown used in both the canvas and preview toolbars. */
+/** Shared zoom dropdown used in both the canvas and preview toolbars. */
 function ViewportZoomControls({
-  viewportMode,
   zoom,
-  onViewportChange,
   onZoomIn,
   onZoomOut,
   onResetZoom,
@@ -147,13 +143,6 @@ function ViewportZoomControls({
 }: ViewportZoomControlsProps) {
   return (
     <div className="flex justify-center gap-2">
-      <Tabs value={viewportMode} onValueChange={(v) => onViewportChange(v as ViewportMode)}>
-        <TabsList className="w-50">
-          <TabsTrigger value="desktop" title="Desktop View">Desktop</TabsTrigger>
-          <TabsTrigger value="tablet" title="Tablet View">Tablet</TabsTrigger>
-          <TabsTrigger value="mobile" title="Mobile View">Phone</TabsTrigger>
-        </TabsList>
-      </Tabs>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
@@ -2263,9 +2252,7 @@ const CenterCanvas = React.memo(function CenterCanvas({
 
         {/* Viewport Controls */}
         <ViewportZoomControls
-          viewportMode={viewportMode}
           zoom={zoom}
-          onViewportChange={setViewportMode}
           onZoomIn={zoomIn}
           onZoomOut={zoomOut}
           onResetZoom={resetZoom}
@@ -2656,8 +2643,9 @@ const CenterCanvas = React.memo(function CenterCanvas({
           >
               <div
                 style={{
-                  // Width: exact scaled size, min 100% to fill viewport horizontally
-                  width: `${effectiveCanvasWidth * (zoom / 100) + CANVAS_PADDING}px`,
+                  // Let BreakpointFrames (Desktop / Tablet / Phone) define the
+                  // board width so the scroll area can pan across all frames.
+                  width: 'max-content',
                   minWidth: '100%',
                   // Height: scaled iframe size + canvas padding. finalIframeHeight is
                   // already stretched to fill the viewport at any zoom level, so the
@@ -2665,11 +2653,18 @@ const CenterCanvas = React.memo(function CenterCanvas({
                   height: `${finalIframeHeight * (zoom / 100) + CANVAS_PADDING}px`,
                   display: 'flex',
                   alignItems: 'flex-start',
-                  justifyContent: 'center',
+                  justifyContent: 'flex-start',
                   paddingTop: `${CANVAS_BORDER}px`,
+                  paddingLeft: `${CANVAS_BORDER}px`,
+                  paddingRight: `${CANVAS_BORDER}px`,
                   position: 'relative',
                 }}
               >
+                <BreakpointFrames
+                  active={viewportMode}
+                  zoom={zoom}
+                  onSelect={(mode) => setViewportMode(mode)}
+                >
                 {/* Sizer: occupies the SCALED footprint so the scroll area,
                     centering, and drop shadow match the visible canvas size. */}
                 <div
@@ -2966,6 +2961,7 @@ const CenterCanvas = React.memo(function CenterCanvas({
                   </div>
                   </div>
                 </div>
+                </BreakpointFrames>
               </div>
             </div>
         </div>
@@ -2990,9 +2986,7 @@ const CenterCanvas = React.memo(function CenterCanvas({
         <div className="shrink-0 grid grid-cols-3 items-center p-4 border-b bg-background">
           <div />
           <ViewportZoomControls
-            viewportMode={viewportMode}
             zoom={previewZoom}
-            onViewportChange={setViewportMode}
             onZoomIn={previewZoomIn}
             onZoomOut={previewZoomOut}
             onResetZoom={previewResetZoom}
