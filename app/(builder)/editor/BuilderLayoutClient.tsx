@@ -14,6 +14,18 @@ import {
   stopNotificationCleanup,
 } from '@/stores/useCollaborationPresenceStore';
 
+function applyBuilderTheme() {
+  if (typeof document === 'undefined') return;
+  const stored = localStorage.getItem('theme') || 'system';
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const dark = stored === 'dark' || (stored !== 'light' && prefersDark);
+  const root = document.documentElement;
+  root.classList.toggle('dark', dark);
+  root.classList.toggle('light', !dark);
+  root.style.colorScheme = dark ? 'dark' : 'light';
+  root.style.background = dark ? '#0a0a0a' : '#f4f4f5';
+}
+
 function BuilderLayoutInner({
   children,
   initialSlug,
@@ -29,6 +41,18 @@ function BuilderLayoutInner({
   useEffect(() => {
     initialize();
   }, [initialize]);
+
+  useEffect(() => {
+    applyBuilderTheme();
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const onChange = () => applyBuilderTheme();
+    media.addEventListener('change', onChange);
+    window.addEventListener('storage', onChange);
+    return () => {
+      media.removeEventListener('change', onChange);
+      window.removeEventListener('storage', onChange);
+    };
+  }, []);
 
   useEffect(() => {
     startLockExpirationCheck();
