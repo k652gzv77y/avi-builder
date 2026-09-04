@@ -35,7 +35,12 @@ function getRequestHostname(request: NextRequest): string {
   return host.split(',')[0].trim().split(':')[0].toLowerCase();
 }
 
-function getBuilderPath(pathname: string): string | null {
+function isBuilderHost(hostname: string): boolean {
+  return hostname === BUILDER_HOSTNAME || hostname.endsWith(`.${BUILDER_HOSTNAME}`);
+}
+
+function getBuilderPath(pathname: string, hostname: string): string | null {
+  if (!isBuilderHost(hostname)) return null;
   if (pathname === PROJECTS_AUTH_CALLBACK) return '/ycode/api/auth/callback';
   if (pathname === '/projects/oauth/cloudflare/callback') return '/ycode/api/domains/cloudflare/callback';
   if (pathname === '/projects/oauth/supabase/callback') return '/ycode/api/supabase/oauth/callback';
@@ -134,7 +139,8 @@ async function verifyApiAuth(request: NextRequest): Promise<NextResponse | null>
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const hostname = getRequestHostname(request);
-  const builderPath = getBuilderPath(pathname);
+  const onBuilder = isBuilderHost(hostname);
+  const builderPath = getBuilderPath(pathname, hostname);
   const projectMatch = pathname.match(/^\/projects\/([^/]+)/);
   const projectPrefix = projectMatch && !RESERVED_PROJECT_SLUGS.has(projectMatch[1])
     ? `/projects/${projectMatch[1]}`
@@ -144,8 +150,14 @@ export async function proxy(request: NextRequest) {
     return new NextResponse('Not Found', { status: 404 });
   }
 
-  if (hostname === BUILDER_HOSTNAME && pathname === '/') {
+  if (onBuilder && pathname === '/') {
     return NextResponse.redirect(new URL(PROJECTS_ROOT, request.url));
+  }
+
+  // Published hosts must never open the builder. Old links like
+  // beta.kolboschool.com/projects/kolbo-school go home instead.
+  if (!onBuilder && pathname.startsWith('/projects')) {
+    return NextResponse.redirect(new URL('/', request.url));
   }
 
   const effectivePathname = builderPath ?? pathname;

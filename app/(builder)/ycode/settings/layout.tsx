@@ -1,11 +1,10 @@
-import SettingsShell from '@/components/settings/SettingsShell';
-
-export const dynamic = 'force-dynamic';
-
+/**
+ * Settings rendering is handled by YCodeBuilder (HeaderBar + SettingsContent).
+ */
 export default function SettingsLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <SettingsShell>{children}</SettingsShell>;
+  return <>{children}</>;
 }

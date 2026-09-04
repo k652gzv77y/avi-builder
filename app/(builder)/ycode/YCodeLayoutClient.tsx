@@ -1,29 +1,49 @@
 'use client';
 
-import { Suspense } from 'react';
-import dynamic from 'next/dynamic';
+import { Suspense, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
-
-const YCodeEditorShell = dynamic(() => import('./YCodeEditorShell'), { ssr: false });
-
-function isLightRoute(pathname: string | null) {
-  if (!pathname) return false;
-  return (
-    pathname.includes('/settings') ||
-    pathname.includes('/preview') ||
-    pathname.includes('/devtools/') ||
-    pathname.includes('/oauth/') ||
-    pathname.endsWith('/welcome') ||
-    pathname.endsWith('/accept-invite')
-  );
-}
+import YCodeBuilder from './components/YCodeBuilderMain';
+import { useEditorUrl } from '@/hooks/use-editor-url';
+import { useAuthStore } from '@/stores/useAuthStore';
+import {
+  startLockExpirationCheck,
+  stopLockExpirationCheck,
+  startNotificationCleanup,
+  stopNotificationCleanup,
+} from '@/stores/useCollaborationPresenceStore';
 
 function YCodeLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  if (isLightRoute(pathname)) {
+  const { routeType } = useEditorUrl();
+  const { initialize } = useAuthStore();
+
+  useEffect(() => {
+    initialize();
+  }, [initialize]);
+
+  useEffect(() => {
+    startLockExpirationCheck();
+    startNotificationCleanup();
+    return () => {
+      stopLockExpirationCheck();
+      stopNotificationCleanup();
+    };
+  }, []);
+
+  const prefixRoutes = ['/preview', '/devtools/', '/oauth/'];
+  const exactSuffixes = ['/welcome', '/accept-invite'];
+  if (
+    prefixRoutes.some((route) => pathname?.includes(route)) ||
+    exactSuffixes.some((route) => pathname?.endsWith(route))
+  ) {
     return <>{children}</>;
   }
-  return <YCodeEditorShell>{children}</YCodeEditorShell>;
+
+  if (routeType === 'settings' || routeType === 'localization' || routeType === 'profile' || routeType === 'forms' || routeType === 'integrations') {
+    return <YCodeBuilder>{children}</YCodeBuilder>;
+  }
+
+  return <YCodeBuilder />;
 }
 
 export default function YCodeLayoutClient({ children }: { children: React.ReactNode }) {
