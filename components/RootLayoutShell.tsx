@@ -12,14 +12,7 @@ export const defaultMetadata: Metadata = {
     type: 'website',
     title: 'AVI Builder',
     description: 'Advanced Visual Interface Builder',
-    images: [
-      {
-        url: '/brand/avi-social-light.png',
-        width: 1200,
-        height: 640,
-        alt: 'AVI Builder',
-      },
-    ],
+    images: [{ url: '/brand/avi-social-light.png', width: 1200, height: 640, alt: 'AVI Builder' }],
   },
   twitter: {
     card: 'summary_large_image',
@@ -41,27 +34,17 @@ export const defaultMetadata: Metadata = {
 
 export const defaultViewport: Viewport = {
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
-    { media: '(prefers-color-scheme: dark)', color: '#111111' },
+    { media: '(prefers-color-scheme: light)', color: '#f4f4f5' },
+    { media: '(prefers-color-scheme: dark)', color: '#0a0a0a' },
   ],
 };
+
+const THEME_BOOTSTRAP = `(function(){try{var host=location.hostname;var builder=host==='avibuilder.com'||host==='www.avibuilder.com';var theme=localStorage.getItem('theme');var dark;if(builder){theme=theme||'system';dark=theme==='dark'||(theme!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);}else{dark=matchMedia('(prefers-color-scheme: dark)').matches;}var r=document.documentElement;r.classList.toggle('dark',!!dark);r.classList.toggle('light',!dark);r.style.colorScheme=dark?'dark':'light';r.style.background=dark?'#0a0a0a':'#f4f4f5';}catch(e){}})();`;
 
 interface RootLayoutShellProps {
   children: React.ReactNode;
   headElements?: React.ReactNode[];
-  /**
-   * Classes applied to <body>. Consumers can include a `next/font` variable
-   * (e.g. `${inter.variable}`) so a font is only loaded on the routes that
-   * need it. Defaults to a font-free `font-sans antialiased` so generic
-   * `font-sans` references fall back to the system stack — this is what
-   * public published sites should use to avoid shipping the builder's UI font.
-   */
   bodyClassName?: string;
-  /**
-   * Language for the <html lang> attribute. Omitted for public published sites
-   * so the per-page locale (set on the content wrapper by PageRenderer) is the
-   * source of truth instead of a hardcoded `en`.
-   */
   lang?: string;
 }
 
@@ -74,9 +57,10 @@ export default function RootLayoutShell({
   return (
     <html lang={lang} suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP }} />
         {headElements}
       </head>
-      <body className={bodyClassName} suppressHydrationWarning>
+      <body className={`${bodyClassName} bg-background text-foreground`} suppressHydrationWarning>
         <DarkModeProvider>
           {children}
         </DarkModeProvider>

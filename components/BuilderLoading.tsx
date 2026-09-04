@@ -1,35 +1,33 @@
 'use client';
 
-import { Label } from '@/components/ui/label';
+import AviBuilderMark from '@/components/branding/AviBuilderMark';
 
 interface BuilderLoadingProps {
   title?: string;
   message?: string;
+  progress?: number;
 }
 
-/**
- * BuilderLoading - Reusable loading screen for builder initialization
- * Used for migrations, data loading, and other blocking operations
- */
 export default function BuilderLoading({
-  title = 'Please wait',
-  message = 'Loading...'
+  title = 'AVI Builder',
+  message = 'Loading...',
+  progress,
 }: BuilderLoadingProps) {
+  const width = typeof progress === 'number' ? Math.max(8, Math.min(100, progress)) : undefined;
+
   return (
-    <div className="absolute inset-0 z-[200] bg-neutral-950 flex items-center justify-center">
-      <div className="max-w-md w-full mx-4">
-        <div className="flex-1 flex items-center text-center flex-col gap-2">
-          <Label size="sm">
-            {title}
-          </Label>
-          <Label
-            variant="muted" size="sm"
-            className="bg-gradient-to-r from-muted-foreground via-muted-foreground/40 to-muted-foreground bg-[length:200%_100%] animate-shimmer bg-clip-text text-transparent !font-normal"
-          >
-            {message}
-          </Label>
+    <div className="fixed inset-0 z-[200] flex items-center justify-center bg-background text-foreground">
+      <div className="flex w-56 flex-col items-center gap-5">
+        <AviBuilderMark className="size-8 text-foreground" title={title} />
+        <div className="h-[2px] w-full overflow-hidden rounded-full bg-foreground/10">
+          <div
+            className={width == null ? 'h-full w-1/3 rounded-full bg-foreground/80 animate-[avi-load_1.1s_ease-in-out_infinite]' : 'h-full rounded-full bg-foreground/80 transition-[width] duration-300'}
+            style={width == null ? undefined : { width: `${width}%` }}
+          />
         </div>
+        <p className="text-center text-[11px] text-muted-foreground">{message}</p>
       </div>
+      <style jsx>{''}</style>
     </div>
   );
 }
