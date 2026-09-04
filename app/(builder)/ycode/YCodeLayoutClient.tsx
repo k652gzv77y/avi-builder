@@ -4,7 +4,6 @@ import { Suspense, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import YCodeBuilder from './components/YCodeBuilderMain';
 import ColorTokensStyle from '@/components/ColorTokensStyle';
-import AllBreakpointsControl from './components/AllBreakpointsControl';
 import { useEditorUrl } from '@/hooks/use-editor-url';
 import { useAuthStore } from '@/stores/useAuthStore';
 import {
@@ -34,11 +33,10 @@ function YCodeLayoutInner({ children }: { children: React.ReactNode }) {
 
   const prefixRoutes = ['/preview', '/devtools/', '/oauth/'];
   const exactSuffixes = ['/welcome', '/accept-invite'];
-  const hideCanvasExtras =
+  if (
     prefixRoutes.some((route) => pathname?.includes(route)) ||
-    exactSuffixes.some((route) => pathname?.endsWith(route));
-
-  if (hideCanvasExtras) {
+    exactSuffixes.some((route) => pathname?.endsWith(route))
+  ) {
     return (
       <>
         <ColorTokensStyle />
@@ -46,8 +44,6 @@ function YCodeLayoutInner({ children }: { children: React.ReactNode }) {
       </>
     );
   }
-
-  const showAllControl = routeType === 'layers' || routeType === 'page' || routeType === null;
 
   if (routeType === 'settings' || routeType === 'localization' || routeType === 'profile' || routeType === 'forms' || routeType === 'integrations') {
     return (
@@ -61,7 +57,6 @@ function YCodeLayoutInner({ children }: { children: React.ReactNode }) {
   return (
     <>
       <ColorTokensStyle />
-      {showAllControl && <AllBreakpointsControl />}
       <YCodeBuilder />
     </>
   );
