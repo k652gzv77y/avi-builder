@@ -13,6 +13,7 @@ import {
   startNotificationCleanup,
   stopNotificationCleanup,
 } from '@/stores/useCollaborationPresenceStore';
+import './login-theme.css';
 
 function applyBuilderTheme() {
   if (typeof document === 'undefined') return;
@@ -48,9 +49,18 @@ function BuilderLayoutInner({
     const onChange = () => applyBuilderTheme();
     media.addEventListener('change', onChange);
     window.addEventListener('storage', onChange);
+    const observer = new MutationObserver(() => {
+      const stored = localStorage.getItem('theme') || 'system';
+      const wantsDark = stored === 'dark' || (stored !== 'light' && media.matches);
+      if (document.documentElement.classList.contains('dark') !== wantsDark) {
+        applyBuilderTheme();
+      }
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
     return () => {
       media.removeEventListener('change', onChange);
       window.removeEventListener('storage', onChange);
+      observer.disconnect();
     };
   }, []);
 
