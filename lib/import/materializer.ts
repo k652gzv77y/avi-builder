@@ -10,6 +10,7 @@
  */
 
 import type { Asset, Component, ComponentVariable, Font, Layer, LayerStyle } from '@/types';
+import { projectsPath } from '@/lib/project-url';
 import { useLayerStylesStore } from '@/stores/useLayerStylesStore';
 import { useComponentsStore } from '@/stores/useComponentsStore';
 import { useAssetsStore } from '@/stores/useAssetsStore';
@@ -209,7 +210,7 @@ export class ImportMaterializer {
         formData.append('file', file);
         formData.append('source', `${this.group.toLowerCase()}-import`);
 
-        const uploadResponse = await fetch('/projects/kolbo-school/api/files/upload', {
+        const uploadResponse = await fetch(projectsPath('/api/files/upload'), {
           method: 'POST',
           body: formData,
         });
@@ -265,7 +266,7 @@ export class ImportMaterializer {
     variables?: ComponentVariable[],
   ): Promise<Component | null> {
     try {
-      const response = await fetch('/projects/kolbo-school/api/components', {
+      const response = await fetch(projectsPath('/api/components'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, layers, variables }),

@@ -1,5 +1,7 @@
 'use client';
 
+import { projectsPath } from '@/lib/project-url';
+
 import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -31,8 +33,8 @@ import { resolveInlineVariablesFromData } from '@/lib/inline-variables';
 import { hasPaginationVariables, paginationTextVariableToTemplate, resolvePaginationTextVariable } from '@/lib/pagination-text-utils';
 import { renderRichText, hasBlockElementsWithInlineVariables, getTextStyleClasses, flattenTiptapParagraphs, type RichTextLinkContext, type RenderComponentBlockFn } from '@/lib/text-format-utils';
 import { hasComponentOrVariable, extractPlainTextFromTiptap } from '@/lib/tiptap-utils';
-import LayerContextMenu from '@/app/(builder)/ycode/components/LayerContextMenu';
-import CanvasTextEditor from '@/app/(builder)/ycode/components/CanvasTextEditor';
+import LayerContextMenu from '@/app/(builder)/editor/components/LayerContextMenu';
+import CanvasTextEditor from '@/app/(builder)/editor/components/CanvasTextEditor';
 import { useComponentsStore } from '@/stores/useComponentsStore';
 import { getComponentVariantLayers } from '@/lib/component-variant-utils';
 import { useCollectionLayerStore } from '@/stores/useCollectionLayerStore';
@@ -2748,7 +2750,7 @@ const LayerItemImpl: React.FC<{
         });
 
         try {
-          const response = await fetch('/projects/kolbo-school/api/form-submissions', {
+          const response = await fetch(projectsPath('/api/form-submissions'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

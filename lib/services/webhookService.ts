@@ -122,21 +122,24 @@ async function deliverToWebhook(webhook: Webhook, event: WebhookEvent): Promise<
     console.error('Failed to create webhook delivery log:', error);
   }
 
-  // Build headers
+  // Build headers (Avi primary + legacy Ycode aliases for one release)
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    'User-Agent': 'Ycode-Webhook/1.0',
+    'User-Agent': 'Avi-Builder-Webhook/1.0',
+    'X-Avi-Event': event.type,
     'X-Ycode-Event': event.type,
   };
 
   // Add delivery ID header if available
   if (deliveryId) {
+    headers['X-Avi-Delivery'] = deliveryId;
     headers['X-Ycode-Delivery'] = deliveryId;
   }
 
   // Add HMAC signature if secret is configured
   if (webhook.secret) {
     const signature = generateWebhookSignature(payloadString, webhook.secret);
+    headers['X-Avi-Signature'] = `sha256=${signature}`;
     headers['X-Ycode-Signature'] = `sha256=${signature}`;
   }
 

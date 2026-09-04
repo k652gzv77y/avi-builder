@@ -1,7 +1,7 @@
 import type { z } from 'zod';
 
 /**
- * Result returned by every Ycode agent tool.
+ * Result returned by every Avi Builder agent tool.
  *
  * Mirrors the shape MCP tool callbacks return (`{ content, isError? }`) so the
  * same handlers can power both the MCP server and the in-app agent runtime.

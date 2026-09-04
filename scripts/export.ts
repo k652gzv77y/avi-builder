@@ -1,7 +1,7 @@
 /**
  * Standalone static-export CLI
  *
- * Triggers the same export pipeline the Ycode app uses, but without
+ * Triggers the same export pipeline the Avi Builder app uses, but without
  * needing a logged-in session or a running Next.js server. Credentials
  * come from .env so nothing sensitive lives in source.
  *

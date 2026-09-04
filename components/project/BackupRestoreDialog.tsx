@@ -1,5 +1,7 @@
 'use client';
 
+import { projectsPath } from '@/lib/project-url';
+
 import React, { useState, useRef } from 'react';
 import {
   Dialog,
@@ -70,7 +72,7 @@ export function BackupRestoreDialog({
     setLoading(true);
 
     try {
-      const response = await fetch('/projects/kolbo-school/api/project/export', {
+      const response = await fetch(projectsPath('/api/project/export'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -122,7 +124,7 @@ export function BackupRestoreDialog({
         formData.append('password', restorePassword);
       }
 
-      const response = await fetch('/projects/kolbo-school/api/project/import', {
+      const response = await fetch(projectsPath('/api/project/import'), {
         method: 'POST',
         body: formData,
       });
@@ -138,7 +140,7 @@ export function BackupRestoreDialog({
 
       toast.success('Project successfully restored', { description: 'The builder will now reload' });
       handleClose();
-      setTimeout(() => { window.location.href = '/projects/kolbo-school'; }, 500);
+      setTimeout(() => { window.location.href = projectsPath(''); }, 500);
     } catch (err) {
       showError(err, 'Restore failed');
     } finally {
@@ -186,7 +188,7 @@ export function BackupRestoreDialog({
             <div className="flex flex-col gap-4 pt-2">
               <p className="text-xs text-muted-foreground">
                 This will create a <code className="text-foreground/85">.ycode</code> backup file containing all of your project data. The file can be used to restore
-                your project data at a later date or to transfer your project to another instance of YCode.
+                your project data at a later date or to transfer your project to another instance of Avi Builder.
               </p>
               <div className="space-y-2">
                 <Label htmlFor="backup-name">

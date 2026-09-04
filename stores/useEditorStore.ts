@@ -103,7 +103,7 @@ interface EditorActions {
   /** Reset the "AI opened component edit mode this turn" flag. */
   setAiOpenedComponentEdit: (value: boolean) => void;
   /** Request that the builder auto-exit component edit mode back to the page
-   * (consumed by YCodeBuilderMain after an AI-driven component edit finishes). */
+   * (consumed by BuilderMain after an AI-driven component edit finishes). */
   setPendingAiComponentExit: (value: boolean) => void;
   setActiveInteraction: (triggerId: string | null, targetIds: string[]) => void;
   clearActiveInteraction: () => void;
@@ -380,7 +380,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
 
     if (typeof window !== 'undefined') {
       const pathname = window.location.pathname;
-      const isLayerRoute = /^\/projects\/kolbo-school\/(layers|pages|components)\//.test(pathname);
+      const isLayerRoute = /^\/projects\/([^/]+)\/(layers|pages|components)\//.test(pathname);
 
       if (isLayerRoute) {
         // Debounce the URL update: Next.js's App Router patches
@@ -790,7 +790,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
 
     if (typeof window !== 'undefined') {
       const pathname = window.location.pathname;
-      const isLayerRoute = /^\/projects\/kolbo-school\/(layers|pages|components)\//.test(pathname);
+      const isLayerRoute = /^\/projects\/([^/]+)\/(layers|pages|components)\//.test(pathname);
       if (isLayerRoute) {
         updateUrlQueryParam('layer', layerId);
       }

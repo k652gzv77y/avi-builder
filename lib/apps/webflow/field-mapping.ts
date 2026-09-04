@@ -1,7 +1,7 @@
 /**
  * Webflow -> CMS Field Type Mapping
  *
- * Maps Webflow CMS v2 field types to YCode CollectionFieldType and
+ * Maps Webflow CMS v2 field types to Avi Builder CollectionFieldType and
  * transforms Webflow field values into CMS-compatible string values for
  * storage in `collection_item_values.value`.
  */
@@ -36,15 +36,15 @@ const FIELD_TYPE_MAP: Record<WebflowFieldType, CollectionFieldType> = {
   User: 'text',
 };
 
-/** Map a Webflow field type to its YCode equivalent. */
+/** Map a Webflow field type to its Avi Builder equivalent. */
 export function getCmsFieldType(webflowType: WebflowFieldType | string): CollectionFieldType {
   return FIELD_TYPE_MAP[webflowType as WebflowFieldType] ?? 'text';
 }
 
-/** Webflow field types that produce multi-asset YCode fields. */
+/** Webflow field types that produce multi-asset Avi Builder fields. */
 const MULTI_ASSET_TYPES = new Set<WebflowFieldType>(['MultiImage']);
 
-/** Returns true if the YCode field for this Webflow type should accept multiple files. */
+/** Returns true if the Avi Builder field for this Webflow type should accept multiple files. */
 export function isMultiAssetType(webflowType: WebflowFieldType | string): boolean {
   return MULTI_ASSET_TYPES.has(webflowType as WebflowFieldType);
 }
@@ -80,13 +80,13 @@ export function getWebflowFieldTypeLabel(type: WebflowFieldType | string): strin
 // =============================================================================
 
 /**
- * Transform a Webflow `fieldData` value into the string form YCode expects
+ * Transform a Webflow `fieldData` value into the string form Avi Builder expects
  * for `collection_item_values.value`. Returns `null` for empty values so
  * downstream code can short-circuit.
  *
  * Reference / MultiReference values are NOT resolved here — they remain raw
  * Webflow item ids. The migration service runs a second pass to convert them
- * into YCode item ids.
+ * into Avi Builder item ids.
  *
  * Asset values (Image / MultiImage / File / Video) are also pass-through —
  * the migration service is responsible for downloading and re-uploading
@@ -140,7 +140,7 @@ export function transformFieldValue(
     }
 
     case 'Link': {
-      // Webflow Link fields hold a plain URL — stored as text in YCode so the
+      // Webflow Link fields hold a plain URL — stored as text in Avi Builder so the
       // user can rebind it via the link picker if they want.
       if (typeof value !== 'string' || value === '') return null;
       return value;
@@ -200,7 +200,7 @@ export function transformFieldValue(
  * Resolve an Option field's id to its display name using the field's
  * `validations.options` list. Returns the original id if no match is found.
  *
- * Names are trimmed to match how YCode stores option values (the builder
+ * Names are trimmed to match how Avi Builder stores option values (the builder
  * trims option names on save and uses them as the persisted value).
  */
 export function resolveOptionLabel(

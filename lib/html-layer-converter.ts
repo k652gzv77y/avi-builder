@@ -2,7 +2,7 @@
  * HTML ↔ Layer bidirectional converter
  *
  * Import: Parse an HTML string into a Layer[] tree, converting Tailwind classes
- *         to design properties and mapping HTML elements to Ycode layer types.
+ *         to design properties and mapping HTML elements to Avi Builder layer types.
  *
  * Export: Convert a Layer tree back into clean HTML with Tailwind classes.
  */
@@ -31,7 +31,7 @@ function resolveAbsoluteUrl(url: string): string | undefined {
 // ─── Tag → Layer Name Mapping ───
 
 const TAG_TO_LAYER_NAME: Record<string, string> = {
-  // Structure — maps to valid Ycode layer names
+  // Structure — maps to valid Avi Builder layer names
   div: 'div',
   section: 'section',
   header: 'div',
@@ -621,7 +621,7 @@ function elementToLayer(el: Element): Layer | null {
 }
 
 /**
- * Parse an HTML string into a Ycode Layer tree.
+ * Parse an HTML string into a Avi Builder Layer tree.
  * Converts Tailwind classes to design properties.
  * Absolute image/media URLs are preserved; relative paths become placeholders.
  */

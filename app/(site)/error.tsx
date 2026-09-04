@@ -1,8 +1,10 @@
 'use client';
 
+import { projectsPath } from '@/lib/project-url';
+
 import { useEffect, useState } from 'react';
 import LayerRendererPublic from '@/components/LayerRendererPublic';
-import YcodeBadge from '@/components/YcodeBadge';
+import AviBadge from '@/components/AviBadge';
 import type { PageData } from '@/lib/page-fetcher';
 
 interface ErrorProps {
@@ -26,7 +28,7 @@ export default function Error({ error, reset }: ErrorProps) {
 
     async function fetchErrorPage() {
       try {
-        const response = await fetch('/projects/kolbo-school/api/error-page?code=500&published=true');
+        const response = await fetch(projectsPath('/api/error-page?code=500&published=true'));
         if (response.ok) {
           const data = await response.json();
           setErrorPageData(data.pageData);
@@ -53,16 +55,28 @@ export default function Error({ error, reset }: ErrorProps) {
     return (
       <>
         {generatedCss && (
-          <style
-            id="ycode-styles"
-            dangerouslySetInnerHTML={{ __html: generatedCss }}
-          />
+          <>
+            <style
+              id="avi-styles"
+              dangerouslySetInnerHTML={{ __html: generatedCss }}
+            />
+            <style
+              id="ycode-styles"
+              dangerouslySetInnerHTML={{ __html: generatedCss }}
+            />
+          </>
         )}
         {colorVariablesCss && (
-          <style
-            id="ycode-color-vars"
-            dangerouslySetInnerHTML={{ __html: colorVariablesCss }}
-          />
+          <>
+            <style
+              id="avi-color-vars"
+              dangerouslySetInnerHTML={{ __html: colorVariablesCss }}
+            />
+            <style
+              id="ycode-color-vars"
+              dangerouslySetInnerHTML={{ __html: colorVariablesCss }}
+            />
+          </>
         )}
         {customCodeHead && (
           <div dangerouslySetInnerHTML={{ __html: customCodeHead }} />
@@ -77,7 +91,7 @@ export default function Error({ error, reset }: ErrorProps) {
         {customCodeBody && (
           <div dangerouslySetInnerHTML={{ __html: customCodeBody }} />
         )}
-        {showBadge && <YcodeBadge />}
+        {showBadge && <AviBadge />}
       </>
     );
   }
@@ -97,7 +111,7 @@ export default function Error({ error, reset }: ErrorProps) {
           Try Again
         </button>
       </div>
-      {showBadge && <YcodeBadge />}
+      {showBadge && <AviBadge />}
     </div>
   );
 }

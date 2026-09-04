@@ -1,5 +1,7 @@
 'use client';
 
+import { projectsPath } from '@/lib/project-url';
+
 /**
  * Cross-project paste materializer for the internal Ycode clipboard bundle.
  *
@@ -380,7 +382,7 @@ async function createComponentViaApi(
   variants: Component['variants'],
 ): Promise<Component | null> {
   try {
-    const response = await fetch('/projects/kolbo-school/api/components', {
+    const response = await fetch(projectsPath('/api/components'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, layers, variables, variants }),
@@ -407,7 +409,7 @@ async function uploadInlineAsset(
     const formData = new FormData();
     formData.append('file', file);
     formData.append('source', 'clipboard-import');
-    const response = await fetch('/projects/kolbo-school/api/files/upload', { method: 'POST', body: formData });
+    const response = await fetch(projectsPath('/api/files/upload'), { method: 'POST', body: formData });
     if (!response.ok) return null;
     const data = await response.json();
     const asset = data?.data;

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { projectsPath } from '@/lib/project-url';
 import { fetchHomepage, fetchErrorPage } from '@/lib/page-fetcher';
 import PageRenderer from '@/components/PageRenderer';
 import PasswordForm from '@/components/PasswordForm';
@@ -27,13 +28,13 @@ export default async function Home() {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
         <div className="text-center p-8">
           <h1 className="text-6xl font-bold text-gray-900 mb-4">
-            Ycode Preview
+            Avi Builder Preview
           </h1>
           <p className="text-xl text-gray-600 mb-8">
             No homepage found. Create an index page in the builder.
           </p>
           <Link
-            href="/projects/kolbo-school"
+            href={projectsPath('')}
             className="inline-block bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-8 rounded-lg transition-colors"
           >
             Open Builder →
@@ -72,7 +73,7 @@ export default async function Home() {
           passwordProtection={{
             pageId: protection.protectedBy === 'page' ? protection.protectedById : undefined,
             folderId: protection.protectedBy === 'folder' ? protection.protectedById : undefined,
-            redirectUrl: '/projects/kolbo-school/preview',
+            redirectUrl: projectsPath('/preview'),
             isPublished: false,
           }}
         />
@@ -87,7 +88,7 @@ export default async function Home() {
         <PasswordForm
           pageId={protection.protectedBy === 'page' ? protection.protectedById : undefined}
           folderId={protection.protectedBy === 'folder' ? protection.protectedById : undefined}
-          redirectUrl="/projects/kolbo-school/preview"
+          redirectUrl="/preview"
           isPublished={false}
         />
       </div>
@@ -116,7 +117,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
   if (!data) {
     return {
-      title: 'Preview - Ycode',
+      title: 'Preview - Avi Builder',
       description: 'Preview - Built with AVI Builder',
     };
   }

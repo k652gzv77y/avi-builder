@@ -7,7 +7,7 @@ import LayerRendererPublic from '@/components/LayerRendererPublic';
 import SliderInitializer from '@/components/SliderInitializer';
 import LightboxInitializer from '@/components/LightboxInitializer';
 import PasswordForm from '@/components/PasswordForm';
-import YcodeBadge from '@/components/YcodeBadge';
+import AviBadge from '@/components/AviBadge';
 import { unstable_cache } from 'next/cache';
 import { resolveCustomCodePlaceholders } from '@/lib/resolve-cms-variables';
 import { renderRootLayoutHeadCode } from '@/lib/parse-head-html';
@@ -797,18 +797,31 @@ export default async function PageRenderer({
 
       {/* Inject CSS directly — React 19 hoists <style> with precedence to <head> */}
       {generatedCss && (
-        <style
-          id="ycode-styles"
-          dangerouslySetInnerHTML={{ __html: generatedCss }}
-        />
+        <>
+          <style
+            id="avi-styles"
+            dangerouslySetInnerHTML={{ __html: generatedCss }}
+          />
+          {/* Legacy id kept for one release so published injectors keep working */}
+          <style
+            id="ycode-styles"
+            dangerouslySetInnerHTML={{ __html: generatedCss }}
+          />
+        </>
       )}
 
       {/* Inject color variable CSS custom properties */}
       {colorVariablesCss && (
-        <style
-          id="ycode-color-vars"
-          dangerouslySetInnerHTML={{ __html: colorVariablesCss }}
-        />
+        <>
+          <style
+            id="avi-color-vars"
+            dangerouslySetInnerHTML={{ __html: colorVariablesCss }}
+          />
+          <style
+            id="ycode-color-vars"
+            dangerouslySetInnerHTML={{ __html: colorVariablesCss }}
+          />
+        </>
       )}
 
       {/* Warm up the Google Fonts origins. When CSS is inlined below we only
@@ -988,7 +1001,7 @@ export default async function PageRenderer({
         <CustomCodeInjector html={pageCustomCodeBody} />
       )}
 
-      {ycodeBadge && !isPreview && <YcodeBadge />}
+      {ycodeBadge && !isPreview && <AviBadge />}
     </>
   );
 }

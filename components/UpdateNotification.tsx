@@ -1,5 +1,7 @@
 'use client';
 
+import { projectsPath } from '@/lib/project-url';
+
 import { useState, useEffect } from 'react';
 
 interface UpdateInfo {
@@ -30,7 +32,7 @@ export default function UpdateNotification() {
 
   const checkForUpdates = async () => {
     try {
-      const response = await fetch('/projects/kolbo-school/api/updates/check');
+      const response = await fetch(projectsPath('/api/updates/check'));
       if (response.ok) {
         const data = await response.json();
         setUpdateInfo(data);

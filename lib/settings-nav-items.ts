@@ -1,3 +1,4 @@
+import { getProjectSlugFromPath as slugFromPath } from '@/lib/project-url';
 export interface SettingsNavItem {
   id: string;
   label: string;
@@ -5,11 +6,10 @@ export interface SettingsNavItem {
 }
 
 export function getProjectSlugFromPath(pathname: string | null): string {
-  const match = pathname?.match(/^\/projects\/([^/]+)/);
-  return match?.[1] || 'kolbo-school';
+  return slugFromPath(pathname) || 'project';
 }
 
-export function getSettingsNavItems(slug = 'kolbo-school'): SettingsNavItem[] {
+export function getSettingsNavItems(slug = 'project'): SettingsNavItem[] {
   const root = `/projects/${slug}/settings`;
   return [
     { id: 'general', label: 'General', path: `${root}/general` },

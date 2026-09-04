@@ -3,6 +3,7 @@
  */
 
 import { Layer, FieldVariable, CollectionVariable, CollectionItemWithValues, CollectionField, Component, ComponentVariable, Breakpoint, LayerVariables, DesignColorVariable, BoundColorStop } from '@/types';
+import { projectsPath } from '@/lib/project-url';
 import { generateId } from '@/lib/utils';
 import { resolveInlineVariablesFromData } from '@/lib/inline-variables';
 import { DEFAULT_TEXT_STYLES } from '@/lib/text-format-utils';
@@ -1805,7 +1806,7 @@ const LAYER_NAME_TO_HTML_TAG: Record<string, string> = {
   // Filter
   filter: 'div',
 
-  // Checkbox / radio (the input itself is valid HTML; these are Ycode wrapper names)
+  // Checkbox / radio (the input itself is valid HTML; these are Avi Builder wrapper names)
   checkbox: 'input',
   radio: 'input',
 };
@@ -2838,7 +2839,7 @@ export async function createComponentViaApi(
   layers: Layer[]
 ): Promise<Component | null> {
   try {
-    const response = await fetch('/projects/kolbo-school/api/components', {
+    const response = await fetch(projectsPath('/api/components'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

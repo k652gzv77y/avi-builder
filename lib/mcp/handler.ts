@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import { projectsPath } from '@/lib/project-url';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { validateToken } from '@/lib/repositories/mcpTokenRepository';
@@ -7,8 +8,8 @@ import { getCachedToken, setCachedToken } from '@/lib/mcp/token-cache';
 
 /**
  * Shared MCP HTTP handler used by both the URL-token endpoint
- * (`/projects/kolbo-school/mcp/[token]`) and the OAuth Bearer-token endpoint
- * (`/projects/kolbo-school/mcp`).
+ * (projectsPath(`/mcp/[token]`)) and the OAuth Bearer-token endpoint
+ * (projectsPath(`/mcp`)).
  *
  * Authentication is the only thing that differs between the two — once a
  * token is validated, the request body, session lifecycle, transport, and
@@ -111,7 +112,7 @@ async function autoInitialize(
       params: {
         protocolVersion: '2025-03-26',
         capabilities: {},
-        clientInfo: { name: 'ycode-auto', version: '1.0.0' },
+        clientInfo: { name: 'avi-builder-auto', version: '1.0.0' },
       },
     },
   });
@@ -267,5 +268,5 @@ export function unauthorizedJson(message: string): Response {
  */
 export function buildWwwAuthenticateHeader(baseUrl: string): string {
   const resourceMetadata = `${baseUrl}/.well-known/oauth-protected-resource`;
-  return `Bearer realm="ycode", resource_metadata="${resourceMetadata}"`;
+  return `Bearer realm="avi-builder", resource_metadata="${resourceMetadata}"`;
 }

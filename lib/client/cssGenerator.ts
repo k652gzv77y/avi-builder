@@ -8,6 +8,7 @@
 'use client';
 
 import type { Component, Layer } from '@/types';
+import { projectsPath } from '@/lib/project-url';
 import { DEFAULT_TEXT_STYLES } from '@/lib/text-format-utils';
 import { TAILWIND_CUSTOM_VARIANTS } from '@/lib/tailwind-custom-variants';
 
@@ -196,7 +197,7 @@ export async function generateCSS(layers: Layer[]): Promise<string> {
  * Save CSS to settings via API and update the settings store
  */
 export async function saveCSS(css: string, key: 'draft_css' | 'published_css'): Promise<void> {
-  const response = await fetch(`/projects/kolbo-school/api/settings/${key}`, {
+  const response = await fetch(projectsPath(`/api/settings/${key}`), {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ value: css }),

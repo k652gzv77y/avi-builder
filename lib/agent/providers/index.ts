@@ -13,7 +13,7 @@ import type { AgentProvider } from './types';
  * Provider selection.
  *
  * The open-source build ships BYOK providers for Anthropic, OpenAI, Google
- * Gemini, and xAI Grok, picked by the model the request runs on. The Ycode Cloud overlay
+ * Gemini, and xAI Grok, picked by the model the request runs on. The Avi Builder Cloud overlay
  * calls `registerHostedProvider` at startup to take over for hosted tenants —
  * so the hosted implementation lives entirely in the overlay and is simply
  * absent from self-host builds.

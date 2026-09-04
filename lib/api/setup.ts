@@ -5,6 +5,7 @@
  */
 
 import type { ApiResponse, SupabaseConfig } from '@/types';
+import { projectsPath } from '@/lib/project-url';
 
 /**
  * Check if setup is complete
@@ -15,7 +16,7 @@ export async function checkSetupStatus(): Promise<{
   is_vercel: boolean;
   error?: string;
 }> {
-  const response = await fetch('/projects/kolbo-school/api/setup/status');
+  const response = await fetch(projectsPath('/api/setup/status'));
 
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -30,7 +31,7 @@ export async function checkSetupStatus(): Promise<{
 export async function connectSupabase(
   config: SupabaseConfig
 ): Promise<ApiResponse<void>> {
-  const response = await fetch('/projects/kolbo-school/api/setup/connect', {
+  const response = await fetch(projectsPath('/api/setup/connect'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -49,7 +50,7 @@ export async function connectSupabase(
  * Run Supabase migrations (checks and runs if needed)
  */
 export async function runMigrations(): Promise<ApiResponse<void>> {
-  const response = await fetch('/projects/kolbo-school/api/setup/migrate', {
+  const response = await fetch(projectsPath('/api/setup/migrate'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
   });
@@ -64,7 +65,7 @@ export async function checkEmailConfirmDisabled(): Promise<{
   autoconfirm: boolean;
   error?: string;
 }> {
-  const response = await fetch('/projects/kolbo-school/api/setup/check-email-confirm');
+  const response = await fetch(projectsPath('/api/setup/check-email-confirm'));
   const data = await response.json();
 
   if (!response.ok) {
@@ -80,7 +81,7 @@ export async function checkEmailConfirmDisabled(): Promise<{
 export async function completeSetup(): Promise<ApiResponse<{ redirect_url: string }>> {
   return {
     data: {
-      redirect_url: '/projects/kolbo-school',
+      redirect_url: '/projects',
     },
   };
 }

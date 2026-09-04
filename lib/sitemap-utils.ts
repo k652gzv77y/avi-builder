@@ -255,7 +255,7 @@ export function generateSitemapXml(urls: SitemapUrl[]): string {
 }
 
 /**
- * Default sitemap settings (Ycode-generated sitemap enabled for new apps)
+ * Default sitemap settings (Avi-generated sitemap enabled for new apps)
  */
 export function getDefaultSitemapSettings(): SitemapSettings {
   return {

@@ -6,6 +6,7 @@
  */
 
 import { create } from 'zustand';
+import { projectsPath } from '@/lib/project-url';
 import {
   createComponentViaApi,
   replaceLayerWithComponentInstance,
@@ -298,7 +299,7 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
       set({ isLoading: true, error: null });
 
       try {
-        const response = await fetch('/projects/kolbo-school/api/components');
+        const response = await fetch(projectsPath('/api/components'));
         const result = await response.json();
 
         if (result.error) {
@@ -318,7 +319,7 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
       set({ isLoading: true, error: null });
 
       try {
-        const response = await fetch('/projects/kolbo-school/api/components', {
+        const response = await fetch(projectsPath('/api/components'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -356,7 +357,7 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
       set({ isLoading: true, error: null });
 
       try {
-        const response = await fetch(`/projects/kolbo-school/api/components/${id}`, {
+        const response = await fetch(projectsPath(`/api/components/${id}`), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(updates),
@@ -383,7 +384,7 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
     // Get preview of what will be affected by deleting a component
     getDeletePreview: async (id) => {
       try {
-        const response = await fetch(`/projects/kolbo-school/api/components/${id}`, {
+        const response = await fetch(projectsPath(`/api/components/${id}`), {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'preview-delete' }),
@@ -408,7 +409,7 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
       set({ isLoading: true, error: null });
 
       try {
-        const response = await fetch(`/projects/kolbo-school/api/components/${id}`, {
+        const response = await fetch(projectsPath(`/api/components/${id}`), {
           method: 'DELETE',
         });
 
@@ -690,7 +691,7 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
       set({ isSaving: true });
 
       try {
-        const response = await fetch(`/projects/kolbo-school/api/components/${componentId}`, {
+        const response = await fetch(projectsPath(`/api/components/${componentId}`), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ variants: variantsBeingSaved }),
@@ -777,7 +778,7 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
             });
 
             if (affectedPageIds.length > 0) {
-              fetch('/projects/kolbo-school/api/css/generate-pages', {
+              fetch(projectsPath('/api/css/generate-pages'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ pageIds: affectedPageIds }),
@@ -837,7 +838,7 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
       }));
 
       try {
-        const response = await fetch(`/projects/kolbo-school/api/components/${id}`, {
+        const response = await fetch(projectsPath(`/api/components/${id}`), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name: newName }),
@@ -926,13 +927,13 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
       for (const componentId of componentIds) {
         try {
           // Check if component exists/is deleted
-          const response = await fetch(`/projects/kolbo-school/api/components/${componentId}`);
+          const response = await fetch(projectsPath(`/api/components/${componentId}`));
           const result = await response.json();
 
           // If component doesn't exist or is deleted, restore it
           if (!result.data || result.error) {
             // Restore the component via API
-            const restoreResponse = await fetch(`/projects/kolbo-school/api/components/${componentId}`, {
+            const restoreResponse = await fetch(projectsPath(`/api/components/${componentId}`), {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ action: 'restore' }),
@@ -968,7 +969,7 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
       const updatedVariables = [...(component.variables || []), newVariable];
 
       try {
-        const response = await fetch(`/projects/kolbo-school/api/components/${componentId}`, {
+        const response = await fetch(projectsPath(`/api/components/${componentId}`), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ variables: updatedVariables }),
@@ -1003,7 +1004,7 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
       const updatedVariables = [...(component.variables || []), newVariable];
 
       try {
-        const response = await fetch(`/projects/kolbo-school/api/components/${componentId}`, {
+        const response = await fetch(projectsPath(`/api/components/${componentId}`), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ variables: updatedVariables }),
@@ -1037,7 +1038,7 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
       const updatedVariables = [...(component.variables || []), newVariable];
 
       try {
-        const response = await fetch(`/projects/kolbo-school/api/components/${componentId}`, {
+        const response = await fetch(projectsPath(`/api/components/${componentId}`), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ variables: updatedVariables }),
@@ -1073,7 +1074,7 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
       const updatedVariables = [...(component.variables || []), newVariable];
 
       try {
-        const response = await fetch(`/projects/kolbo-school/api/components/${componentId}`, {
+        const response = await fetch(projectsPath(`/api/components/${componentId}`), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ variables: updatedVariables }),
@@ -1108,7 +1109,7 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
       const updatedVariables = [...(component.variables || []), newVariable];
 
       try {
-        const response = await fetch(`/projects/kolbo-school/api/components/${componentId}`, {
+        const response = await fetch(projectsPath(`/api/components/${componentId}`), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ variables: updatedVariables }),
@@ -1142,7 +1143,7 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
       const updatedVariables = [...(component.variables || []), newVariable];
 
       try {
-        const response = await fetch(`/projects/kolbo-school/api/components/${componentId}`, {
+        const response = await fetch(projectsPath(`/api/components/${componentId}`), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ variables: updatedVariables }),
@@ -1176,7 +1177,7 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
       const updatedVariables = [...(component.variables || []), newVariable];
 
       try {
-        const response = await fetch(`/projects/kolbo-school/api/components/${componentId}`, {
+        const response = await fetch(projectsPath(`/api/components/${componentId}`), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ variables: updatedVariables }),
@@ -1210,7 +1211,7 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
       const updatedVariables = [...(component.variables || []), newVariable];
 
       try {
-        const response = await fetch(`/projects/kolbo-school/api/components/${componentId}`, {
+        const response = await fetch(projectsPath(`/api/components/${componentId}`), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ variables: updatedVariables }),
@@ -1245,7 +1246,7 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
       );
 
       try {
-        const response = await fetch(`/projects/kolbo-school/api/components/${componentId}`, {
+        const response = await fetch(projectsPath(`/api/components/${componentId}`), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ variables: updatedVariables }),
@@ -1283,7 +1284,7 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
       }));
 
       try {
-        const response = await fetch(`/projects/kolbo-school/api/components/${componentId}`, {
+        const response = await fetch(projectsPath(`/api/components/${componentId}`), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ variables: reordered }),
@@ -1367,7 +1368,7 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
       const updatedLayers = updatedVariants[0]?.layers ?? [];
 
       try {
-        const response = await fetch(`/projects/kolbo-school/api/components/${componentId}`, {
+        const response = await fetch(projectsPath(`/api/components/${componentId}`), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1512,7 +1513,7 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
       const updatedVariants = [...baseline, newVariant];
 
       try {
-        const response = await fetch(`/projects/kolbo-school/api/components/${componentId}`, {
+        const response = await fetch(projectsPath(`/api/components/${componentId}`), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ variants: updatedVariants }),
@@ -1565,7 +1566,7 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
       }));
 
       try {
-        const response = await fetch(`/projects/kolbo-school/api/components/${componentId}`, {
+        const response = await fetch(projectsPath(`/api/components/${componentId}`), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ variants: updatedVariants }),
@@ -1609,7 +1610,7 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
       if (updatedVariants.length === component.variants.length) return; // not found
 
       try {
-        const response = await fetch(`/projects/kolbo-school/api/components/${componentId}`, {
+        const response = await fetch(projectsPath(`/api/components/${componentId}`), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ variants: updatedVariants }),
@@ -1671,7 +1672,7 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
       }));
 
       try {
-        const response = await fetch(`/projects/kolbo-school/api/components/${componentId}`, {
+        const response = await fetch(projectsPath(`/api/components/${componentId}`), {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ variants: next }),

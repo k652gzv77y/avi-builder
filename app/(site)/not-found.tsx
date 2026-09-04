@@ -5,7 +5,7 @@ import { fetchGlobalPageSettings } from '@/lib/generate-page-metadata';
 import { getSettingByKey } from '@/lib/repositories/settingsRepository';
 import { tenantStore } from '@/lib/supabase-server';
 import PageRenderer from '@/components/PageRenderer';
-import YcodeBadge from '@/components/YcodeBadge';
+import AviBadge from '@/components/AviBadge';
 
 /** Cached lookup of the user's custom 404 page, invalidated on publish. */
 function fetchCachedCustom404(tenantId?: string) {
@@ -70,7 +70,7 @@ export default async function NotFound() {
           Go Home
         </Link>
       </div>
-      {showBadge && <YcodeBadge />}
+      {showBadge && <AviBadge />}
     </div>
   );
 }

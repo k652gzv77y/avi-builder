@@ -6,7 +6,7 @@ import type { SupabaseConfig } from './types/index.ts';
 import { isCloudflareRuntime } from './lib/platform/runtime.ts';
 
 /**
- * Knex Configuration for Ycode Supabase Migrations
+ * Knex Configuration for Avi Builder Supabase Migrations
  *
  * This configuration is used to run migrations programmatically
  * against the user's Supabase PostgreSQL database.

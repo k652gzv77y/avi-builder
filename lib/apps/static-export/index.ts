@@ -1,7 +1,7 @@
 /**
  * Static HTML Export — public entry point.
  *
- * Exports every published Ycode page to standalone HTML using the same
+ * Exports every published Avi Builder page to standalone HTML using the same
  * fetch + render pipeline as the live site. Output is written to one or
  * more configured targets: local filesystem, S3 bucket, or GitHub repo.
  *

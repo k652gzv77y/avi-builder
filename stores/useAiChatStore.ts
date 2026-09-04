@@ -1,5 +1,7 @@
 'use client';
 
+import { projectsPath } from '@/lib/project-url';
+
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
@@ -481,7 +483,7 @@ export const useAiChatStore = create<AiChatStore>()(
         };
 
         try {
-          const response = await fetch('/projects/kolbo-school/api/ai/chat', {
+          const response = await fetch(projectsPath('/api/ai/chat'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({

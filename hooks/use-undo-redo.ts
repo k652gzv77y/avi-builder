@@ -6,6 +6,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import { projectsPath } from '@/lib/project-url';
 import { useVersionsStore } from '@/stores/useVersionsStore';
 import { usePagesStore } from '@/stores/usePagesStore';
 import { useComponentsStore } from '@/stores/useComponentsStore';
@@ -313,7 +314,7 @@ export function useUndoRedo({
         }
         case 'layer_style': {
           // For layer styles, we need to update via API
-          await fetch(`/projects/kolbo-school/api/layer-styles/${entityId}`, {
+          await fetch(projectsPath(`/api/layer-styles/${entityId}`), {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(state),
@@ -880,7 +881,7 @@ export function useUndoRedo({
           session_id: getSessionId(),
         };
 
-        const response = await fetch('/projects/kolbo-school/api/versions', {
+        const response = await fetch(projectsPath('/api/versions'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(versionData),

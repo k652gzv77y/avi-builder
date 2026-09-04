@@ -13,25 +13,37 @@ export default function SettingsShell({ children }: { children: React.ReactNode 
   const canvasHref = `/projects/${slug}`;
   const cmsHref = `/projects/${slug}/collections`;
   const formsHref = `/projects/${slug}/forms`;
-  const previewHost = slug === 'kolbo-school' ? 'https://beta.kolboschool.com' : `https://${slug}.avibuilder.com`;
+  const previewHost = `https://${slug}.avibuilder.com`;
 
   return (
     <div className="min-h-dvh bg-background text-foreground">
       <header className="grid h-14 grid-cols-3 items-center border-b px-3 md:px-4">
         <div className="flex min-w-0 items-center gap-1">
-          <Button variant="secondary" size="sm" className="size-8!" asChild>
+          <Button
+            variant="secondary" size="sm"
+            className="size-8!" asChild
+          >
             <Link href={canvasHref} aria-label="Avi Builder">
               <AviBuilderMark className="size-4 text-secondary-foreground" />
             </Link>
           </Button>
           <div className="hidden items-center gap-1 sm:flex">
-            <Button variant="ghost" size="sm" asChild>
+            <Button
+              variant="ghost" size="sm"
+              asChild
+            >
               <Link href={canvasHref}>Design</Link>
             </Button>
-            <Button variant="ghost" size="sm" asChild>
+            <Button
+              variant="ghost" size="sm"
+              asChild
+            >
               <Link href={cmsHref}>CMS</Link>
             </Button>
-            <Button variant="ghost" size="sm" asChild>
+            <Button
+              variant="ghost" size="sm"
+              asChild
+            >
               <Link href={formsHref}>Forms</Link>
             </Button>
           </div>
@@ -45,11 +57,17 @@ export default function SettingsShell({ children }: { children: React.ReactNode 
           {previewHost.replace('https://', '')}
         </a>
         <div className="flex items-center justify-end gap-1">
-          <Button variant="ghost" size="sm" className="hidden sm:inline-flex" asChild>
+          <Button
+            variant="ghost" size="sm"
+            className="hidden sm:inline-flex" asChild
+          >
             <Link href={`${canvasHref}/settings/users`}>Invite</Link>
           </Button>
           <span className="hidden text-xs text-muted-foreground md:inline">Ready</span>
-          <Button variant="ghost" size="sm" asChild>
+          <Button
+            variant="ghost" size="sm"
+            asChild
+          >
             <Link href={`${canvasHref}?preview=true`}>Preview</Link>
           </Button>
           <Button size="sm" asChild>

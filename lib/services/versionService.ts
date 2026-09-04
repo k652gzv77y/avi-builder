@@ -6,6 +6,7 @@
  */
 
 import type { Layer, VersionEntityType, CreateVersionData } from '@/types';
+import { projectsPath } from '@/lib/project-url';
 import { createPatch, createInversePatch, isPatchEmpty, generatePatchDescription, JsonPatch } from '@/lib/version-utils';
 import { generatePageLayersHash, generateComponentContentHash, generateLayerStyleContentHash } from '@/lib/hash-utils';
 
@@ -136,7 +137,7 @@ export async function recordVersion(
       session_id: finalSessionId,
     };
 
-    const response = await fetch('/projects/kolbo-school/api/versions', {
+    const response = await fetch(projectsPath('/api/versions'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(versionData),

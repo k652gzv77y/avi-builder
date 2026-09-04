@@ -1,10 +1,11 @@
 /**
- * API Client for Ycode Builder
+ * API Client for Avi Builder
  *
  * Handles communication with Next.js API routes
  */
 
 import type { Page, PageLayers, Layer, Asset, AssetCategory, PageFolder, ApiResponse, AgentProviderId, AgentSettingsStatus, AiChat, AiChatSummary, Collection, CollectionField, CollectionItemWithValues, Component, LayerStyle, Setting, UpdateAgentSettingsData, UpdateCollectionData, CreateCollectionFieldData, UpdateCollectionFieldData, Locale, Translation, CreateLocaleData, UpdateLocaleData, CreateTranslationData, UpdateTranslationData, AssetFolder, Font } from '../types';
+import { projectsPath } from '@/lib/project-url';
 import type { StatusAction } from '@/lib/collection-field-utils';
 import type { CollectionUsageResult, CollectionFieldUsageResult } from '@/lib/collection-usage-utils';
 
@@ -73,27 +74,27 @@ async function apiRequest<T>(
 export const pagesApi = {
   // Get all pages
   async getAll(): Promise<ApiResponse<Page[]>> {
-    return apiRequest<Page[]>('/projects/kolbo-school/api/pages');
+    return apiRequest<Page[]>(projectsPath('/api/pages'));
   },
 
   // Get page by ID
   async getById(id: string): Promise<ApiResponse<Page>> {
-    return apiRequest<Page>(`/projects/kolbo-school/api/pages/${id}`);
+    return apiRequest<Page>(projectsPath(`/api/pages/${id}`));
   },
 
   // Get page by slug
   async getBySlug(slug: string): Promise<ApiResponse<Page>> {
-    return apiRequest<Page>(`/projects/kolbo-school/api/pages/slug/${slug}`);
+    return apiRequest<Page>(projectsPath(`/api/pages/slug/${slug}`));
   },
 
   // Get all published pages (for public website)
   async getAllPublished(): Promise<ApiResponse<Page[]>> {
-    return apiRequest<Page[]>('/projects/kolbo-school/api/pages?is_published=true');
+    return apiRequest<Page[]>(projectsPath('/api/pages?is_published=true'));
   },
 
   // Create new page
   async create(page: Omit<Page, 'id' | 'created_at' | 'updated_at' | 'deleted_at'>): Promise<ApiResponse<Page>> {
-    return apiRequest<Page>('/projects/kolbo-school/api/pages', {
+    return apiRequest<Page>(projectsPath('/api/pages'), {
       method: 'POST',
       body: JSON.stringify(page),
     });
@@ -101,7 +102,7 @@ export const pagesApi = {
 
   // Update page
   async update(id: string, page: Partial<Page>): Promise<ApiResponse<Page>> {
-    return apiRequest<Page>(`/projects/kolbo-school/api/pages/${id}`, {
+    return apiRequest<Page>(projectsPath(`/api/pages/${id}`), {
       method: 'PUT',
       body: JSON.stringify(page),
     });
@@ -109,19 +110,19 @@ export const pagesApi = {
 
   // Delete page
   async delete(id: string): Promise<ApiResponse<void>> {
-    return apiRequest<void>(`/projects/kolbo-school/api/pages/${id}`, {
+    return apiRequest<void>(projectsPath(`/api/pages/${id}`), {
       method: 'DELETE',
     });
   },
 
   // Get unpublished pages
   async getUnpublished(): Promise<ApiResponse<Page[]>> {
-    return apiRequest<Page[]>('/projects/kolbo-school/api/pages/unpublished');
+    return apiRequest<Page[]>(projectsPath('/api/pages/unpublished'));
   },
 
   // Change a page's publish status (draft / stage / publish) in real time
   async setPageStatus(id: string, action: StatusAction): Promise<ApiResponse<Page>> {
-    return apiRequest<Page>(`/projects/kolbo-school/api/pages/${id}/status`, {
+    return apiRequest<Page>(projectsPath(`/api/pages/${id}/status`), {
       method: 'POST',
       body: JSON.stringify({ action }),
     });
@@ -132,12 +133,12 @@ export const pagesApi = {
 export const foldersApi = {
   // Get all folders
   async getAll(): Promise<ApiResponse<PageFolder[]>> {
-    return apiRequest<PageFolder[]>('/projects/kolbo-school/api/folders');
+    return apiRequest<PageFolder[]>(projectsPath('/api/folders'));
   },
 
   // Create new folder
   async create(folder: Omit<PageFolder, 'id' | 'created_at' | 'updated_at' | 'deleted_at'>): Promise<ApiResponse<PageFolder>> {
-    return apiRequest<PageFolder>('/projects/kolbo-school/api/folders', {
+    return apiRequest<PageFolder>(projectsPath('/api/folders'), {
       method: 'POST',
       body: JSON.stringify(folder),
     });
@@ -145,7 +146,7 @@ export const foldersApi = {
 
   // Update folder
   async update(id: string, folder: Partial<PageFolder>): Promise<ApiResponse<PageFolder>> {
-    return apiRequest<PageFolder>(`/projects/kolbo-school/api/folders/${id}`, {
+    return apiRequest<PageFolder>(projectsPath(`/api/folders/${id}`), {
       method: 'PUT',
       body: JSON.stringify(folder),
     });
@@ -153,7 +154,7 @@ export const foldersApi = {
 
   // Delete folder
   async delete(id: string): Promise<ApiResponse<void>> {
-    return apiRequest<void>(`/projects/kolbo-school/api/folders/${id}`, {
+    return apiRequest<void>(projectsPath(`/api/folders/${id}`), {
       method: 'DELETE',
     });
   },
@@ -167,12 +168,12 @@ export const layersApi = {
     if (isPublished !== undefined) {
       params.append('is_published', String(isPublished));
     }
-    return apiRequest<PageLayers>(`/projects/kolbo-school/api/layers?${params.toString()}`);
+    return apiRequest<PageLayers>(projectsPath(`/api/layers?${params.toString()}`));
   },
 
   // Update layers for a page
   async update(pageId: string, layers: Layer[]): Promise<ApiResponse<PageLayers>> {
-    return apiRequest<PageLayers>(`/projects/kolbo-school/api/layers?page_id=${pageId}`, {
+    return apiRequest<PageLayers>(projectsPath(`/api/layers?page_id=${pageId}`), {
       method: 'PUT',
       body: JSON.stringify({ layers }),
     });
@@ -193,7 +194,7 @@ export const pageLayersApi = {
 
   // Get all draft (non-published) page layers in one query
   async getAllDrafts(): Promise<ApiResponse<PageLayers[]>> {
-    return apiRequest<PageLayers[]>('/projects/kolbo-school/api/pages/drafts');
+    return apiRequest<PageLayers[]>(projectsPath('/api/pages/drafts'));
   },
 };
 
@@ -215,7 +216,7 @@ export const publishApi = {
     };
     total: number;
   }>> {
-    return apiRequest('/projects/kolbo-school/api/publish/preview');
+    return apiRequest(projectsPath('/api/publish/preview'));
   },
 
   /**
@@ -245,7 +246,7 @@ export const publishApi = {
     };
     published_at_setting: Setting;
   }>> {
-    return apiRequest('/projects/kolbo-school/api/publish', {
+    return apiRequest(projectsPath('/api/publish'), {
       method: 'POST',
       body: JSON.stringify(options),
     });
@@ -256,7 +257,7 @@ export const publishApi = {
     changes: Record<string, number | boolean>;
     cleaned: Record<string, number>;
   }>> {
-    return apiRequest('/projects/kolbo-school/api/revert', {
+    return apiRequest(projectsPath('/api/revert'), {
       method: 'POST',
     });
   },
@@ -306,13 +307,13 @@ export const assetsApi = {
     if (folderId !== undefined) {
       params.set('folderId', folderId === null ? 'null' : folderId);
     }
-    const url = params.toString() ? `/projects/kolbo-school/api/assets?${params}` : '/projects/kolbo-school/api/assets';
+    const url = params.toString() ? projectsPath(`/api/assets?${params}`) : projectsPath('/api/assets');
     return apiRequest<Asset[]>(url);
   },
 
   // Create SVG asset from code
   async create(data: { filename: string; content: string; asset_folder_id?: string | null; source?: string }): Promise<ApiResponse<Asset>> {
-    return apiRequest<Asset>('/projects/kolbo-school/api/assets', {
+    return apiRequest<Asset>(projectsPath('/api/assets'), {
       method: 'POST',
       body: JSON.stringify(data),
       headers: {
@@ -323,7 +324,7 @@ export const assetsApi = {
 
   // Update asset
   async update(id: string, data: { filename?: string; asset_folder_id?: string | null; content?: string | null }): Promise<ApiResponse<Asset>> {
-    return apiRequest<Asset>(`/projects/kolbo-school/api/assets/${id}`, {
+    return apiRequest<Asset>(projectsPath(`/api/assets/${id}`), {
       method: 'PUT',
       body: JSON.stringify(data),
     });
@@ -331,14 +332,14 @@ export const assetsApi = {
 
   // Delete asset
   async delete(id: string): Promise<ApiResponse<void>> {
-    return apiRequest<void>(`/projects/kolbo-school/api/assets/${id}`, {
+    return apiRequest<void>(projectsPath(`/api/assets/${id}`), {
       method: 'DELETE',
     });
   },
 
   // Bulk delete assets
   async bulkDelete(ids: string[]): Promise<ApiResponse<{ success: string[]; failed: string[] }>> {
-    return apiRequest<{ success: string[]; failed: string[] }>('/projects/kolbo-school/api/assets/bulk', {
+    return apiRequest<{ success: string[]; failed: string[] }>(projectsPath('/api/assets/bulk'), {
       method: 'POST',
       body: JSON.stringify({ action: 'delete', ids }),
     });
@@ -346,7 +347,7 @@ export const assetsApi = {
 
   // Bulk move assets to folder
   async bulkMove(ids: string[], asset_folder_id: string | null): Promise<ApiResponse<{ success: string[]; failed: string[] }>> {
-    return apiRequest<{ success: string[]; failed: string[] }>('/projects/kolbo-school/api/assets/bulk', {
+    return apiRequest<{ success: string[]; failed: string[] }>(projectsPath('/api/assets/bulk'), {
       method: 'POST',
       body: JSON.stringify({ action: 'move', ids, asset_folder_id }),
     });
@@ -354,7 +355,7 @@ export const assetsApi = {
 
   // Get asset usage with names
   async getUsage(id: string): Promise<ApiResponse<{ pages: { id: string; name: string }[]; components: { id: string; name: string }[]; cmsItems: { id: string; name: string; collectionId: string; collectionName: string }[]; total: number }>> {
-    return apiRequest<{ pages: { id: string; name: string }[]; components: { id: string; name: string }[]; cmsItems: { id: string; name: string; collectionId: string; collectionName: string }[]; total: number }>(`/projects/kolbo-school/api/assets/${id}/usage`);
+    return apiRequest<{ pages: { id: string; name: string }[]; components: { id: string; name: string }[]; cmsItems: { id: string; name: string; collectionId: string; collectionName: string }[]; total: number }>(projectsPath(`/api/assets/${id}/usage`));
   },
 };
 
@@ -362,12 +363,12 @@ export const assetsApi = {
 export const assetFoldersApi = {
   // Get all asset folders
   async getAll(): Promise<ApiResponse<AssetFolder[]>> {
-    return apiRequest<AssetFolder[]>('/projects/kolbo-school/api/asset-folders');
+    return apiRequest<AssetFolder[]>(projectsPath('/api/asset-folders'));
   },
 
   // Create new asset folder
   async create(folder: { name: string; asset_folder_id?: string | null; depth?: number; order?: number; is_published?: boolean }): Promise<ApiResponse<AssetFolder>> {
-    return apiRequest<AssetFolder>('/projects/kolbo-school/api/asset-folders', {
+    return apiRequest<AssetFolder>(projectsPath('/api/asset-folders'), {
       method: 'POST',
       body: JSON.stringify(folder),
     });
@@ -375,7 +376,7 @@ export const assetFoldersApi = {
 
   // Update asset folder
   async update(id: string, folder: Partial<AssetFolder>): Promise<ApiResponse<AssetFolder>> {
-    return apiRequest<AssetFolder>(`/projects/kolbo-school/api/asset-folders/${id}`, {
+    return apiRequest<AssetFolder>(projectsPath(`/api/asset-folders/${id}`), {
       method: 'PUT',
       body: JSON.stringify(folder),
     });
@@ -383,7 +384,7 @@ export const assetFoldersApi = {
 
   // Delete asset folder
   async delete(id: string): Promise<ApiResponse<void>> {
-    return apiRequest<void>(`/projects/kolbo-school/api/asset-folders/${id}`, {
+    return apiRequest<void>(projectsPath(`/api/asset-folders/${id}`), {
       method: 'DELETE',
     });
   },
@@ -393,7 +394,7 @@ export const assetFoldersApi = {
 export const setupApi = {
   // Get setup status
   async getStatus(): Promise<ApiResponse<{ isComplete: boolean; currentStep: string }>> {
-    return apiRequest<{ isComplete: boolean; currentStep: string }>('/projects/kolbo-school/api/setup/status');
+    return apiRequest<{ isComplete: boolean; currentStep: string }>(projectsPath('/api/setup/status'));
   },
 
   // Connect Supabase
@@ -402,7 +403,7 @@ export const setupApi = {
     anon_key: string;
     service_role_key: string;
   }): Promise<ApiResponse<{ success: boolean }>> {
-    return apiRequest<{ success: boolean }>('/projects/kolbo-school/api/setup/connect-supabase', {
+    return apiRequest<{ success: boolean }>(projectsPath('/api/setup/connect-supabase'), {
       method: 'POST',
       body: JSON.stringify(config),
     });
@@ -410,7 +411,7 @@ export const setupApi = {
 
   // Update Vercel env vars
   async updateVercelEnv(vars: Record<string, string>): Promise<ApiResponse<{ success: boolean }>> {
-    return apiRequest<{ success: boolean }>('/projects/kolbo-school/api/setup/update-vercel-env', {
+    return apiRequest<{ success: boolean }>(projectsPath('/api/setup/update-vercel-env'), {
       method: 'POST',
       body: JSON.stringify(vars),
     });
@@ -418,14 +419,14 @@ export const setupApi = {
 
   // Run migrations
   async runMigrations(): Promise<ApiResponse<{ success: boolean }>> {
-    return apiRequest<{ success: boolean }>('/projects/kolbo-school/api/setup/run-migrations', {
+    return apiRequest<{ success: boolean }>(projectsPath('/api/setup/run-migrations'), {
       method: 'POST',
     });
   },
 
   // Complete setup
   async completeSetup(): Promise<ApiResponse<{ success: boolean }>> {
-    return apiRequest<{ success: boolean }>('/projects/kolbo-school/api/setup/complete', {
+    return apiRequest<{ success: boolean }>(projectsPath('/api/setup/complete'), {
       method: 'POST',
     });
   },
@@ -435,11 +436,11 @@ export const setupApi = {
 export const collectionsApi = {
   // Collections
   async getAll(): Promise<ApiResponse<Collection[]>> {
-    return apiRequest<Collection[]>('/projects/kolbo-school/api/collections');
+    return apiRequest<Collection[]>(projectsPath('/api/collections'));
   },
 
   async getById(id: string): Promise<ApiResponse<Collection>> {
-    return apiRequest<Collection>(`/projects/kolbo-school/api/collections/${id}`);
+    return apiRequest<Collection>(projectsPath(`/api/collections/${id}`));
   },
 
   async create(data: {
@@ -447,38 +448,38 @@ export const collectionsApi = {
     sorting?: Record<string, any> | null;
     order?: number;
   }): Promise<ApiResponse<Collection>> {
-    return apiRequest<Collection>('/projects/kolbo-school/api/collections', {
+    return apiRequest<Collection>(projectsPath('/api/collections'), {
       method: 'POST',
       body: JSON.stringify(data),
     });
   },
 
   async createSample(sampleId: string): Promise<ApiResponse<{ collection: Collection; fields: CollectionField[]; assets: Asset[]; items: CollectionItemWithValues[] }>> {
-    return apiRequest('/projects/kolbo-school/api/collections/sample', {
+    return apiRequest(projectsPath('/api/collections/sample'), {
       method: 'POST',
       body: JSON.stringify({ sampleId }),
     });
   },
 
   async update(id: string, data: UpdateCollectionData): Promise<ApiResponse<Collection>> {
-    return apiRequest<Collection>(`/projects/kolbo-school/api/collections/${id}`, {
+    return apiRequest<Collection>(projectsPath(`/api/collections/${id}`), {
       method: 'PUT',
       body: JSON.stringify(data),
     });
   },
 
   async delete(id: string): Promise<ApiResponse<void>> {
-    return apiRequest<void>(`/projects/kolbo-school/api/collections/${id}`, {
+    return apiRequest<void>(projectsPath(`/api/collections/${id}`), {
       method: 'DELETE',
     });
   },
 
   async getUsage(id: string): Promise<ApiResponse<CollectionUsageResult>> {
-    return apiRequest(`/projects/kolbo-school/api/collections/${id}/usage`);
+    return apiRequest(projectsPath(`/api/collections/${id}/usage`));
   },
 
   async reorder(collectionIds: string[]): Promise<ApiResponse<{ success: boolean }>> {
-    return apiRequest<{ success: boolean }>('/projects/kolbo-school/api/collections/reorder', {
+    return apiRequest<{ success: boolean }>(projectsPath('/api/collections/reorder'), {
       method: 'PUT',
       body: JSON.stringify({ collection_ids: collectionIds }),
     });
@@ -486,43 +487,43 @@ export const collectionsApi = {
 
   // Fields
   async getAllFields(): Promise<ApiResponse<CollectionField[]>> {
-    return apiRequest<CollectionField[]>('/projects/kolbo-school/api/collections/fields');
+    return apiRequest<CollectionField[]>(projectsPath('/api/collections/fields'));
   },
 
   async getFields(collectionId: string, search?: string): Promise<ApiResponse<CollectionField[]>> {
     const params = new URLSearchParams();
     if (search) params.append('search', search);
     const queryString = params.toString();
-    const url = `/projects/kolbo-school/api/collections/${collectionId}/fields${queryString ? `?${queryString}` : ''}`;
+    const url = projectsPath(`/api/collections/${collectionId}/fields${queryString ? `?${queryString}` : ''}`);
     return apiRequest<CollectionField[]>(url);
   },
 
   async createField(collectionId: string, data: Omit<CreateCollectionFieldData, 'collection_id' | 'is_published'>): Promise<ApiResponse<CollectionField>> {
-    return apiRequest<CollectionField>(`/projects/kolbo-school/api/collections/${collectionId}/fields`, {
+    return apiRequest<CollectionField>(projectsPath(`/api/collections/${collectionId}/fields`), {
       method: 'POST',
       body: JSON.stringify(data),
     });
   },
 
   async updateField(collectionId: string, fieldId: string, data: UpdateCollectionFieldData): Promise<ApiResponse<CollectionField>> {
-    return apiRequest<CollectionField>(`/projects/kolbo-school/api/collections/${collectionId}/fields/${fieldId}`, {
+    return apiRequest<CollectionField>(projectsPath(`/api/collections/${collectionId}/fields/${fieldId}`), {
       method: 'PUT',
       body: JSON.stringify(data),
     });
   },
 
   async deleteField(collectionId: string, fieldId: string): Promise<ApiResponse<void>> {
-    return apiRequest<void>(`/projects/kolbo-school/api/collections/${collectionId}/fields/${fieldId}`, {
+    return apiRequest<void>(projectsPath(`/api/collections/${collectionId}/fields/${fieldId}`), {
       method: 'DELETE',
     });
   },
 
   async getFieldUsage(collectionId: string, fieldId: string): Promise<ApiResponse<CollectionFieldUsageResult>> {
-    return apiRequest(`/projects/kolbo-school/api/collections/${collectionId}/fields/${fieldId}/usage`);
+    return apiRequest(projectsPath(`/api/collections/${collectionId}/fields/${fieldId}/usage`));
   },
 
   async reorderFields(collectionId: string, fieldIds: string[]): Promise<ApiResponse<{ success: boolean }>> {
-    return apiRequest<{ success: boolean }>(`/projects/kolbo-school/api/collections/${collectionId}/fields/reorder`, {
+    return apiRequest<{ success: boolean }>(projectsPath(`/api/collections/${collectionId}/fields/reorder`), {
       method: 'PUT',
       body: JSON.stringify({ field_ids: fieldIds }),
     });
@@ -533,7 +534,7 @@ export const collectionsApi = {
     collectionIds: string[],
     limit: number = 25
   ): Promise<ApiResponse<{ items: Record<string, { items: CollectionItemWithValues[] }> }>> {
-    return apiRequest('/projects/kolbo-school/api/collections/items/batch', {
+    return apiRequest(projectsPath('/api/collections/items/batch'), {
       method: 'POST',
       body: JSON.stringify({ collectionIds, limit }),
     });
@@ -548,7 +549,7 @@ export const collectionsApi = {
     collectionIds: string[],
     limit: number = 100
   ): Promise<ApiResponse<{ items: Record<string, { items: CollectionItemWithValues[] }> }>> {
-    return apiRequest('/projects/kolbo-school/api/collections/items/batch', {
+    return apiRequest(projectsPath('/api/collections/items/batch'), {
       method: 'POST',
       body: JSON.stringify({ collectionIds, limit, skipEnrichment: true }),
     });
@@ -577,51 +578,51 @@ export const collectionsApi = {
     if (options?.filters?.length) params.append('filters', JSON.stringify(options.filters));
     if (options?.includeAssets) params.append('includeAssets', 'true');
     const queryString = params.toString();
-    const url = `/projects/kolbo-school/api/collections/${collectionId}/items${queryString ? `?${queryString}` : ''}`;
+    const url = projectsPath(`/api/collections/${collectionId}/items${queryString ? `?${queryString}` : ''}`);
     return apiRequest<{ items: CollectionItemWithValues[]; total: number; page: number; limit: number; referencedAssets?: Asset[] }>(url);
   },
 
   async getItemById(collectionId: string, itemId: string): Promise<ApiResponse<CollectionItemWithValues>> {
-    return apiRequest<CollectionItemWithValues>(`/projects/kolbo-school/api/collections/${collectionId}/items/${itemId}`);
+    return apiRequest<CollectionItemWithValues>(projectsPath(`/api/collections/${collectionId}/items/${itemId}`));
   },
 
   async getItemSlugs(itemIds: string[]): Promise<ApiResponse<{ slugs: Record<string, string> }>> {
-    return apiRequest<{ slugs: Record<string, string> }>('/projects/kolbo-school/api/collections/items/slugs', {
+    return apiRequest<{ slugs: Record<string, string> }>(projectsPath('/api/collections/items/slugs'), {
       method: 'POST',
       body: JSON.stringify({ itemIds }),
     });
   },
 
   async createItem(collectionId: string, values: Record<string, any>, statusAction?: StatusAction): Promise<ApiResponse<CollectionItemWithValues>> {
-    return apiRequest<CollectionItemWithValues>(`/projects/kolbo-school/api/collections/${collectionId}/items`, {
+    return apiRequest<CollectionItemWithValues>(projectsPath(`/api/collections/${collectionId}/items`), {
       method: 'POST',
       body: JSON.stringify({ values, ...(statusAction && { status_action: statusAction }) }),
     });
   },
 
   async updateItem(collectionId: string, itemId: string, values: Record<string, any>): Promise<ApiResponse<CollectionItemWithValues>> {
-    return apiRequest<CollectionItemWithValues>(`/projects/kolbo-school/api/collections/${collectionId}/items/${itemId}`, {
+    return apiRequest<CollectionItemWithValues>(projectsPath(`/api/collections/${collectionId}/items/${itemId}`), {
       method: 'PUT',
       body: JSON.stringify({ values }),
     });
   },
 
   async setItemPublishable(collectionId: string, itemId: string, is_publishable: boolean): Promise<ApiResponse<CollectionItemWithValues>> {
-    return apiRequest<CollectionItemWithValues>(`/projects/kolbo-school/api/collections/${collectionId}/items/${itemId}`, {
+    return apiRequest<CollectionItemWithValues>(projectsPath(`/api/collections/${collectionId}/items/${itemId}`), {
       method: 'PUT',
       body: JSON.stringify({ is_publishable }),
     });
   },
 
   async setItemStatus(collectionId: string, itemId: string, action: StatusAction): Promise<ApiResponse<CollectionItemWithValues>> {
-    return apiRequest<CollectionItemWithValues>(`/projects/kolbo-school/api/collections/${collectionId}/items/${itemId}/status`, {
+    return apiRequest<CollectionItemWithValues>(projectsPath(`/api/collections/${collectionId}/items/${itemId}/status`), {
       method: 'PUT',
       body: JSON.stringify({ action }),
     });
   },
 
   async deleteItem(collectionId: string, itemId: string): Promise<ApiResponse<void>> {
-    return apiRequest<void>(`/projects/kolbo-school/api/collections/${collectionId}/items/${itemId}`, {
+    return apiRequest<void>(projectsPath(`/api/collections/${collectionId}/items/${itemId}`), {
       method: 'DELETE',
     });
   },
@@ -639,23 +640,23 @@ export const collectionsApi = {
     if (options?.sortBy) params.append('sortBy', options.sortBy);
     if (options?.sortOrder) params.append('sortOrder', options.sortOrder);
     if (options?.includeAssets) params.append('includeAssets', 'true');
-    const url = `/projects/kolbo-school/api/collections/${collectionId}/items?${params.toString()}`;
+    const url = projectsPath(`/api/collections/${collectionId}/items?${params.toString()}`);
     return apiRequest<{ items: CollectionItemWithValues[]; total: number; page: number; limit: number; referencedAssets?: Asset[] }>(url);
   },
 
   // Published items
   async getPublishedItems(collectionId: string): Promise<ApiResponse<CollectionItemWithValues[]>> {
-    return apiRequest<CollectionItemWithValues[]>(`/projects/kolbo-school/api/collections/${collectionId}/items/published`);
+    return apiRequest<CollectionItemWithValues[]>(projectsPath(`/api/collections/${collectionId}/items/published`));
   },
 
   // Unpublished items for a collection
   async getUnpublishedItems(collectionId: string): Promise<ApiResponse<CollectionItemWithValues[]>> {
-    return apiRequest<CollectionItemWithValues[]>(`/projects/kolbo-school/api/collections/${collectionId}/items/unpublished`);
+    return apiRequest<CollectionItemWithValues[]>(projectsPath(`/api/collections/${collectionId}/items/unpublished`));
   },
 
   // Bulk delete items
   async bulkDeleteItems(itemIds: string[]): Promise<ApiResponse<{ deleted: number; errors?: string[] }>> {
-    return apiRequest<{ deleted: number; errors?: string[] }>('/projects/kolbo-school/api/collections/items/delete', {
+    return apiRequest<{ deleted: number; errors?: string[] }>(projectsPath('/api/collections/items/delete'), {
       method: 'POST',
       body: JSON.stringify({ item_ids: itemIds }),
     });
@@ -663,14 +664,14 @@ export const collectionsApi = {
 
   // Duplicate item
   async duplicateItem(collectionId: string, itemId: string): Promise<ApiResponse<CollectionItemWithValues>> {
-    return apiRequest<CollectionItemWithValues>(`/projects/kolbo-school/api/collections/${collectionId}/items/${itemId}/duplicate`, {
+    return apiRequest<CollectionItemWithValues>(projectsPath(`/api/collections/${collectionId}/items/${itemId}/duplicate`), {
       method: 'POST',
     });
   },
 
   // Reorder items (bulk update manual_order)
   async reorderItems(collectionId: string, updates: Array<{ id: string; manual_order: number }>): Promise<ApiResponse<{ updated: number }>> {
-    return apiRequest<{ updated: number }>(`/projects/kolbo-school/api/collections/${collectionId}/items/reorder`, {
+    return apiRequest<{ updated: number }>(projectsPath(`/api/collections/${collectionId}/items/reorder`), {
       method: 'POST',
       body: JSON.stringify({ updates }),
     });
@@ -681,12 +682,12 @@ export const collectionsApi = {
 export const componentsApi = {
   // Get unpublished components
   async getUnpublished(): Promise<ApiResponse<Component[]>> {
-    return apiRequest<Component[]>('/projects/kolbo-school/api/components/unpublished');
+    return apiRequest<Component[]>(projectsPath('/api/components/unpublished'));
   },
 
   // Create a new component
   async create(data: { name: string; layers: Layer[]; variables?: any[] }): Promise<ApiResponse<Component>> {
-    return apiRequest<Component>('/projects/kolbo-school/api/components', {
+    return apiRequest<Component>(projectsPath('/api/components'), {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -697,7 +698,7 @@ export const componentsApi = {
     const formData = new FormData();
     formData.append('image', blob, 'thumbnail.png');
 
-    const response = await fetch(`/projects/kolbo-school/api/components/${id}/thumbnail`, {
+    const response = await fetch(projectsPath(`/api/components/${id}/thumbnail`), {
       method: 'POST',
       body: formData,
     });
@@ -718,7 +719,7 @@ export const componentsApi = {
 export const layerStylesApi = {
   // Get unpublished layer styles
   async getUnpublished(): Promise<ApiResponse<LayerStyle[]>> {
-    return apiRequest<LayerStyle[]>('/projects/kolbo-school/api/layer-styles/unpublished');
+    return apiRequest<LayerStyle[]>(projectsPath('/api/layer-styles/unpublished'));
   },
 };
 
@@ -738,7 +739,7 @@ export const editorApi = {
     assetFolders: AssetFolder[];
     fonts: Font[];
   }>> {
-    return apiRequest('/projects/kolbo-school/api/editor/init');
+    return apiRequest(projectsPath('/api/editor/init'));
   },
 };
 
@@ -746,60 +747,60 @@ export const editorApi = {
 export const localisationApi = {
   // Locales
   async getLocales(): Promise<ApiResponse<Locale[]>> {
-    return apiRequest<Locale[]>('/projects/kolbo-school/api/locales');
+    return apiRequest<Locale[]>(projectsPath('/api/locales'));
   },
 
   async getLocaleById(id: string): Promise<ApiResponse<Locale>> {
-    return apiRequest<Locale>(`/projects/kolbo-school/api/locales/${id}`);
+    return apiRequest<Locale>(projectsPath(`/api/locales/${id}`));
   },
 
   async createLocale(data: CreateLocaleData): Promise<ApiResponse<{ locale: Locale; locales: Locale[] }>> {
-    return apiRequest<{ locale: Locale; locales: Locale[] }>('/projects/kolbo-school/api/locales', {
+    return apiRequest<{ locale: Locale; locales: Locale[] }>(projectsPath('/api/locales'), {
       method: 'POST',
       body: JSON.stringify(data),
     });
   },
 
   async updateLocale(id: string, data: UpdateLocaleData): Promise<ApiResponse<{ locale: Locale; locales: Locale[] }>> {
-    return apiRequest<{ locale: Locale; locales: Locale[] }>(`/projects/kolbo-school/api/locales/${id}`, {
+    return apiRequest<{ locale: Locale; locales: Locale[] }>(projectsPath(`/api/locales/${id}`), {
       method: 'PUT',
       body: JSON.stringify(data),
     });
   },
 
   async deleteLocale(id: string): Promise<ApiResponse<void>> {
-    return apiRequest<void>(`/projects/kolbo-school/api/locales/${id}`, {
+    return apiRequest<void>(projectsPath(`/api/locales/${id}`), {
       method: 'DELETE',
     });
   },
 
   async setDefaultLocale(id: string): Promise<ApiResponse<Locale>> {
-    return apiRequest<Locale>(`/projects/kolbo-school/api/locales/${id}/default`, {
+    return apiRequest<Locale>(projectsPath(`/api/locales/${id}/default`), {
       method: 'POST',
     });
   },
 
   // Translations
   async getTranslations(localeId: string): Promise<ApiResponse<Translation[]>> {
-    return apiRequest<Translation[]>(`/projects/kolbo-school/api/translations?locale_id=${localeId}`);
+    return apiRequest<Translation[]>(projectsPath(`/api/translations?locale_id=${localeId}`));
   },
 
   async createTranslation(data: CreateTranslationData): Promise<ApiResponse<Translation>> {
-    return apiRequest<Translation>('/projects/kolbo-school/api/translations', {
+    return apiRequest<Translation>(projectsPath('/api/translations'), {
       method: 'POST',
       body: JSON.stringify(data),
     });
   },
 
   async updateTranslation(id: string, data: UpdateTranslationData): Promise<ApiResponse<Translation>> {
-    return apiRequest<Translation>(`/projects/kolbo-school/api/translations/${id}`, {
+    return apiRequest<Translation>(projectsPath(`/api/translations/${id}`), {
       method: 'PUT',
       body: JSON.stringify(data),
     });
   },
 
   async deleteTranslation(id: string): Promise<ApiResponse<void>> {
-    return apiRequest<void>(`/projects/kolbo-school/api/translations/${id}`, {
+    return apiRequest<void>(projectsPath(`/api/translations/${id}`), {
       method: 'DELETE',
     });
   },
@@ -812,7 +813,7 @@ export const settingsApi = {
    * @param settings - Object with key-value pairs to store
    */
   async batchUpdate(settings: Record<string, any>): Promise<ApiResponse<{ count: number }>> {
-    return apiRequest<{ count: number }>('/projects/kolbo-school/api/settings/batch', {
+    return apiRequest<{ count: number }>(projectsPath('/api/settings/batch'), {
       method: 'PUT',
       body: JSON.stringify({ settings }),
     });
@@ -823,12 +824,12 @@ export const settingsApi = {
 export const agentSettingsApi = {
   /** Get the agent configuration status (API key is returned masked). */
   async getStatus(): Promise<ApiResponse<AgentSettingsStatus>> {
-    return apiRequest<AgentSettingsStatus>('/projects/kolbo-school/api/settings/agent');
+    return apiRequest<AgentSettingsStatus>(projectsPath('/api/settings/agent'));
   },
 
   /** Save agent configuration. Only provided fields are updated; a null key removes the stored key. */
   async update(data: UpdateAgentSettingsData): Promise<ApiResponse<AgentSettingsStatus>> {
-    return apiRequest<AgentSettingsStatus>('/projects/kolbo-school/api/settings/agent', {
+    return apiRequest<AgentSettingsStatus>(projectsPath('/api/settings/agent'), {
       method: 'PUT',
       body: JSON.stringify(data),
     });
@@ -836,7 +837,7 @@ export const agentSettingsApi = {
 
   /** Verify a provider API key (or its currently configured one when omitted). */
   async testKey(provider: AgentProviderId, apiKey?: string): Promise<ApiResponse<{ success: boolean }>> {
-    return apiRequest<{ success: boolean }>('/projects/kolbo-school/api/settings/agent/test', {
+    return apiRequest<{ success: boolean }>(projectsPath('/api/settings/agent/test'), {
       method: 'POST',
       body: JSON.stringify(apiKey ? { provider, apiKey } : { provider }),
     });
@@ -847,18 +848,18 @@ export const agentSettingsApi = {
 export const aiChatsApi = {
   /** List all saved chats as lightweight summaries (no transcripts). */
   async getAll(): Promise<ApiResponse<AiChatSummary[]>> {
-    return apiRequest<AiChatSummary[]>('/projects/kolbo-school/api/ai/chats');
+    return apiRequest<AiChatSummary[]>(projectsPath('/api/ai/chats'));
   },
 
   /** Get one chat including its full transcript. */
   async getById(id: string): Promise<ApiResponse<AiChat>> {
-    return apiRequest<AiChat>(`/projects/kolbo-school/api/ai/chats/${id}`);
+    return apiRequest<AiChat>(projectsPath(`/api/ai/chats/${id}`));
   },
 
   /** Create or update a chat, replacing its whole transcript. The response is
    * a bare acknowledgment — the row is not echoed back. */
   async upsert(id: string, data: { title: string; messages: unknown[] }): Promise<ApiResponse<{ success: boolean }>> {
-    return apiRequest<{ success: boolean }>(`/projects/kolbo-school/api/ai/chats/${id}`, {
+    return apiRequest<{ success: boolean }>(projectsPath(`/api/ai/chats/${id}`), {
       method: 'PUT',
       body: JSON.stringify(data),
     });
@@ -866,7 +867,7 @@ export const aiChatsApi = {
 
   /** Remove a chat from history. */
   async delete(id: string): Promise<ApiResponse<{ success: boolean }>> {
-    return apiRequest<{ success: boolean }>(`/projects/kolbo-school/api/ai/chats/${id}`, {
+    return apiRequest<{ success: boolean }>(projectsPath(`/api/ai/chats/${id}`), {
       method: 'DELETE',
     });
   },
@@ -879,7 +880,7 @@ export const cacheApi = {
    * Should be called after publishing content
    */
   async clearAll(): Promise<ApiResponse<{ success: boolean }>> {
-    return apiRequest<{ success: boolean }>('/projects/kolbo-school/api/cache/clear-all', {
+    return apiRequest<{ success: boolean }>(projectsPath('/api/cache/clear-all'), {
       method: 'POST',
     });
   },
@@ -904,7 +905,7 @@ async function uploadViaPresignedUrl(
   assetFolderId?: string | null
 ): Promise<Asset | null> {
   // 1. Get presigned upload URL from server
-  const presignResponse = await fetch('/projects/kolbo-school/api/files/presign', {
+  const presignResponse = await fetch(projectsPath('/api/files/presign'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -934,7 +935,7 @@ async function uploadViaPresignedUrl(
   }
 
   // 3. Register the asset record in the database
-  const registerResponse = await fetch('/projects/kolbo-school/api/files/register', {
+  const registerResponse = await fetch(projectsPath('/api/files/register'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -993,7 +994,7 @@ export async function uploadFileApi(
       formData.append('asset_folder_id', assetFolderId);
     }
 
-    const response = await fetch('/projects/kolbo-school/api/files/upload', {
+    const response = await fetch(projectsPath('/api/files/upload'), {
       method: 'POST',
       body: formData,
     });
@@ -1014,31 +1015,31 @@ export async function uploadFileApi(
 // Color Variables API
 export const colorVariablesApi = {
   async getAll(): Promise<ApiResponse<import('@/types').ColorVariable[]>> {
-    return apiRequest<import('@/types').ColorVariable[]>('/projects/kolbo-school/api/color-variables');
+    return apiRequest<import('@/types').ColorVariable[]>(projectsPath('/api/color-variables'));
   },
 
   async create(data: { name: string; value: string }): Promise<ApiResponse<import('@/types').ColorVariable>> {
-    return apiRequest<import('@/types').ColorVariable>('/projects/kolbo-school/api/color-variables', {
+    return apiRequest<import('@/types').ColorVariable>(projectsPath('/api/color-variables'), {
       method: 'POST',
       body: JSON.stringify(data),
     });
   },
 
   async update(id: string, data: { name?: string; value?: string }): Promise<ApiResponse<import('@/types').ColorVariable>> {
-    return apiRequest<import('@/types').ColorVariable>(`/projects/kolbo-school/api/color-variables/${id}`, {
+    return apiRequest<import('@/types').ColorVariable>(projectsPath(`/api/color-variables/${id}`), {
       method: 'PUT',
       body: JSON.stringify(data),
     });
   },
 
   async delete(id: string): Promise<ApiResponse<void>> {
-    return apiRequest<void>(`/projects/kolbo-school/api/color-variables/${id}`, {
+    return apiRequest<void>(projectsPath(`/api/color-variables/${id}`), {
       method: 'DELETE',
     });
   },
 
   async reorder(orderedIds: string[]): Promise<ApiResponse<{ success: boolean }>> {
-    return apiRequest<{ success: boolean }>('/projects/kolbo-school/api/color-variables/reorder', {
+    return apiRequest<{ success: boolean }>(projectsPath('/api/color-variables/reorder'), {
       method: 'PUT',
       body: JSON.stringify({ orderedIds }),
     });
@@ -1047,13 +1048,13 @@ export const colorVariablesApi = {
 
 export const globalVariablesApi = {
   async getAll(): Promise<ApiResponse<import('@/types').GlobalVariable[]>> {
-    return apiRequest<import('@/types').GlobalVariable[]>('/projects/kolbo-school/api/globals');
+    return apiRequest<import('@/types').GlobalVariable[]>(projectsPath('/api/globals'));
   },
 
   async create(
     data: import('@/types').CreateGlobalVariableData
   ): Promise<ApiResponse<import('@/types').GlobalVariable>> {
-    return apiRequest<import('@/types').GlobalVariable>('/projects/kolbo-school/api/globals', {
+    return apiRequest<import('@/types').GlobalVariable>(projectsPath('/api/globals'), {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -1063,14 +1064,14 @@ export const globalVariablesApi = {
     id: string,
     data: import('@/types').UpdateGlobalVariableData
   ): Promise<ApiResponse<import('@/types').GlobalVariable>> {
-    return apiRequest<import('@/types').GlobalVariable>(`/projects/kolbo-school/api/globals/${id}`, {
+    return apiRequest<import('@/types').GlobalVariable>(projectsPath(`/api/globals/${id}`), {
       method: 'PUT',
       body: JSON.stringify(data),
     });
   },
 
   async delete(id: string): Promise<ApiResponse<{ success: boolean }>> {
-    return apiRequest<{ success: boolean }>(`/projects/kolbo-school/api/globals/${id}`, {
+    return apiRequest<{ success: boolean }>(projectsPath(`/api/globals/${id}`), {
       method: 'DELETE',
     });
   },
@@ -1085,7 +1086,7 @@ export const globalVariablesApi = {
 export async function deleteAssetApi(assetId: string): Promise<boolean> {
   try {
     const response = await fetch(
-      `/projects/kolbo-school/api/files/delete?assetId=${encodeURIComponent(assetId)}`,
+      projectsPath(`/api/files/delete?assetId=${encodeURIComponent(assetId)}`),
       { method: 'DELETE' }
     );
 

@@ -6,6 +6,7 @@
  */
 
 import { create } from 'zustand';
+import { projectsPath } from '@/lib/project-url';
 import { localisationApi } from '@/lib/api';
 import { getTranslatableKey } from '@/lib/localisation-utils';
 import type { Locale, CreateLocaleData, UpdateLocaleData, Translation, CreateTranslationData, UpdateTranslationData } from '@/types';
@@ -769,7 +770,7 @@ export const useLocalisationStore = create<LocalisationStore>((set, get) => ({
     set({ isLoading: { ...initialLoadingState, createTranslation: true }, error: null });
 
     try {
-      const response = await fetch('/projects/kolbo-school/api/translations/bulk', {
+      const response = await fetch(projectsPath('/api/translations/bulk'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ translations: translationsData }),

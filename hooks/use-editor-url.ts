@@ -1,5 +1,7 @@
 'use client';
 
+import { projectsPath } from '@/lib/project-url';
+
 import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 import { useCallback, useMemo } from 'react';
 import { useEditorStore } from '@/stores/useEditorStore';
@@ -68,20 +70,20 @@ export function useEditorUrl() {
   // Parse current URL to determine state
   const urlState = useMemo((): EditorUrlState => {
     // Match new patterns:
-    // - /ycode/layers/[id] → layer editing
-    // - /ycode/pages/[id] → page view (with optional ?edit query param for settings)
-    // - /ycode/collections → base collections view (no ID)
-    // - /ycode/collections/[id] → specific collection view (with optional ?new or ?edit=itemId query params)
-    // - /ycode/components/[id] → component editing
+    // - /projects/:slug/layers/[id] → layer editing
+    // - /projects/:slug/pages/[id] → page view (with optional ?edit query param for settings)
+    // - /projects/:slug/collections → base collections view (no ID)
+    // - /projects/:slug/collections/[id] → specific collection view (with optional ?new or ?edit=itemId query params)
+    // - /projects/:slug/components/[id] → component editing
 
-    const layersMatch = pathname?.match(/^\/projects\/kolbo-school\/layers\/([^/]+)$/);
-    const pageMatch = pathname?.match(/^\/projects\/kolbo-school\/pages\/([^/]+)$/);
-    const collectionsBaseMatch = pathname?.match(/^\/projects\/kolbo-school\/collections$/);
-    const collectionMatch = pathname?.match(/^\/projects\/kolbo-school\/collections\/([^/]+)$/);
-    const componentMatch = pathname?.match(/^\/projects\/kolbo-school\/components\/([^/]+)$/);
-    const settingsMatch = pathname?.match(/^\/projects\/kolbo-school\/settings(?:\/([^/]+))?$/);
-    const localizationMatch = pathname?.match(/^\/projects\/kolbo-school\/localization(?:\/([^/]+))?$/);
-    const profileMatch = pathname?.match(/^\/projects\/kolbo-school\/profile(?:\/([^/]+))?$/);
+    const layersMatch = pathname?.match(/^\/projects\/([^/]+)\/layers\/([^/]+)$/);
+    const pageMatch = pathname?.match(/^\/projects\/([^/]+)\/pages\/([^/]+)$/);
+    const collectionsBaseMatch = pathname?.match(/^\/projects\/([^/]+)\/collections$/);
+    const collectionMatch = pathname?.match(/^\/projects\/([^/]+)\/collections\/([^/]+)$/);
+    const componentMatch = pathname?.match(/^\/projects\/([^/]+)\/components\/([^/]+)$/);
+    const settingsMatch = pathname?.match(/^\/projects\/([^/]+)\/settings(?:\/([^/]+))?$/);
+    const localizationMatch = pathname?.match(/^\/projects\/([^/]+)\/localization(?:\/([^/]+))?$/);
+    const profileMatch = pathname?.match(/^\/projects\/([^/]+)\/profile(?:\/([^/]+))?$/);
 
     if (layersMatch) {
       const viewParam = searchParams?.get('view');
@@ -90,7 +92,7 @@ export function useEditorUrl() {
 
       return {
         type: 'layers',
-        resourceId: layersMatch[1],
+        resourceId: layersMatch[2],
         tab: null,
         page: null,
         sidebarTab: 'layers', // Inferred: layers route shows layers sidebar
@@ -113,7 +115,7 @@ export function useEditorUrl() {
 
       return {
         type: 'page',
-        resourceId: pageMatch[1],
+        resourceId: pageMatch[2],
         isEditing,
         tab: editTab,
         page: null,
@@ -143,7 +145,7 @@ export function useEditorUrl() {
 
       return {
         type: 'collection',
-        resourceId: collectionMatch[1],
+        resourceId: collectionMatch[2],
         itemId: newParam ? 'new' : (editParam || null),
         tab: null,
         page: pageParam ? parseInt(pageParam, 10) : null,
@@ -156,7 +158,7 @@ export function useEditorUrl() {
     if (settingsMatch) {
       return {
         type: 'settings',
-        resourceId: settingsMatch[1] || null, // e.g., 'general', 'redirects', or null for base
+        resourceId: settingsMatch[2] || null, // e.g., 'general', 'redirects', or null for base
         tab: null,
         page: null,
         sidebarTab: 'pages', // Settings uses pages sidebar
@@ -166,7 +168,7 @@ export function useEditorUrl() {
     if (localizationMatch) {
       return {
         type: 'localization',
-        resourceId: localizationMatch[1] || null, // e.g., 'languages', or null for base
+        resourceId: localizationMatch[2] || null, // e.g., 'languages', or null for base
         tab: null,
         page: null,
         sidebarTab: 'pages', // Localization uses pages sidebar
@@ -176,7 +178,7 @@ export function useEditorUrl() {
     if (profileMatch) {
       return {
         type: 'profile',
-        resourceId: profileMatch[1] || null, // e.g., 'general', or null for base
+        resourceId: profileMatch[2] || null, // e.g., 'general', or null for base
         tab: null,
         page: null,
         sidebarTab: 'pages', // Profile uses pages sidebar
@@ -184,11 +186,11 @@ export function useEditorUrl() {
     }
 
     // Forms route matching
-    const formsMatch = pathname?.match(/^\/projects\/kolbo-school\/forms(?:\/([^/]+))?$/);
+    const formsMatch = pathname?.match(/^\/projects\/([^/]+)\/forms(?:\/([^/]+))?$/);
     if (formsMatch) {
       return {
         type: 'forms',
-        resourceId: formsMatch[1] || null, // e.g., form_id or null for base
+        resourceId: formsMatch[2] || null, // e.g., form_id or null for base
         tab: null,
         page: null,
         sidebarTab: 'pages', // Forms uses pages sidebar for now
@@ -196,11 +198,11 @@ export function useEditorUrl() {
     }
 
     // Integrations route matching
-    const integrationsMatch = pathname?.match(/^\/projects\/kolbo-school\/integrations(?:\/([^/]+))?$/);
+    const integrationsMatch = pathname?.match(/^\/projects\/([^/]+)\/integrations(?:\/([^/]+))?$/);
     if (integrationsMatch) {
       return {
         type: 'integrations',
-        resourceId: integrationsMatch[1] || null, // e.g., 'apps', 'webhooks', 'api', or null for base
+        resourceId: integrationsMatch[2] || null, // e.g., 'apps', 'webhooks', 'api', or null for base
         tab: null,
         page: null,
         sidebarTab: 'pages', // Integrations uses pages sidebar
@@ -214,7 +216,7 @@ export function useEditorUrl() {
 
       return {
         type: 'component',
-        resourceId: componentMatch[1],
+        resourceId: componentMatch[2],
         tab: null,
         page: null,
         sidebarTab: 'layers', // Inferred: components show layers sidebar
@@ -224,7 +226,7 @@ export function useEditorUrl() {
       };
     }
 
-    // For /ycode base route
+    // For /projects/:slug base route
     return {
       type: null,
       resourceId: null,
@@ -249,7 +251,7 @@ export function useEditorUrl() {
       currentParams.set('layer', layerId || currentParams.get('layer') || 'body');
 
       const query = currentParams.toString();
-      router.push(`/projects/kolbo-school/layers/${pageId}?${query}`);
+      router.push(projectsPath(`/layers/${pageId}?${query}`));
     },
     [router]
   );
@@ -268,7 +270,7 @@ export function useEditorUrl() {
       currentParams.set('layer', layerId || currentParams.get('layer') || 'body');
 
       const query = currentParams.toString();
-      router.push(`/projects/kolbo-school/pages/${pageId}?${query}`);
+      router.push(projectsPath(`/pages/${pageId}?${query}`));
     },
     [router]
   );
@@ -296,7 +298,7 @@ export function useEditorUrl() {
       }
 
       const query = currentParams.toString();
-      router.push(`/projects/kolbo-school/pages/${pageId}${query ? `?${query}` : ''}`);
+      router.push(projectsPath(`/pages/${pageId}${query ? `?${query}` : ''}`));
     },
     [router, searchParams]
   );
@@ -323,13 +325,13 @@ export function useEditorUrl() {
         params.set('limit', pageSize.toString());
       }
       const query = params.toString();
-      router.push(`/projects/kolbo-school/collections/${collectionId}${query ? `?${query}` : ''}`);
+      router.push(projectsPath(`/collections/${collectionId}${query ? `?${query}` : ''}`));
     },
     [router]
   );
 
   const navigateToCollections = useCallback(() => {
-    router.push('/projects/kolbo-school/collections');
+    router.push(projectsPath('/collections'));
   }, [router]);
 
   const navigateToCollectionItem = useCallback(
@@ -340,7 +342,7 @@ export function useEditorUrl() {
       if (currentParams.has('page')) params.set('page', currentParams.get('page')!);
       if (currentParams.has('limit')) params.set('limit', currentParams.get('limit')!);
       if (currentParams.has('search')) params.set('search', currentParams.get('search')!);
-      router.push(`/projects/kolbo-school/collections/${collectionId}?${params.toString()}`);
+      router.push(projectsPath(`/collections/${collectionId}?${params.toString()}`));
     },
     [router]
   );
@@ -353,7 +355,7 @@ export function useEditorUrl() {
       if (currentParams.has('page')) params.set('page', currentParams.get('page')!);
       if (currentParams.has('limit')) params.set('limit', currentParams.get('limit')!);
       if (currentParams.has('search')) params.set('search', currentParams.get('search')!);
-      router.push(`/projects/kolbo-school/collections/${collectionId}?${params.toString()}`);
+      router.push(projectsPath(`/collections/${collectionId}?${params.toString()}`));
     },
     [router]
   );
@@ -374,13 +376,13 @@ export function useEditorUrl() {
       if (variantToUse) params.set('variant', variantToUse);
 
       const query = params.toString();
-      router.push(`/projects/kolbo-school/components/${componentId}${query ? `?${query}` : ''}`);
+      router.push(projectsPath(`/components/${componentId}${query ? `?${query}` : ''}`));
     },
     [router]
   );
 
   const navigateToEditor = useCallback(() => {
-    router.push('/projects/kolbo-school');
+    router.push(projectsPath(''));
   }, [router]);
 
   const updateQueryParams = useCallback(

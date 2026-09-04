@@ -1,13 +1,14 @@
 import type { Knex } from 'knex';
+import { projectsPath } from '@/lib/project-url';
 
 /**
  * Migration: Add OAuth 2.1 + Dynamic Client Registration support to the MCP server.
  *
  * Adds two new tables and extends `mcp_tokens` with OAuth-related columns so that
  * Claude.ai web and ChatGPT custom connectors (which require OAuth + PKCE per the
- * MCP authorization spec 2025-06-18) can authenticate against the YCode MCP server.
+ * MCP authorization spec 2025-06-18) can authenticate against the Avi Builder MCP server.
  *
- * The existing URL-token flow (`/projects/kolbo-school/mcp/[token]`) remains unchanged for
+ * The existing URL-token flow (projectsPath(`/mcp/[token]`)) remains unchanged for
  * backward compatibility with Cursor, Windsurf, Claude Desktop, and Claude Code.
  */
 

@@ -1,5 +1,7 @@
 'use client';
 
+import { projectsPath } from '@/lib/project-url';
+
 import { useAssetsStore } from '@/stores/useAssetsStore';
 import type { Asset } from '@/types';
 
@@ -25,7 +27,7 @@ async function uploadFile(file: File): Promise<Asset | null> {
     formData.append('file', file);
     formData.append('source', 'figma-import');
 
-    const response = await fetch('/projects/kolbo-school/api/files/upload', {
+    const response = await fetch(projectsPath('/api/files/upload'), {
       method: 'POST',
       body: formData,
     });

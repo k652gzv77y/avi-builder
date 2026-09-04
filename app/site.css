@@ -4,7 +4,7 @@
  * Why this exists: `app/globals.css` defines the full builder UI theme —
  * shadcn color variables, dark-mode tokens, ProseMirror, Sonner toasts, etc.
  * Public pages never reference any of it; per-page utilities used by user
- * layers are inlined as `<style id="ycode-styles">` by `PageRenderer.tsx`.
+ * layers are inlined as `<style id="avi-styles (legacy ycode-styles also)">` by `PageRenderer.tsx`.
  *
  * To keep this bundle small we let Tailwind scan the project as usual but
  * exclude the heavy builder UI route group. Files like `lib/templates/**`,
