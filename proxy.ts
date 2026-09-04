@@ -46,7 +46,10 @@ function getRequestHostname(request: NextRequest): string {
 }
 
 function isBuilderHost(hostname: string): boolean {
-  return hostname === BUILDER_HOSTNAME || hostname === `www.${BUILDER_HOSTNAME}`;
+  return hostname === BUILDER_HOSTNAME
+    || hostname === `www.${BUILDER_HOSTNAME}`
+    || hostname === 'localhost'
+    || hostname === '127.0.0.1';
 }
 
 function getBuilderPath(pathname: string, hostname: string): string | null {
