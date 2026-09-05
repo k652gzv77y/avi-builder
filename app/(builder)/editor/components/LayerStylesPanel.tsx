@@ -125,7 +125,7 @@ function SortableStyleChip({
       className={cn(
         'flex w-full items-center gap-1.5 rounded-md border px-2 py-1 text-xs cursor-grab active:cursor-grabbing select-none',
         isActive
-          ? 'border-blue-400 bg-blue-400/10 text-foreground'
+          ? 'border-brand bg-brand/10 text-foreground'
           : 'border-border text-muted-foreground hover:text-foreground hover:bg-secondary/50',
       )}
     >

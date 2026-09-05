@@ -2067,7 +2067,10 @@ const RightSidebar = React.memo(function RightSidebar({
           )}
 
           {shouldShowControl('sizing', selectedLayer) && !showTextStyleControls && (
-            <SizingControls layer={controlLayer} onLayerUpdate={controlUpdate} />
+            <SizingControls
+              layer={controlLayer} parentLayer={selectedLayerParent}
+              onLayerUpdate={controlUpdate}
+            />
           )}
 
           {shouldShowControl('position', selectedLayer) && !showTextStyleControls && (

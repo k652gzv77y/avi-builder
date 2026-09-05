@@ -563,7 +563,7 @@ function CanvasSiblingReorderOverlay({
             transition: 'transform 150ms ease-out',
           }}
         >
-          <div className="absolute inset-0 bg-blue-100 rounded-sm border border-blue-300 border-dashed" />
+          <div className="absolute inset-0 bg-brand/15 rounded-sm border border-brand/50 border-dashed" />
         </div>
       )}
     </div>

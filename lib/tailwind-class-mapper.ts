@@ -261,6 +261,8 @@ const CLASS_PROPERTY_MAP: Record<string, RegExp> = {
   display: /^(block|inline-block|inline|flex|inline-flex|grid|inline-grid|hidden)$/,
   flexDirection: /^flex-(row|row-reverse|col|col-reverse)$/,
   flexWrap: /^flex-(wrap|wrap-reverse|nowrap)$/,
+  // flex shorthand (grow/shrink). Kept distinct from flex-row/col/wrap above.
+  flexGrow: /^flex-(0|1|auto|initial|none|\[.+\])$/,
   justifyContent: /^justify-(start|end|center|between|around|evenly|stretch)$/,
   alignItems: /^items-(start|end|center|baseline|stretch)$/,
   alignSelf: /^self-(auto|start|end|center|baseline|stretch)$/,
@@ -720,6 +722,9 @@ export function propertyToClass(
         if (value === 'nowrap') return 'flex-nowrap';
         if (value === 'wrap-reverse') return 'flex-wrap-reverse';
         return null;
+      case 'flexGrow':
+        // Framer "Fill" on the main axis of a flex parent → flex-1 (grow).
+        return `flex-${value}`;
       case 'justifyContent': {
         const justifyMap: Record<string, string> = {
           'flex-start': 'start',
@@ -1477,6 +1482,11 @@ export function classesToDesign(classes: string | string[]): Layer['design'] {
     if (cls === 'flex-row-reverse') design.layout!.flexDirection = 'row-reverse';
     if (cls === 'flex-col') design.layout!.flexDirection = 'column';
     if (cls === 'flex-col-reverse') design.layout!.flexDirection = 'column-reverse';
+
+    // Flex grow shorthand (flex-1 / flex-auto / flex-none / flex-initial)
+    if (/^flex-(0|1|auto|initial|none)$/.test(cls)) {
+      design.layout!.flexGrow = cls.replace('flex-', '');
+    }
 
     // Justify Content
     if (cls.startsWith('justify-')) {

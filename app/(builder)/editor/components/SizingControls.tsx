@@ -15,7 +15,9 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/in
 import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { AviIcon, type AviIconName } from '@/components/ui/avi-icon';
 import SettingsPanel from './SettingsPanel';
 import { useDesignSync } from '@/hooks/use-design-sync';
 import { useControlledInputs } from '@/hooks/use-controlled-input';
@@ -27,7 +29,38 @@ import type { Layer } from '@/types';
 
 interface SizingControlsProps {
   layer: Layer | null;
+  parentLayer?: Layer | null;
   onLayerUpdate: (layerId: string, updates: Partial<Layer>) => void;
+}
+
+// Framer-style sizing modes for the width/height segmented control
+type SizeMode = 'fill' | 'hug' | 'fixed' | 'relative';
+
+// Per-axis icons for the mode toggle. Width uses horizontal glyphs, height vertical.
+const SIZE_MODE_ICONS: Record<'width' | 'height', Record<Exclude<SizeMode, 'relative'>, AviIconName>> = {
+  width: { fill: 'double-arrow-horizontal', hug: 'horizontal-stack', fixed: 'frame' },
+  height: { fill: 'double-arrow-vertical', hug: 'vertical-stack', fixed: 'frame' },
+};
+
+// Labels mirror Framer's sizing terminology (Fill / Fit Content / Fixed / Relative).
+const SIZE_MODE_LABELS: Record<SizeMode, string> = {
+  fill: 'Fill',
+  hug: 'Fit content',
+  fixed: 'Fixed',
+  relative: 'Relative',
+};
+
+const SIZE_MODE_ORDER: SizeMode[] = ['fill', 'hug', 'fixed', 'relative'];
+
+// Derive the active mode from the effective Tailwind value (classes are the
+// source of truth). flexGrow (flex-1) means "Fill" on a flex main axis.
+function deriveSizeMode(value: string, isMainAxisFill: boolean): SizeMode | '' {
+  if (isMainAxisFill) return 'fill';
+  if (!value) return '';
+  if (value === '100%' || value === 'full') return 'fill';
+  if (value === 'fit') return 'hug';
+  if (value.endsWith('%')) return 'relative';
+  return 'fixed';
 }
 
 // Round only the outer corner of each grid corner cell so the 3x3 grid reads as one rounded block
@@ -51,7 +84,45 @@ const OBJECT_POSITIONS: { value: string; label: string; icon: React.ComponentPro
   { value: 'right-bottom', label: 'Bottom right', icon: 'arrow-right-down' },
 ];
 
-const SizingControls = memo(function SizingControls({ layer, onLayerUpdate }: SizingControlsProps) {
+const noop = () => {};
+
+// Segmented Fill / Hug / Fixed / Relative control for one axis.
+function SizeModeToggle({
+  axis,
+  value,
+  onChange,
+}: {
+  axis: 'width' | 'height';
+  value: SizeMode | '';
+  onChange: (mode: SizeMode) => void;
+}) {
+  return (
+    <Tabs
+      value={value}
+      onValueChange={(v) => onChange(v as SizeMode)}
+      className="w-full"
+    >
+      <TabsList className="w-full">
+        {SIZE_MODE_ORDER.map((mode) => (
+          <TabsTrigger
+            key={mode}
+            value={mode}
+            aria-label={SIZE_MODE_LABELS[mode]}
+            title={SIZE_MODE_LABELS[mode]}
+          >
+            {mode === 'relative' ? (
+              <span className="text-xs font-medium">%</span>
+            ) : (
+              <AviIcon name={SIZE_MODE_ICONS[axis][mode]} className="size-3.5" />
+            )}
+          </TabsTrigger>
+        ))}
+      </TabsList>
+    </Tabs>
+  );
+}
+
+const SizingControls = memo(function SizingControls({ layer, parentLayer = null, onLayerUpdate }: SizingControlsProps) {
   const activeBreakpoint = useEditorStore((s) => s.activeBreakpoint);
   const activeUIState = useEditorStore((s) => s.activeUIState);
   const { updateDesignProperty, debouncedUpdateDesignProperty, getDesignProperty } = useDesignSync({
@@ -60,6 +131,29 @@ const SizingControls = memo(function SizingControls({ layer, onLayerUpdate }: Si
     activeBreakpoint,
     activeUIState,
   });
+
+  // Read-only sync for the parent: whether this layer is on a flex main axis
+  // decides if "Fill" grows (flex-1) or stretches (w-full/h-full).
+  const { getDesignProperty: getParentDesignProperty } = useDesignSync({
+    layer: parentLayer,
+    onLayerUpdate: noop,
+    activeBreakpoint,
+    activeUIState,
+  });
+
+  const parentDisplay = parentLayer ? (getParentDesignProperty('layout', 'display') || '') : '';
+  const parentFlexDirection = getParentDesignProperty('layout', 'flexDirection') || 'row';
+  const isParentFlex = parentDisplay === 'flex' || parentDisplay === 'inline-flex';
+  const isParentRowAxis = isParentFlex && (parentFlexDirection === 'row' || parentFlexDirection === 'row-reverse');
+  const isParentColumnAxis = isParentFlex && (parentFlexDirection === 'column' || parentFlexDirection === 'column-reverse');
+  // Width grows via flex-1 only when it's the flex main axis (row parent);
+  // height grows via flex-1 only on a column parent.
+  const widthIsMainAxis = isParentRowAxis;
+  const heightIsMainAxis = isParentColumnAxis;
+
+  // flex-1 on the layer itself (Fill on the main axis)
+  const flexGrow = getDesignProperty('layout', 'flexGrow') || '';
+  const hasFlexGrow = flexGrow === '1';
 
   const [isOpen, setIsOpen] = useState(true);
 
@@ -118,50 +212,102 @@ const SizingControls = memo(function SizingControls({ layer, onLayerUpdate }: Si
     debouncedUpdateDesignProperty('sizing', 'width', formatMeasurementValue(value));
   };
 
-  // Get current width preset value (for Select display)
-  const getWidthPresetValue = () => {
-    if (widthInput === '100%') return 'w-[100%]';
-    if (widthInput === 'fit') return 'w-fit-content';
-    if (widthInput === '100vw') return 'w-[100vw]';
-    return '';
-  };
-
-  // Preset changes are immediate (button clicks)
-  const handleWidthPresetChange = (value: string) => {
-    if (value === 'w-[100%]') {
-      setWidthInput('100%');
-      updateDesignProperty('sizing', 'width', '[100%]');
-    } else if (value === 'w-fit-content') {
-      setWidthInput('fit');
-      updateDesignProperty('sizing', 'width', 'fit');
-    } else if (value === 'w-[100vw]') {
-      setWidthInput('100vw');
-      updateDesignProperty('sizing', 'width', '[100vw]');
-    }
-  };
-
   // Handle height changes (debounced for text input)
   const handleHeightChange = (value: string) => {
     setHeightInput(value);
     debouncedUpdateDesignProperty('sizing', 'height', formatMeasurementValue(value));
   };
 
-  // Get current height preset value (for Select display)
-  const getHeightPresetValue = () => {
-    if (heightInput === '100%') return 'h-[100%]';
-    if (heightInput === '100svh') return 'h-[100svh]';
-    return '';
+  // ── Framer-style sizing modes (Fill / Hug / Fixed / Relative) ──────────────
+  // Mode is derived from the effective class value; flex-1 on a flex main axis
+  // reads as Fill even though no w-*/h-* class is present.
+  const widthMode = deriveSizeMode(width, widthIsMainAxis && hasFlexGrow);
+  const heightMode = deriveSizeMode(height, heightIsMainAxis && hasFlexGrow);
+
+  // Relative inputs show a bare number; the '%' unit is appended on write.
+  const widthRelValue = width.endsWith('%') && width !== '100%' ? width.slice(0, -1) : '';
+  const heightRelValue = height.endsWith('%') && height !== '100%' ? height.slice(0, -1) : '';
+
+  const applyWidthMode = (mode: SizeMode) => {
+    switch (mode) {
+      case 'fill':
+        if (widthIsMainAxis) {
+          // Grow to fill the flex main axis; drop any explicit width.
+          updateDesignProperty('sizing', 'width', null);
+          updateDesignProperty('layout', 'flexGrow', '1');
+        } else {
+          if (hasFlexGrow) updateDesignProperty('layout', 'flexGrow', null);
+          setWidthInput('100%');
+          updateDesignProperty('sizing', 'width', '100%');
+        }
+        break;
+      case 'hug':
+        if (widthIsMainAxis && hasFlexGrow) updateDesignProperty('layout', 'flexGrow', null);
+        setWidthInput('fit');
+        updateDesignProperty('sizing', 'width', 'fit');
+        break;
+      case 'fixed': {
+        if (widthIsMainAxis && hasFlexGrow) updateDesignProperty('layout', 'flexGrow', null);
+        const next = widthMode === 'fixed' && widthInput ? widthInput : '100';
+        setWidthInput(next);
+        updateDesignProperty('sizing', 'width', formatMeasurementValue(next));
+        break;
+      }
+      case 'relative': {
+        if (widthIsMainAxis && hasFlexGrow) updateDesignProperty('layout', 'flexGrow', null);
+        const next = widthMode === 'relative' && widthRelValue ? `${widthRelValue}%` : '50%';
+        setWidthInput(next);
+        updateDesignProperty('sizing', 'width', next);
+        break;
+      }
+    }
   };
 
-  // Preset changes are immediate (button clicks)
-  const handleHeightPresetChange = (value: string) => {
-    if (value === 'h-[100%]') {
-      setHeightInput('100%');
-      updateDesignProperty('sizing', 'height', '[100%]');
-    } else if (value === 'h-[100svh]') {
-      setHeightInput('100svh');
-      updateDesignProperty('sizing', 'height', '[100svh]');
+  const applyHeightMode = (mode: SizeMode) => {
+    switch (mode) {
+      case 'fill':
+        if (heightIsMainAxis) {
+          updateDesignProperty('sizing', 'height', null);
+          updateDesignProperty('layout', 'flexGrow', '1');
+        } else {
+          if (hasFlexGrow) updateDesignProperty('layout', 'flexGrow', null);
+          setHeightInput('100%');
+          updateDesignProperty('sizing', 'height', '100%');
+        }
+        break;
+      case 'hug':
+        if (heightIsMainAxis && hasFlexGrow) updateDesignProperty('layout', 'flexGrow', null);
+        setHeightInput('fit');
+        updateDesignProperty('sizing', 'height', 'fit');
+        break;
+      case 'fixed': {
+        if (heightIsMainAxis && hasFlexGrow) updateDesignProperty('layout', 'flexGrow', null);
+        const next = heightMode === 'fixed' && heightInput ? heightInput : '100';
+        setHeightInput(next);
+        updateDesignProperty('sizing', 'height', formatMeasurementValue(next));
+        break;
+      }
+      case 'relative': {
+        if (heightIsMainAxis && hasFlexGrow) updateDesignProperty('layout', 'flexGrow', null);
+        const next = heightMode === 'relative' && heightRelValue ? `${heightRelValue}%` : '50%';
+        setHeightInput(next);
+        updateDesignProperty('sizing', 'height', next);
+        break;
+      }
     }
+  };
+
+  // Relative (%) numeric input handlers — store as "N%", debounced while typing.
+  const handleWidthRelChange = (value: string) => {
+    const bare = value.replace('%', '');
+    setWidthInput(bare ? `${bare}%` : '');
+    debouncedUpdateDesignProperty('sizing', 'width', bare ? `${bare}%` : null);
+  };
+
+  const handleHeightRelChange = (value: string) => {
+    const bare = value.replace('%', '');
+    setHeightInput(bare ? `${bare}%` : '');
+    debouncedUpdateDesignProperty('sizing', 'height', bare ? `${bare}%` : null);
   };
 
   // Get current min/max width preset values
@@ -375,7 +521,7 @@ const SizingControls = memo(function SizingControls({ layer, onLayerUpdate }: Si
     // Check if parent has grid display
     const parentDisplay = parent.design?.layout?.display;
     return parentDisplay === 'Grid';
-  }, [layer, currentPageId, editingComponentId, draftsByPageId, componentDrafts]);
+  }, [layer, currentPageId, editingComponentId, editingComponentVariantId, draftsByPageId, componentDrafts]);
 
   return (
     <SettingsPanel
@@ -455,22 +601,24 @@ const SizingControls = memo(function SizingControls({ layer, onLayerUpdate }: Si
       <div className="grid grid-cols-3 items-start">
         <Label variant="muted" className="h-8">Width</Label>
         <div className="col-span-2 flex flex-col gap-2">
-          <ButtonGroup>
+          <SizeModeToggle
+            axis="width" value={widthMode}
+            onChange={applyWidthMode}
+          />
+          {widthMode === 'fixed' && (
             <Input
               value={widthInput} onChange={(e) => handleWidthChange(e.target.value)}
             />
-            <ButtonGroupSeparator />
-            <Select value={getWidthPresetValue()} onValueChange={handleWidthPresetChange}>
-              <SelectTrigger />
-              <SelectContent>
-                <SelectGroup>
-                  <SelectItem value="w-[100%]">Fill</SelectItem>
-                  <SelectItem value="w-fit-content">Fit</SelectItem>
-                  <SelectItem value="w-[100vw]">Screen</SelectItem>
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          </ButtonGroup>
+          )}
+          {widthMode === 'relative' && (
+            <InputGroup>
+              <InputGroupInput
+                value={widthRelValue}
+                onChange={(e) => handleWidthRelChange(e.target.value)}
+              />
+              <InputGroupAddon align="inline-end">%</InputGroupAddon>
+            </InputGroup>
+          )}
           <div className="grid grid-cols-2 gap-2">
             <div className="w-full group relative">
               <ButtonGroup className="w-full">
@@ -547,21 +695,24 @@ const SizingControls = memo(function SizingControls({ layer, onLayerUpdate }: Si
       <div className="grid grid-cols-3 items-start">
         <Label variant="muted" className="h-8">Height</Label>
         <div className="col-span-2 flex flex-col gap-2">
-          <ButtonGroup>
+          <SizeModeToggle
+            axis="height" value={heightMode}
+            onChange={applyHeightMode}
+          />
+          {heightMode === 'fixed' && (
             <Input
               value={heightInput} onChange={(e) => handleHeightChange(e.target.value)}
             />
-            <ButtonGroupSeparator />
-            <Select value={getHeightPresetValue()} onValueChange={handleHeightPresetChange}>
-              <SelectTrigger />
-              <SelectContent>
-                <SelectGroup>
-                  <SelectItem value="h-[100%]">Fill</SelectItem>
-                  <SelectItem value="h-[100svh]">Screen</SelectItem>
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          </ButtonGroup>
+          )}
+          {heightMode === 'relative' && (
+            <InputGroup>
+              <InputGroupInput
+                value={heightRelValue}
+                onChange={(e) => handleHeightRelChange(e.target.value)}
+              />
+              <InputGroupAddon align="inline-end">%</InputGroupAddon>
+            </InputGroup>
+          )}
           <div className="grid grid-cols-2 gap-2">
             <div className="w-full group relative">
               <ButtonGroup className="w-full">

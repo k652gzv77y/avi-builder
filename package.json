@@ -44,6 +44,7 @@
     "agent:tools": "TS_NODE_TRANSPILE_ONLY=1 TS_NODE_PROJECT=tsconfig.test.json node --require ts-node/register --require tsconfig-paths/register scripts/list-agent-tools.ts",
     "agent:smoke": "TS_NODE_TRANSPILE_ONLY=1 TS_NODE_PROJECT=tsconfig.test.json node --require ts-node/register --require tsconfig-paths/register scripts/smoke-agent.ts",
     "fonts:update": "npx ts-node scripts/fetch-google-fonts.ts",
+    "icons:build": "node scripts/build-avi-icons.mjs",
     "prepare": "husky",
     "postinstall": "patch-package"
   },
