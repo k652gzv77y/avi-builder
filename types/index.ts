@@ -18,6 +18,7 @@ export interface LayoutDesign {
   justifyContent?: string;
   alignItems?: string;
   alignSelf?: string;
+  flexGrow?: string | null; // 'flex-1' etc. — drives Framer "Fill" on a flex main axis
   gap?: string;
   columnGap?: string;
   rowGap?: string;

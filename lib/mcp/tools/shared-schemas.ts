@@ -197,7 +197,7 @@ export const designSchema = z.object({
 // than CSS that agents should set directly.
 
 type IntentionallyUnexposed = {
-  layout: 'gapMode';
+  layout: 'gapMode' | 'flexGrow';
   spacing: 'marginMode' | 'paddingMode';
   borders: 'borderWidthMode' | 'borderRadiusMode';
 };
