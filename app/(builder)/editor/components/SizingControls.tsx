@@ -42,11 +42,12 @@ const SIZE_MODE_ICONS: Record<'width' | 'height', Record<Exclude<SizeMode, 'rela
   height: { fill: 'double-arrow-vertical', hug: 'vertical-stack', fixed: 'frame' },
 };
 
+// Labels mirror Framer's sizing terminology (Fill / Fit Content / Fixed / Relative).
 const SIZE_MODE_LABELS: Record<SizeMode, string> = {
   fill: 'Fill',
-  hug: 'Hug contents',
+  hug: 'Fit content',
   fixed: 'Fixed',
-  relative: 'Relative (%)',
+  relative: 'Relative',
 };
 
 const SIZE_MODE_ORDER: SizeMode[] = ['fill', 'hug', 'fixed', 'relative'];
@@ -520,7 +521,7 @@ const SizingControls = memo(function SizingControls({ layer, parentLayer = null,
     // Check if parent has grid display
     const parentDisplay = parent.design?.layout?.display;
     return parentDisplay === 'Grid';
-  }, [layer, currentPageId, editingComponentId, draftsByPageId, componentDrafts]);
+  }, [layer, currentPageId, editingComponentId, editingComponentVariantId, draftsByPageId, componentDrafts]);
 
   return (
     <SettingsPanel
