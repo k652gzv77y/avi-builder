@@ -102,7 +102,7 @@ function BoxEdge({
 
   const colorClass =
     isDragging || isActiveDuringDrag
-      ? 'text-blue-500'
+      ? 'text-brand'
       : edgeState === 'hover' || edgeState === 'active'
         ? 'text-neutral-400'
         : 'text-neutral-600';

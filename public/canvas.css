@@ -1,6 +1,6 @@
 /* Editor-specific styles - using outline to prevent conflicts with user box-shadow */
 .ycode-selected {
-  outline: 1px solid #0b7efd !important;
+  outline: 1px solid #0099ff !important;
   outline-offset: -1px;
 }
 
@@ -10,7 +10,7 @@
 }
 
 .ycode-hover {
-  outline: 1px solid #0b7efd !important;
+  outline: 1px solid #0099ff !important;
   outline-offset: -1px;
 }
 
@@ -25,14 +25,14 @@
 }
 
 .ycode-editing {
-  outline: 1px solid #0b7efd !important;
+  outline: 1px solid #0099ff !important;
   outline-offset: -1px;
 }
 
 .ycode-drop-target {
-  outline: 2px solid #3b82f6 !important;
+  outline: 2px solid #0099ff !important;
   outline-offset: -2px;
-  background-color: rgba(59, 130, 246, 0.05) !important;
+  background-color: rgba(0, 153, 255, 0.05) !important;
 }
 
 
@@ -48,10 +48,10 @@
 .ycode-layer:empty:not(input):not(select):not(textarea):not(img):not(br):not(hr):not([data-has-visual])::before {
   content: ' ';
   display: block;
-  background-color: rgb(191 219 254 / 0.1);
-  border: 1px dashed rgb(59 130 246 / 0.5);
+  background-color: rgb(0 153 255 / 0.08);
+  border: 1px dashed rgb(0 153 255 / 0.5);
   border-radius: 0.125rem;
-  color: rgb(59 130 246);
+  color: rgb(0 153 255);
   font-size: 0.75rem;
   padding: 2rem;
   text-align: center;
@@ -130,7 +130,7 @@
 /* Text editing input */
 .ycode-text-editor {
   width: 100%;
-  outline: 1px solid #0b7efd !important;
+  outline: 1px solid #0099ff !important;
   outline-offset: 0 !important;
   cursor: text !important;
 }

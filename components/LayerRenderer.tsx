@@ -1956,7 +1956,7 @@ const LayerItemImpl: React.FC<{
     buttonNeedsTextCenter && 'text-center',
     enableDragDrop && !isEditing && !isLockedByOther && 'cursor-default',
     isDragging && 'opacity-30',
-    showProjection && 'outline outline-1 outline-dashed outline-blue-400 bg-blue-50/10',
+    showProjection && 'outline outline-1 outline-dashed outline-brand bg-brand/10',
     isLockedByOther && 'opacity-90 pointer-events-none select-none',
     isPaginationWrapperEmpty && 'hidden',
     'ycode-layer'
