@@ -1,5 +1,6 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { sanitizeCookieOptions } from './auth-flow';
 import { credentials } from './credentials';
 import { parseSupabaseConfig } from './supabase-config-parser';
 import type { SupabaseConfig } from '@/types';
@@ -8,7 +9,7 @@ import type { SupabaseConfig } from '@/types';
  * Create a Supabase server client for use in Next.js route handlers.
  *
  * Reads stored credentials, parses the config, and wires up cookie
- * get/set/remove so auth sessions work correctly in API routes.
+ * getAll/setAll so chunked auth cookies round-trip in route handlers.
  *
  * Returns null if Supabase is not configured (expected during setup).
  */
@@ -21,14 +22,17 @@ export async function createRouteClient() {
 
   return createServerClient(parsed.projectUrl, parsed.anonKey, {
     cookies: {
-      get(name: string) {
-        return cookieStore.get(name)?.value;
+      getAll() {
+        return cookieStore.getAll();
       },
-      set(name: string, value: string, options: CookieOptions) {
-        cookieStore.set({ name, value, ...options });
-      },
-      remove(name: string, options: CookieOptions) {
-        cookieStore.set({ name, value: '', ...options });
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value, options }) => {
+          try {
+            cookieStore.set(name, value, sanitizeCookieOptions(options, process.env.NODE_ENV === 'production'));
+          } catch {
+            // Server Components cannot write cookies. Route handlers can.
+          }
+        });
       },
     },
   });

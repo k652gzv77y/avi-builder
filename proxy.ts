@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse } from 'next/server';
 import { NextRequest } from 'next/server';
+import { copySetCookieHeaders } from '@/lib/auth-flow';
 import { applySecurityHeaders } from '@/lib/security-headers-server';
 
 const PUBLIC_API_PREFIXES = [
@@ -145,12 +146,9 @@ async function verifyApiAuth(request: NextRequest): Promise<NextResponse | null>
     );
   }
 
-  const authResponse = NextResponse.next({ request });
-  response.cookies.getAll().forEach((cookie) => {
-    authResponse.cookies.set(cookie.name, cookie.value);
-  });
-
-  return authResponse;
+  // Return the response setAll wrote. Copying name/value onto a new response
+  // drops Path, Secure, and Max-Age, so the browser keeps the previous token.
+  return response;
 }
 
 export async function proxy(request: NextRequest) {
@@ -237,14 +235,20 @@ export async function proxy(request: NextRequest) {
         }
         return authResponse;
       }
-      authResponse.headers.set('x-pathname', effectivePathname);
-      if (projectSlug) {
-        authResponse.headers.set('x-avi-project-slug', projectSlug);
-      }
       if (builderPath) {
         const rewriteUrl = request.nextUrl.clone();
         rewriteUrl.pathname = effectivePathname;
-        return NextResponse.rewrite(rewriteUrl, { headers: authResponse.headers });
+        const rewrite = NextResponse.rewrite(rewriteUrl);
+        rewrite.headers.set('x-pathname', effectivePathname);
+        if (projectSlug) {
+          rewrite.headers.set('x-avi-project-slug', projectSlug);
+        }
+        copySetCookieHeaders(authResponse.headers, rewrite.headers);
+        return rewrite;
+      }
+      authResponse.headers.set('x-pathname', effectivePathname);
+      if (projectSlug) {
+        authResponse.headers.set('x-avi-project-slug', projectSlug);
       }
       return authResponse;
     }

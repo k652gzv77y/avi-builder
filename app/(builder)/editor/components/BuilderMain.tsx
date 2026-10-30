@@ -87,6 +87,7 @@ import type { ExternalPastePlacement } from '@/stores/useExternalPasteStore';
 // import { useCollaborationPresenceStore } from '@/stores/useCollaborationPresenceStore';
 
 // 6. Utils/lib
+import { formatAuthError } from '@/lib/auth-flow';
 import { findHomepage } from '@/lib/page-utils';
 import { hasTextSelection } from '@/lib/utils';
 import { getStyleIds } from '@/lib/layer-style-resolve';
@@ -721,7 +722,11 @@ export default function BuilderApp({ children }: BuilderAppProps = {} as Builder
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [dismissedCallbackError, setDismissedCallbackError] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const callbackError = dismissedCallbackError
+    ? null
+    : formatAuthError(searchParams?.get('auth_error'));
 
   // Ensure dark mode is applied for login screen on client-side navigation
   useEffect(() => {
@@ -746,20 +751,25 @@ export default function BuilderApp({ children }: BuilderAppProps = {} as Builder
     setIsLoggingIn(true);
     setLoginError(null);
 
+    setDismissedCallbackError(true);
     const { signIn } = useAuthStore.getState();
     const result = await signIn(loginEmail, loginPassword);
+    const signedIn = Boolean(useAuthStore.getState().user);
 
-    if (result.error) {
+    if (result.error && !signedIn) {
       setLoginError(result.error);
       setIsLoggingIn(false);
+      return;
     }
-    // If successful, user state will update and component will re-render with builder
+
+    // Session is in the store. The login screen unmounts on the next render.
   };
 
   const handleOAuthLogin = async (provider: 'google' | 'apple') => {
     setIsLoggingIn(true);
     setLoginError(null);
 
+    setDismissedCallbackError(true);
     const { signInWithOAuth } = useAuthStore.getState();
     const result = await signInWithOAuth(provider);
 
@@ -780,7 +790,16 @@ export default function BuilderApp({ children }: BuilderAppProps = {} as Builder
       const loadBuilderData = async () => {
         try {
           const { editorApi } = await import('@/lib/api');
-          const response = await editorApi.init();
+          let response = await editorApi.init();
+
+          // The first request can race the cookie write from sign-in.
+          // Confirm the session and retry once before treating it as a logout.
+          if (response.error === 'Not authenticated') {
+            const recovered = await useAuthStore.getState().confirmSession();
+            if (recovered) {
+              response = await editorApi.init();
+            }
+          }
 
           if (response.error) {
             console.error('[Editor] Error loading initial data:', response.error);
@@ -2192,9 +2211,9 @@ export default function BuilderApp({ children }: BuilderAppProps = {} as Builder
 
           <form onSubmit={handleLogin} className="flex flex-col gap-6">
 
-            {loginError && (
+            {(loginError || callbackError) && (
               <Alert variant="destructive">
-                <AlertTitle>{loginError}</AlertTitle>
+                <AlertTitle>{loginError || callbackError}</AlertTitle>
               </Alert>
             )}
 

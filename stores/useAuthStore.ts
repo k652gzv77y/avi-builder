@@ -6,9 +6,12 @@
 
 import { create } from 'zustand';
 import { projectsPath } from '@/lib/project-url';
+import { builderReturnPath, resolveSignInResult, shouldApplyAuthEvent } from '@/lib/auth-flow';
 import { createBrowserClient } from '../lib/supabase-browser';
 import { extractRoleFromUser } from '@/lib/roles';
 import type { Provider, User, Session } from '@supabase/supabase-js';
+
+let authInitializeTask: Promise<void> | null = null;
 
 interface AuthState {
   user: User | null;
@@ -26,6 +29,7 @@ interface AuthActions {
   signInWithOAuth: (provider: Provider) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
   checkSession: () => Promise<void>;
+  confirmSession: () => Promise<boolean>;
   setError: (error: string | null) => void;
 }
 
@@ -43,53 +47,87 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
    * Initialize auth state and listen for auth changes
    * Gracefully handles missing Supabase config (expected during setup)
    */
-  initialize: async () => {
-    if (get().initialized) return;
+  initialize: () => {
+    if (get().initialized) return Promise.resolve();
+    if (authInitializeTask) return authInitializeTask;
 
-    try {
-      const supabase = await createBrowserClient();
+    authInitializeTask = (async () => {
+      try {
+        const supabase = await createBrowserClient();
 
-      // If Supabase is not configured, skip initialization (expected during setup)
-      if (!supabase) {
+        // If Supabase is not configured, skip initialization (expected during setup)
+        if (!supabase) {
+          set({
+            initialized: true,
+            error: null,
+          });
+          return;
+        }
+
+        // Register before reading the session so SIGNED_IN is not missed.
+        // Ignore a late empty INITIAL_SESSION so it cannot wipe a sign-in
+        // that already stored the user.
+        supabase.auth.onAuthStateChange((event, session) => {
+          if (!shouldApplyAuthEvent(event, session, get().user)) return;
+          set({
+            user: session?.user ?? null,
+            session,
+            role: extractRoleFromUser(session?.user ?? null),
+          });
+        });
+
+        // getUser verifies the JWT. One refresh afterwards picks up role
+        // changes in app_metadata. A second overlapping refresh rotates the
+        // refresh token twice and the loser clears the session.
+        const { data: { user } } = await supabase.auth.getUser();
+        let session: Session | null = null;
+
+        if (user) {
+          const refreshed = await supabase.auth.refreshSession();
+          session = refreshed.data.session;
+        }
+
+        if (!session?.user) {
+          const stored = await supabase.auth.getSession();
+          session = stored.data.session;
+        }
+
+        const resolvedUser = session?.user ?? null;
         set({
+          user: resolvedUser,
+          session: resolvedUser ? session : null,
+          role: extractRoleFromUser(resolvedUser),
           initialized: true,
           error: null,
         });
-        return;
-      }
-
-      // Validate session server-side (getUser verifies the JWT, unlike getSession)
-      const { data: { user } } = await supabase.auth.getUser();
-
-      if (user) {
-        // Refresh the session so the JWT contains the latest app_metadata
-        // (role changes via Admin API don't update existing JWTs)
-        await supabase.auth.refreshSession();
-      }
-
-      const { data: { session } } = await supabase.auth.getSession();
-
-      set({
-        user: user ?? null,
-        session: user ? session : null,
-        role: extractRoleFromUser(user),
-        initialized: true,
-      });
-
-      supabase.auth.onAuthStateChange((_event, session) => {
+      } catch (error) {
+        console.error('Failed to initialize auth:', error);
+        try {
+          const supabase = await createBrowserClient();
+          const stored = await supabase?.auth.getSession();
+          if (stored?.data.session?.user) {
+            set({
+              user: stored.data.session.user,
+              session: stored.data.session,
+              role: extractRoleFromUser(stored.data.session.user),
+              initialized: true,
+              error: null,
+            });
+            return;
+          }
+        } catch {
+          // The original failure is reported below.
+        }
         set({
-          user: session?.user ?? null,
-          session,
-          role: extractRoleFromUser(session?.user ?? null),
+          error: error instanceof Error ? error.message : 'Failed to initialize auth',
+          initialized: true,
         });
-      });
-    } catch (error) {
-      console.error('Failed to initialize auth:', error);
-      set({
-        error: error instanceof Error ? error.message : 'Failed to initialize auth',
-        initialized: true,
-      });
-    }
+      } finally {
+        authInitializeTask = null;
+      }
+    })();
+
+    return authInitializeTask;
   },
 
   /**
@@ -163,20 +201,49 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         password,
       });
 
-      if (error) {
-        set({ loading: false, error: error.message });
-        return { error: error.message };
+      // The password grant can persist cookies and then surface a follow-up
+      // error (lock, notify, or a stale session read). Trust the stored session.
+      let session = data.session;
+      if (!session?.user) {
+        const stored = await supabase.auth.getSession();
+        session = stored.data.session;
+      }
+
+      const resolved = resolveSignInResult(error?.message ?? null, data.session, session);
+      if (resolved.error || !session?.user) {
+        const message = resolved.error || 'Sign in failed';
+        set({ loading: false, error: message });
+        return { error: message };
       }
 
       set({
-        user: data.user,
-        session: data.session,
-        role: extractRoleFromUser(data.user),
+        user: session.user,
+        session,
+        role: extractRoleFromUser(session.user),
         loading: false,
+        error: null,
+        initialized: true,
       });
 
       return { error: null };
     } catch (error) {
+      try {
+        const supabase = await createBrowserClient();
+        const stored = await supabase?.auth.getSession();
+        if (stored?.data.session?.user) {
+          set({
+            user: stored.data.session.user,
+            session: stored.data.session,
+            role: extractRoleFromUser(stored.data.session.user),
+            loading: false,
+            error: null,
+            initialized: true,
+          });
+          return { error: null };
+        }
+      } catch {
+        // Report the original sign-in failure.
+      }
       const message = error instanceof Error ? error.message : 'Sign in failed';
       set({ loading: false, error: message });
       return { error: message };
@@ -196,13 +263,15 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         return { error };
       }
 
+      const next = builderReturnPath(window.location.pathname, window.location.search);
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          // Exchange the PKCE code on the server, then return to the canonical
-          // project route with its session cookies in place. The callback is
-          // shared by every project, while `next` keeps the selected project.
-          redirectTo: `${window.location.origin}/projects/auth/callback?next=${encodeURIComponent('/projects')}`,
+          // Exchange the PKCE code on the server, then return to the project
+          // the user was signing in from. Apple also needs the email/name scopes
+          // or the first sign-in can finish without an email identity.
+          redirectTo: `${window.location.origin}/projects/auth/callback?next=${encodeURIComponent(next)}`,
+          scopes: provider === 'apple' ? 'email name' : undefined,
         },
       });
 
@@ -260,6 +329,32 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
   /**
    * Check current session
    */
+  /**
+   * Re-read the cookie session and adopt it when present.
+   * Used when an API call races the cookie write after sign-in.
+   */
+  confirmSession: async () => {
+    try {
+      const supabase = await createBrowserClient();
+      if (!supabase) return false;
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return false;
+
+      set({
+        user: session.user,
+        session,
+        role: extractRoleFromUser(session.user),
+        error: null,
+        initialized: true,
+      });
+      return true;
+    } catch (error) {
+      console.error('Failed to confirm session:', error);
+      return false;
+    }
+  },
+
   checkSession: async () => {
     try {
       const supabase = await createBrowserClient();
