@@ -47,15 +47,14 @@ export default function RightPanel({ onLayerUpdate }: RightPanelProps) {
   }
 
   return (
-    <div className="w-64 shrink-0 bg-background border-l flex flex-col h-full overflow-hidden">
-      <div className="px-4 pt-4 shrink-0">
+    <div className="flex h-full w-[260px] shrink-0 flex-col overflow-hidden border-l bg-background">
+      <div className="shrink-0 px-2 pt-2">
         <Tabs value={isAgent ? 'agent' : 'human'} onValueChange={handleModeChange}>
-          <TabsList className="w-full">
-            <TabsTrigger value="human" className="flex-1">Human</TabsTrigger>
-            <TabsTrigger value="agent" className="flex-1">Agent</TabsTrigger>
+          <TabsList className="h-7 w-full">
+            <TabsTrigger value="human" className="flex-1 text-[11px]">Design</TabsTrigger>
+            <TabsTrigger value="agent" className="flex-1 text-[11px]">Agent</TabsTrigger>
           </TabsList>
         </Tabs>
-        <hr className="mt-4" />
       </div>
 
       <div className="flex-1 min-h-0 flex flex-col overflow-hidden">

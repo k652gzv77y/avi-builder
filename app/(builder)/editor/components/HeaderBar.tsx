@@ -3,7 +3,7 @@
 import { projectsPath } from '@/lib/project-url';
 
 import { useCallback, useRef, useEffect, useState, useMemo } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useEditorUrl } from '@/hooks/use-editor-url';
 import { findHomepage } from '@/lib/page-utils';
 import { getTranslationValue } from '@/lib/localisation-utils';
@@ -25,18 +25,16 @@ import { usePagesStore } from '@/stores/usePagesStore';
 import { useCollectionsStore } from '@/stores/useCollectionsStore';
 import { useLocalisationStore } from '@/stores/useLocalisationStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
-import { buildSlugPath, buildDynamicPageUrl, buildLocalizedSlugPath, buildLocalizedDynamicPageUrl } from '@/lib/page-utils';
+import { buildSlugPath, buildLocalizedSlugPath, buildLocalizedDynamicPageUrl } from '@/lib/page-utils';
 import type { Page } from '@/types';
 import type { User } from '@supabase/supabase-js';
 import ActiveUsersInHeader from './ActiveUsersInHeader';
 import InviteUserButton from './InviteUserButton';
 import { LocaleSelector } from './LocaleSelector';
 import PublishPopover from './PublishPopover';
-import { Label } from '@/components/ui/label';
 import Icon from '@/components/ui/icon';
 import { Separator } from '@/components/ui/separator';
 import { BackupRestoreDialog } from '@/components/project/BackupRestoreDialog';
-import { isCloudVersion } from '@/lib/utils';
 import { useRole } from '@/hooks/use-role';
 import AviBuilderMark from '@/components/branding/AviBuilderMark';
 import { publishedOrigin } from '@/lib/platform/published-origin';
@@ -63,39 +61,29 @@ interface HeaderBarProps {
 }
 
 export default function HeaderBar({
-  user,
   signOut,
   showPageDropdown,
   setShowPageDropdown,
   currentPage,
   currentPageId,
-  pages,
-  setCurrentPageId,
   isSaving,
   hasUnsavedChanges,
   lastSaved,
   isPublishing,
   setIsPublishing,
-  saveImmediately,
   activeTab,
-  onExitComponentEditMode,
   onPublishSuccess,
   isSettingsRoute = false,
 }: HeaderBarProps) {
   const router = useRouter();
-  const pathname = usePathname();
   const pageDropdownRef = useRef<HTMLDivElement>(null);
-  const { isEditor, canManageSettings, canManageMembers } = useRole();
-  const editorSidebarTab = useEditorStore((s) => s.activeSidebarTab);
+  const { canManageSettings, canManageMembers } = useRole();
   const currentPageCollectionItemId = useEditorStore((s) => s.currentPageCollectionItemId);
-  const storeCurrentPageId = useEditorStore((s) => s.currentPageId);
   const isPreviewMode = useEditorStore((s) => s.isPreviewMode);
   const setPreviewMode = useEditorStore((s) => s.setPreviewMode);
   const openFileManager = useEditorStore((s) => s.openFileManager);
   const setKeyboardShortcutsOpen = useEditorStore((s) => s.setKeyboardShortcutsOpen);
   const setActiveSidebarTab = useEditorStore((s) => s.setActiveSidebarTab);
-  const lastDesignUrl = useEditorStore((s) => s.lastDesignUrl);
-  const setLastDesignUrl = useEditorStore((s) => s.setLastDesignUrl);
   const previewReturnUrl = useEditorStore((s) => s.previewReturnUrl);
   const previewReturnTab = useEditorStore((s) => s.previewReturnTab);
   const setPreviewReturn = useEditorStore((s) => s.setPreviewReturn);
@@ -103,40 +91,17 @@ export default function HeaderBar({
   const storePages = usePagesStore((s) => s.pages);
   const items = useCollectionsStore((s) => s.items);
   const fields = useCollectionsStore((s) => s.fields);
-  const collections = useCollectionsStore((s) => s.collections);
-  const storeSelectedCollectionId = useCollectionsStore((s) => s.selectedCollectionId);
-  const setSelectedCollectionId = useCollectionsStore((s) => s.setSelectedCollectionId);
   const globalCanonicalUrl = useSettingsStore((s) => s.settingsByKey.global_canonical_url as string | null | undefined);
   const locales = useLocalisationStore((s) => s.locales);
   const selectedLocaleId = useLocalisationStore((s) => s.selectedLocaleId);
   const translations = useLocalisationStore((s) => s.translations);
-  const { navigateToLayers, navigateToCollection, navigateToCollections, updateQueryParams, routeType } = useEditorUrl();
-  type NavButton = 'design' | 'cms' | 'forms';
-  const [optimisticNav, setOptimisticNav] = useState<NavButton | null>(null);
-
-  useEffect(() => {
-    if (!optimisticNav) return;
-    const isDesignRoute = routeType === 'layers' || routeType === 'page' || routeType === 'component' || routeType === null;
-    const isCmsRoute = routeType === 'collection' || routeType === 'collections-base';
-    const isFormsRoute = routeType === 'forms';
-    if ((optimisticNav === 'design' && isDesignRoute) || (optimisticNav === 'cms' && isCmsRoute) || (optimisticNav === 'forms' && isFormsRoute)) {
-      setOptimisticNav(null);
-    }
-  }, [routeType, optimisticNav]);
+  const { updateQueryParams, routeType } = useEditorUrl();
 
   useEffect(() => {
     if (!isPreviewMode || previewReturnUrl) return;
     const isDesignRoute = routeType === 'layers' || routeType === 'page' || routeType === 'component' || routeType === null;
     if (!isDesignRoute) setPreviewMode(false);
   }, [routeType, isPreviewMode, previewReturnUrl, setPreviewMode]);
-
-  const activeNavButton = useMemo((): NavButton | null => {
-    if (optimisticNav) return optimisticNav;
-    if (routeType === 'collection' || routeType === 'collections-base') return 'cms';
-    if (routeType === 'forms') return 'forms';
-    if (routeType === 'layers' || routeType === 'page' || routeType === 'component' || routeType === null) return 'design';
-    return null;
-  }, [optimisticNav, routeType]);
 
   const [theme, setTheme] = useState<'system' | 'light' | 'dark'>(() => {
     if (typeof window !== 'undefined') {
@@ -146,27 +111,11 @@ export default function HeaderBar({
     return 'dark';
   });
   const [baseUrl, setBaseUrl] = useState<string>('');
-  const [hasUpdate, setHasUpdate] = useState(false);
   const [showTransferDialog, setShowTransferDialog] = useState(false);
 
   useEffect(() => {
     setBaseUrl(publishedOrigin(globalCanonicalUrl));
   }, [globalCanonicalUrl]);
-
-  useEffect(() => {
-    const checkForUpdates = async () => {
-      try {
-        const response = await fetch(projectsPath('/api/updates/check'));
-        if (response.ok) {
-          const data = await response.json();
-          setHasUpdate(data.available === true);
-        }
-      } catch (error) {
-        console.error('Failed to check for updates:', error);
-      }
-    };
-    checkForUpdates();
-  }, []);
 
   const selectedLocale = useMemo(() => {
     if (!selectedLocaleId) return null;
@@ -274,15 +223,17 @@ export default function HeaderBar({
 
   return (
     <>
-    <header className="h-14 bg-background border-b grid grid-cols-3 items-center px-4">
-      <div className="flex items-center gap-2">
+    <header className="grid h-10 grid-cols-[1fr_auto_1fr] items-center border-b bg-background px-2">
+      <div className="flex items-center gap-1.5">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
-              variant="secondary" size="sm"
-              className="size-8! p-0"
+              variant="ghost"
+              size="icon-xs"
+              className="size-7"
+              aria-label="Avi Builder menu"
             >
-              <AviBuilderMark className="size-5 text-secondary-foreground" />
+              <AviBuilderMark className="size-4 text-foreground" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
@@ -331,122 +282,42 @@ export default function HeaderBar({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
-        <div className="flex gap-1">
-          {isEditor ? (
-            <>
-              <Button
-                variant={(activeNavButton === 'design' && editorSidebarTab !== 'pages') ? 'secondary' : 'ghost'}
-                size="sm"
-                onClick={() => {
-                  setOptimisticNav('design');
-                  setActiveSidebarTab('layers');
-                  if (lastDesignUrl) {
-                    router.push(lastDesignUrl);
-                  } else {
-                    const targetPageId = storeCurrentPageId || findHomepage(storePages)?.id || storePages[0]?.id;
-                    if (targetPageId) navigateToLayers(targetPageId);
-                  }
-                }}
-              >
-                <Icon name="pencil" />
-                Content editor
-              </Button>
-              <Button
-                variant={editorSidebarTab === 'pages' ? 'secondary' : 'ghost'}
-                size="sm"
-                onClick={() => {
-                  setActiveSidebarTab('pages');
-                  const targetPageId = storeCurrentPageId || findHomepage(storePages)?.id || storePages[0]?.id;
-                  if (targetPageId) navigateToLayers(targetPageId);
-                }}
-              >
-                <Icon name="page" />
-                Pages
-              </Button>
-            </>
-          ) : (
-            <Button
-              variant={activeNavButton === 'design' ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => {
-                setOptimisticNav('design');
-                setActiveSidebarTab('layers');
-                if (lastDesignUrl) {
-                  router.push(lastDesignUrl);
-                } else {
-                  const targetPageId = storeCurrentPageId || findHomepage(storePages)?.id || storePages[0]?.id;
-                  if (targetPageId) navigateToLayers(targetPageId);
-                }
-              }}
-            >
-              <Icon name="cursor-default" />
-              Design
-            </Button>
-          )}
-          <Button
-            variant={activeNavButton === 'cms' ? 'secondary' : 'ghost'}
-            size="sm"
-            onClick={() => {
-              const isDesignRoute = routeType === 'layers' || routeType === 'page' || routeType === 'component';
-              if (isDesignRoute) setLastDesignUrl(window.location.pathname + window.location.search);
-              setOptimisticNav('cms');
-              setActiveSidebarTab('cms');
-              const targetCollectionId = storeSelectedCollectionId || collections[0]?.id;
-              if (targetCollectionId) {
-                setSelectedCollectionId(targetCollectionId);
-                navigateToCollection(targetCollectionId);
-              } else {
-                navigateToCollections();
-              }
-            }}
-          >
-            <Icon name="database" />
-            CMS
-          </Button>
-          {!isEditor && (
-            <Button
-              variant={activeNavButton === 'forms' ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => {
-                const isDesignRoute = routeType === 'layers' || routeType === 'page' || routeType === 'component';
-                if (isDesignRoute) setLastDesignUrl(window.location.pathname + window.location.search);
-                setOptimisticNav('forms');
-                router.push(projectsPath('/forms'));
-              }}
-            >
-              <Icon name="form" />
-              Forms
-            </Button>
-          )}
-        </div>
+        {currentPage ? (
+          <span className="hidden max-w-40 truncate text-[12px] font-medium text-foreground/80 sm:inline">
+            {currentPage.name}
+          </span>
+        ) : null}
       </div>
-      <div className="flex gap-1.5 items-center justify-center">
+      <div className="flex items-center justify-center gap-1.5">
         <LocaleSelector />
-        <div className="h-5"><Separator orientation="vertical" /></div>
+        <div className="h-4"><Separator orientation="vertical" /></div>
         <Button
-          size="xs" variant="ghost"
+          size="xs"
+          variant="ghost"
           asChild
+          className="max-w-56 truncate text-[11px] text-muted-foreground"
         >
           <a
-            href={baseUrl + publishedUrl} target="_blank"
+            href={baseUrl + publishedUrl}
+            target="_blank"
             rel="noopener noreferrer"
           >
-            {baseUrl || 'https://beta.kolboschool.com'}
+            {baseUrl.replace(/^https?:\/\//, '') || 'Preview site'}
           </a>
         </Button>
       </div>
-      <div className="flex items-center justify-end gap-2">
+      <div className="flex items-center justify-end gap-1.5">
         <ActiveUsersInHeader />
         {canManageMembers && <InviteUserButton />}
-        <div className="flex items-center justify-end w-16 text-xs text-zinc-500 dark:text-white/50">
-          {isSaving ? <span>Saving</span> : hasUnsavedChanges ? <span>Unsaved</span> : lastSaved ? <span>Saved</span> : <span>Ready</span>}
-        </div>
+        <span className="hidden w-12 text-right text-[10px] text-muted-foreground sm:block">
+          {isSaving ? 'Saving' : hasUnsavedChanges ? 'Unsaved' : lastSaved ? 'Saved' : ''}
+        </span>
         <Button
-          size="sm"
-          variant="secondary"
+          size="icon-xs"
+          variant={isPreviewMode ? 'white' : 'ghost'}
           onClick={handleTogglePreview}
           disabled={!currentPage || isSaving}
-          className={isPreviewMode ? 'bg-black text-white hover:bg-black/90 dark:bg-white dark:text-black dark:hover:bg-white/90' : ''}
+          aria-label={isPreviewMode ? 'Exit preview' : 'Preview'}
         >
           <Icon name="preview" />
         </Button>

@@ -6,7 +6,10 @@ import { useEffect } from 'react';
 function isBuilderHost() {
   if (typeof window === 'undefined') return false;
   const host = window.location.hostname;
-  return host === 'avibuilder.com' || host === 'www.avibuilder.com';
+  return host === 'avibuilder.com'
+    || host === 'www.avibuilder.com'
+    || host === 'localhost'
+    || host === '127.0.0.1';
 }
 
 function shouldApplyDark(): boolean {

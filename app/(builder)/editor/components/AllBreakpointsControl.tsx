@@ -17,7 +17,7 @@ export default function AllBreakpointsControl() {
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="fixed left-1/2 top-[3.85rem] z-[60] -translate-x-1/2 rounded-md border border-black/10 bg-background px-2.5 py-1 text-[11px] text-foreground shadow-sm dark:border-white/10"
+        className="fixed left-1/2 top-[2.75rem] z-[60] -translate-x-1/2 rounded-md border border-black/10 bg-background px-2.5 py-1 text-[11px] text-foreground shadow-sm dark:border-white/10"
       >
         {open ? 'Edit breakpoint' : 'All breakpoints'}
       </button>

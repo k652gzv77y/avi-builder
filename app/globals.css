@@ -126,7 +126,10 @@
 }
 
 :root {
-  --radius: 0.625rem;
+  --radius: 0.5rem;
+  --builder-header-height: 2.5rem;
+  --builder-rail-width: 2.75rem;
+  --builder-canvas: #ececee;
   /* Product theme primitives. Accent can be customized without changing UI roles. */
   --brand: oklch(0.59 0.17 252);
   --brand-foreground: oklch(0.985 0.004 252);
@@ -164,6 +167,7 @@
 }
 
 .dark {
+  --builder-canvas: #111113;
   --brand: oklch(0.72 0.15 252);
   --brand-foreground: oklch(0.18 0.02 252);
   --background: oklch(0.2046 0 0);

@@ -17,6 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import SettingsPanel from './SettingsPanel';
+import SizingModeChips, { type SizingMode } from './SizingModeChips';
 import { useDesignSync } from '@/hooks/use-design-sync';
 import { useControlledInputs } from '@/hooks/use-controlled-input';
 import { useEditorStore } from '@/stores/useEditorStore';
@@ -140,6 +141,24 @@ const SizingControls = memo(function SizingControls({ layer, onLayerUpdate }: Si
     }
   };
 
+  const handleWidthModeChange = (mode: SizingMode) => {
+    if (mode === 'fill') {
+      handleWidthPresetChange('w-[100%]');
+      return;
+    }
+    if (mode === 'fit') {
+      handleWidthPresetChange('w-fit-content');
+      return;
+    }
+    if (mode === 'relative') {
+      handleWidthPresetChange('w-[100vw]');
+      return;
+    }
+    const next = widthInput && !['100%', 'fit', '100vw'].includes(widthInput) ? widthInput : '100';
+    setWidthInput(next);
+    updateDesignProperty('sizing', 'width', formatMeasurementValue(next));
+  };
+
   // Handle height changes (debounced for text input)
   const handleHeightChange = (value: string) => {
     setHeightInput(value);
@@ -162,6 +181,25 @@ const SizingControls = memo(function SizingControls({ layer, onLayerUpdate }: Si
       setHeightInput('100svh');
       updateDesignProperty('sizing', 'height', '[100svh]');
     }
+  };
+
+  const handleHeightModeChange = (mode: SizingMode) => {
+    if (mode === 'fill') {
+      handleHeightPresetChange('h-[100%]');
+      return;
+    }
+    if (mode === 'fit') {
+      setHeightInput('fit');
+      updateDesignProperty('sizing', 'height', 'fit');
+      return;
+    }
+    if (mode === 'relative') {
+      handleHeightPresetChange('h-[100svh]');
+      return;
+    }
+    const next = heightInput && !['100%', 'fit', '100svh'].includes(heightInput) ? heightInput : '100';
+    setHeightInput(next);
+    updateDesignProperty('sizing', 'height', formatMeasurementValue(next));
   };
 
   // Get current min/max width preset values
@@ -454,7 +492,12 @@ const SizingControls = memo(function SizingControls({ layer, onLayerUpdate }: Si
 
       <div className="grid grid-cols-3 items-start">
         <Label variant="muted" className="h-8">Width</Label>
-        <div className="col-span-2 flex flex-col gap-2">
+        <div className="col-span-2 flex flex-col gap-1.5">
+          <SizingModeChips
+            axis="width"
+            value={widthInput}
+            onChange={handleWidthModeChange}
+          />
           <ButtonGroup>
             <Input
               value={widthInput} onChange={(e) => handleWidthChange(e.target.value)}
@@ -546,7 +589,12 @@ const SizingControls = memo(function SizingControls({ layer, onLayerUpdate }: Si
 
       <div className="grid grid-cols-3 items-start">
         <Label variant="muted" className="h-8">Height</Label>
-        <div className="col-span-2 flex flex-col gap-2">
+        <div className="col-span-2 flex flex-col gap-1.5">
+          <SizingModeChips
+            axis="height"
+            value={heightInput}
+            onChange={handleHeightModeChange}
+          />
           <ButtonGroup>
             <Input
               value={heightInput} onChange={(e) => handleHeightChange(e.target.value)}

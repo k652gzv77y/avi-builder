@@ -36,6 +36,7 @@ import { getLayerFromTemplate, getBlockName, getBlockIcon, getLayoutTemplate, ge
 import { DEFAULT_ASSETS } from '@/lib/asset-constants';
 import { canHaveChildren, assignOrderClassToNewLayer, collectAllSettingsIds, generateUniqueSettingsId, findLayerById } from '@/lib/layer-utils';
 import { checkCircularReference, isCircularComponentReference } from '@/lib/component-utils';
+import { builderOverlayLeft } from '@/lib/builder-chrome';
 import { cn, generateId } from '@/lib/utils';
 import { toast } from 'sonner';
 import { componentsApi } from '@/lib/api';
@@ -1458,10 +1459,10 @@ export default function ElementLibrary({ isOpen, onClose, liveLayerUpdates }: El
     return (
       <div
         className={cn(
-          'fixed top-14 bottom-0 w-64 bg-background border-r z-50 flex flex-col items-center justify-center p-6 text-center',
+          'fixed top-10 bottom-0 w-64 bg-background border-r z-50 flex flex-col items-center justify-center p-6 text-center',
           !isOpen && 'hidden'
         )}
-        style={{ left: `${leftSidebarWidth}px` }}
+        style={{ left: `${builderOverlayLeft(leftSidebarWidth)}px` }}
       >
         <Empty>
           <EmptyMedia variant="icon">
@@ -1479,10 +1480,10 @@ export default function ElementLibrary({ isOpen, onClose, liveLayerUpdates }: El
   return (
     <div
       className={cn(
-        'fixed top-14 bottom-0 w-64 bg-background border-r z-50 flex flex-col',
+        'fixed top-10 bottom-0 w-64 bg-background border-r z-50 flex flex-col',
         !isOpen && 'hidden'
       )}
-      style={{ left: `${leftSidebarWidth}px` }}
+      style={{ left: `${builderOverlayLeft(leftSidebarWidth)}px` }}
     >
         {/* Tabs */}
         <Tabs

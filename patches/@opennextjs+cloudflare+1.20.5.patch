@@ -12,3 +12,69 @@ index 2567f7c..dc9d0a6 100644
      const transformed = {};
      const hasTopLevelBuildCondition = condition in conditionMap && conditionMap[condition] != null;
      let hasBuildCondition = hasTopLevelBuildCondition;
+diff --git a/node_modules/@opennextjs/cloudflare/dist/cli/commands/deploy.js b/node_modules/@opennextjs/cloudflare/dist/cli/commands/deploy.js
+index 9eee1fe..070c907 100644
+--- a/node_modules/@opennextjs/cloudflare/dist/cli/commands/deploy.js
++++ b/node_modules/@opennextjs/cloudflare/dist/cli/commands/deploy.js
+@@ -1,10 +1,13 @@
++import { existsSync } from "node:fs";
++import path from "node:path";
+ import logger from "@opennextjs/aws/logger.js";
+ import { DEPLOYMENT_MAPPING_ENV_NAME } from "../templates/skew-protection.js";
++import { buildCommand } from "./build.js";
+ import { populateCache, withPopulateCacheOptions } from "./populate-cache.js";
+ import { getDeploymentMapping } from "./skew-protection.js";
+ import { getEnvFromPlatformProxy, quoteShellMeta } from "./utils/helpers.js";
+ import { runWrangler } from "./utils/run-wrangler.js";
+-import { getNormalizedOptions, printHeaders, readWranglerConfig, retrieveCompiledConfig, withWranglerPassthroughArgs, } from "./utils/utils.js";
++import { getNormalizedOptions, nextAppDir, printHeaders, readWranglerConfig, retrieveCompiledConfig, withWranglerPassthroughArgs, } from "./utils/utils.js";
+ /**
+  * Implementation of the `opennextjs-cloudflare deploy` command.
+  *
+@@ -12,6 +15,13 @@ import { getNormalizedOptions, printHeaders, readWranglerConfig, retrieveCompile
+  */
+ export async function deployCommand(args) {
+     printHeaders("deploy");
++    const compiledConfigPath = path.join(nextAppDir, ".open-next/.build/open-next.config.edge.mjs");
++    if (!existsSync(compiledConfigPath)) {
++        await buildCommand({
++            ...args,
++            skipWranglerConfigCheck: true,
++        });
++    }
+     const { config } = await retrieveCompiledConfig();
+     const buildOpts = getNormalizedOptions(config);
+     const wranglerConfig = await readWranglerConfig(args);
+diff --git a/node_modules/@opennextjs/cloudflare/dist/cli/commands/upload.js b/node_modules/@opennextjs/cloudflare/dist/cli/commands/upload.js
+index c87a532..8642a4b 100644
+--- a/node_modules/@opennextjs/cloudflare/dist/cli/commands/upload.js
++++ b/node_modules/@opennextjs/cloudflare/dist/cli/commands/upload.js
+@@ -1,10 +1,13 @@
++import { existsSync } from "node:fs";
++import path from "node:path";
+ import logger from "@opennextjs/aws/logger.js";
+ import { DEPLOYMENT_MAPPING_ENV_NAME } from "../templates/skew-protection.js";
++import { buildCommand } from "./build.js";
+ import { populateCache, withPopulateCacheOptions } from "./populate-cache.js";
+ import { getDeploymentMapping } from "./skew-protection.js";
+ import { getEnvFromPlatformProxy, quoteShellMeta } from "./utils/helpers.js";
+ import { runWrangler } from "./utils/run-wrangler.js";
+-import { getNormalizedOptions, printHeaders, readWranglerConfig, retrieveCompiledConfig, withWranglerPassthroughArgs, } from "./utils/utils.js";
++import { getNormalizedOptions, nextAppDir, printHeaders, readWranglerConfig, retrieveCompiledConfig, withWranglerPassthroughArgs, } from "./utils/utils.js";
+ /**
+  * Implementation of the `opennextjs-cloudflare upload` command.
+  *
+@@ -12,6 +15,13 @@ import { getNormalizedOptions, printHeaders, readWranglerConfig, retrieveCompile
+  */
+ export async function uploadCommand(args) {
+     printHeaders("upload");
++    const compiledConfigPath = path.join(nextAppDir, ".open-next/.build/open-next.config.edge.mjs");
++    if (!existsSync(compiledConfigPath)) {
++        await buildCommand({
++            ...args,
++            skipWranglerConfigCheck: true,
++        });
++    }
+     const { config } = await retrieveCompiledConfig();
+     const buildOpts = getNormalizedOptions(config);
+     const wranglerConfig = await readWranglerConfig(args);
