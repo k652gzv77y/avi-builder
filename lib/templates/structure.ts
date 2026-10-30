@@ -95,10 +95,11 @@ export const structureTemplates: Record<string, BlockTemplate> = {
     name: 'Block',
     template: {
       name: 'div',
-      classes: ['flex', 'flex-col'],
+      classes: ['relative', 'w-full', 'min-h-[80px]'],
       children: [],
       design: {
-        layout: { isActive: true, display: 'Flex', flexDirection: 'column' },
+        positioning: { isActive: true, position: 'relative' },
+        sizing: { isActive: true, width: '100%', minHeight: '80px' },
       }
     }
   },

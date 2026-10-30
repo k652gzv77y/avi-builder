@@ -122,7 +122,7 @@ const MOBILE_MAX_WIDTH = BREAKPOINTS.find(bp => bp.value === 'mobile')!.maxWidth
 const viewportSizes: Record<ViewportMode, { width: string; label: string; icon: string }> = {
   desktop: { width: '1366px', label: 'Desktop', icon: '🖥️' },
   tablet: { width: `${MOBILE_MAX_WIDTH + 10}px`, label: 'Tablet', icon: '📱' },
-  mobile: { width: '375px', label: 'Mobile', icon: '📱' },
+  mobile: { width: '375px', label: 'Phone', icon: '📱' },
 };
 
 interface ViewportZoomControlsProps {

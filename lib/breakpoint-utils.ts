@@ -12,7 +12,7 @@ export interface BreakpointConfig {
  * Desktop is base (no prefix), tablet and mobile use max-width overrides
  */
 export const BREAKPOINTS: BreakpointConfig[] = [
-  { value: 'mobile', label: 'Mobile', prefix: 'max-md:', maxWidth: 767 },
+  { value: 'mobile', label: 'Phone', prefix: 'max-md:', maxWidth: 767 },
   { value: 'tablet', label: 'Tablet', prefix: 'max-lg:', maxWidth: 1023 },
   { value: 'desktop', label: 'Desktop', prefix: '', maxWidth: null },
 ];

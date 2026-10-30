@@ -17,7 +17,7 @@ import {
   getConflictingClassPattern,
   extractBgImgVarName,
 } from '@/lib/tailwind-class-mapper';
-import { updateStyledLayer } from '@/lib/layer-style-utils';
+import { applyBreakpointDesign, isBreakpointOverride, toClassList } from '@/lib/layout-model';
 import { useCanvasTextEditorStore } from '@/stores/useCanvasTextEditorStore';
 import { DEFAULT_TEXT_STYLES, getTextStyle } from '@/lib/text-format-utils';
 
@@ -116,19 +116,25 @@ export function useDesignSync({
         const currentTextStyles = currentLayer.textStyles ?? { ...DEFAULT_TEXT_STYLES };
         const currentTextStyle = currentTextStyles[effectiveTextStyleKey] || {};
         const currentDesign = currentTextStyle.design || {};
-        const categoryData = currentDesign[category] || {};
+        const writeBase = activeBreakpoint === 'desktop' && activeUIState === 'neutral';
+        let updatedDesign = currentDesign;
 
-        const updatedDesign = {
-          ...currentDesign,
-          [category]: {
-            ...categoryData,
-            [property]: value,
-            isActive: true,
-          },
-        };
+        // Smaller breakpoints and UI states only prefix classes. The design
+        // object stays the desktop/neutral value so overrides do not replace it.
+        if (writeBase) {
+          const categoryData = currentDesign[category] || {};
+          updatedDesign = {
+            ...currentDesign,
+            [category]: {
+              ...categoryData,
+              [property]: value,
+              isActive: true,
+            },
+          };
 
-        if (!value) {
-          delete updatedDesign[category]![property as keyof typeof categoryData];
+          if (!value) {
+            delete updatedDesign[category]![property as keyof typeof categoryData];
+          }
         }
 
         // Update classes within the text style
@@ -168,71 +174,18 @@ export function useDesignSync({
         return;
       }
 
-      // Normal Mode: Update layer directly
-      const currentDesign = currentLayer.design || {};
-      const categoryData = currentDesign[category] || {};
-
-      const updatedDesign = {
-        ...currentDesign,
-        [category]: {
-          ...categoryData,
-          [property]: value,
-          isActive: true, // Mark category as active
-        },
-      };
-
-      // Remove property if value is null/empty
-      if (!value) {
-        delete updatedDesign[category]![property as keyof typeof categoryData];
-      }
-
-      // 2. Convert to Tailwind class
-      const newClass = value ? propertyToClass(category, property, value) : null;
-
-      // 3. Get existing classes as array
-      const existingClasses = Array.isArray(currentLayer.classes)
-        ? currentLayer.classes
-        : (currentLayer.classes || '').split(' ').filter(Boolean);
-
-      // 4. Apply breakpoint-aware class replacement with UI state support
-      // Uses setBreakpointClass which applies correct prefix (desktop → '', tablet → 'max-lg:', mobile → 'max-md:')
-      // and state prefix (neutral → '', hover → 'hover:', etc.)
-      const updatedClasses = setBreakpointClass(
-        existingClasses,
-        property,
-        newClass,
+      // Normal Mode: desktop writes the design object; smaller breakpoints
+      // only store a prefixed class override.
+      const finalUpdate = applyBreakpointDesign(
+        currentLayer,
+        [{ category, property, value }],
         activeBreakpoint,
-        activeUIState
+        activeUIState,
       );
 
-      // 5. Update layer with both design object and classes
-      // If layer has a style applied, track changes as overrides
-      // Note: Use join instead of cn() because setBreakpointClass already handles
-      // property-aware conflict resolution
-      const styledLayer = updateStyledLayer(currentLayer, {
-        design: updatedDesign,
-        classes: updatedClasses.join(' '),
-      });
-
-      // Only send changed fields — NOT the full layer object. Sending a full layer
-      // would overwrite concurrent updates (e.g. variables set by onGradientSync)
-      // because updateStyledLayer spreads the stale closure's `layer`.
-      const finalUpdate: Partial<Layer> = {
-        design: styledLayer.design,
-        classes: styledLayer.classes,
-      };
-      if (styledLayer.styleOverrides !== currentLayer.styleOverrides) {
-        finalUpdate.styleOverrides = styledLayer.styleOverrides;
-      }
-
-      // Optimistically update the ref so subsequent debounced calls
-      // (which may fire before React re-renders) see the latest classes
-      const classesString = updatedClasses.join(' ');
       layerRef.current = {
         ...currentLayer,
-        design: updatedDesign,
-        classes: classesString,
-        ...(finalUpdate.styleOverrides !== undefined ? { styleOverrides: finalUpdate.styleOverrides } : {}),
+        ...finalUpdate,
       };
 
       onLayerUpdate(currentLayer.id, finalUpdate);
@@ -264,16 +217,20 @@ export function useDesignSync({
 
         let currentClasses = (currentTextStyle.classes || '').split(' ').filter(Boolean);
 
-        updates.forEach(({ category, property, value }) => {
-          const categoryData = updatedDesign[category] || {};
-          updatedDesign[category] = {
-            ...categoryData,
-            [property]: value,
-            isActive: true,
-          };
+        const writeBase = activeBreakpoint === 'desktop' && activeUIState === 'neutral';
 
-          if (!value) {
-            delete updatedDesign[category]![property as keyof typeof categoryData];
+        updates.forEach(({ category, property, value }) => {
+          if (writeBase) {
+            const categoryData = updatedDesign[category] || {};
+            updatedDesign[category] = {
+              ...categoryData,
+              [property]: value,
+              isActive: true,
+            };
+
+            if (!value) {
+              delete updatedDesign[category]![property as keyof typeof categoryData];
+            }
           }
 
           const newClass = value ? propertyToClass(category, property, value) : null;
@@ -309,48 +266,19 @@ export function useDesignSync({
         return;
       }
 
-      // Normal Mode: update layer directly
-      let currentClasses = Array.isArray(currentLayer.classes)
-        ? [...currentLayer.classes]
-        : (currentLayer.classes || '').split(' ').filter(Boolean);
-
-      const currentDesign = currentLayer.design || {};
-      const updatedDesign = { ...currentDesign };
-
-      updates.forEach(({ category, property, value }) => {
-        const categoryData = updatedDesign[category] || {};
-        updatedDesign[category] = {
-          ...categoryData,
-          [property]: value,
-          isActive: true,
-        };
-
-        if (!value) {
-          delete updatedDesign[category]![property as keyof typeof categoryData];
-        }
-
-        const newClass = value ? propertyToClass(category, property, value) : null;
-        currentClasses = setBreakpointClass(
-          currentClasses,
-          property,
-          newClass,
-          activeBreakpoint,
-          activeUIState
-        );
-      });
-
-      const classesString = currentClasses.join(' ');
+      const finalUpdate = applyBreakpointDesign(
+        currentLayer,
+        updates,
+        activeBreakpoint,
+        activeUIState,
+      );
 
       layerRef.current = {
         ...currentLayer,
-        design: updatedDesign,
-        classes: classesString,
+        ...finalUpdate,
       };
 
-      onLayerUpdate(currentLayer.id, {
-        design: updatedDesign,
-        classes: classesString,
-      });
+      onLayerUpdate(currentLayer.id, finalUpdate);
     },
     [onLayerUpdate, activeBreakpoint, activeUIState, isTextStyleMode, activeTextStyleKey]
   );
@@ -581,11 +509,33 @@ export function useDesignSync({
     [getDebouncedFn]
   );
 
+  const getPropertyInheritance = useCallback(
+    (property: string): { source: Breakpoint | null; isOverride: boolean } => {
+      if (!layer) return { source: null, isOverride: false };
+
+      let classes: string[] = [];
+      if (isTextStyleMode && activeTextStyleKey) {
+        const textStyle = getTextStyle(layer.textStyles, activeTextStyleKey);
+        classes = toClassList(textStyle?.classes);
+      } else {
+        classes = toClassList(layer.classes);
+      }
+
+      const { source } = getInheritedValue(classes, property, activeBreakpoint, activeUIState);
+      return {
+        source,
+        isOverride: isBreakpointOverride(source, activeBreakpoint),
+      };
+    },
+    [layer, activeBreakpoint, activeUIState, isTextStyleMode, activeTextStyleKey],
+  );
+
   return {
     updateDesignProperty,
     updateDesignProperties,
     debouncedUpdateDesignProperty,
     getDesignProperty,
+    getPropertyInheritance,
     resetDesignCategory,
     syncClassesToDesign,
   };

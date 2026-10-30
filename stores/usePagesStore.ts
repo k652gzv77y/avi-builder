@@ -27,6 +27,7 @@ import {
 import { generateId } from '../lib/utils';
 import { getDescendantFolderIds, isHomepage, findHomepage, findNextSelection } from '../lib/page-utils';
 import { updateLayersWithStyle, detachStyleFromLayers } from '../lib/layer-style-utils';
+import { placeChildInParent } from '../lib/layout-model';
 import { updateLayersWithComponent, detachComponentFromLayers } from '../lib/component-utils';
 import { useComponentsStore, triggerThumbnailGeneration } from './useComponentsStore';
 
@@ -637,7 +638,7 @@ export const usePagesStore = create<PagesStore>((set, get) => ({
       };
     }
 
-    const newLayer: Layer = {
+    let newLayer: Layer = {
       id: generateId('lyr'),
       name: layerName,
       classes: '',
@@ -650,6 +651,8 @@ export const usePagesStore = create<PagesStore>((set, get) => ({
       // Add to root
       newLayers = [...draft.layers, newLayer];
     } else {
+      const parentLayer = findLayerById(draft.layers, parentLayerId);
+      if (parentLayer) newLayer = placeChildInParent(newLayer, parentLayer);
       // Add as child to parent
       newLayers = updateLayerInTree(draft.layers, parentLayerId, (parent) => ({
         ...parent,
@@ -782,7 +785,7 @@ export const usePagesStore = create<PagesStore>((set, get) => ({
           // Add Section as a child of Body
           newLayers = updateLayerInTree(draft.layers, bodyLayer.id, (body) => ({
             ...body,
-            children: [...(body.children || []), newLayer],
+            children: [...(body.children || []), placeChildInParent(newLayer, body)],
           }));
           parentToExpand = bodyLayer.id;
         } else {
@@ -823,7 +826,7 @@ export const usePagesStore = create<PagesStore>((set, get) => ({
               const children = grandparent.children || [];
               const selectedIndex = children.findIndex(c => c.id === parentLayerId);
               const newChildren = [...children];
-              newChildren.splice(selectedIndex + 1, 0, newLayer);
+              newChildren.splice(selectedIndex + 1, 0, placeChildInParent(newLayer, grandparent));
               return { ...grandparent, children: newChildren };
             });
             // Expand the parent of the selected layer (grandparent)
@@ -838,7 +841,8 @@ export const usePagesStore = create<PagesStore>((set, get) => ({
           // Add as child to parent
           newLayers = updateLayerInTree(draft.layers, parentLayerId, (parent) => {
             const children = parent.children || [];
-            
+            const placed = placeChildInParent(newLayer, parent);
+
             // If insertPosition is provided, insert at the specified sibling position
             if (insertPosition) {
               const siblingIndex = children.findIndex(c => c.id === insertPosition.siblingId);
@@ -846,13 +850,13 @@ export const usePagesStore = create<PagesStore>((set, get) => ({
                 const newChildren = [...children];
                 // Insert above = at sibling's index, below = after sibling
                 const insertIndex = insertPosition.position === 'above' ? siblingIndex : siblingIndex + 1;
-                newChildren.splice(insertIndex, 0, newLayer);
+                newChildren.splice(insertIndex, 0, placed);
                 return { ...parent, children: newChildren };
               }
             }
-            
+
             // Default: append to end
-            return { ...parent, children: [...children, newLayer] };
+            return { ...parent, children: [...children, placed] };
           });
           // Expand the parent that we're adding into
           parentToExpand = parentLayerId;
@@ -1204,7 +1208,8 @@ export const usePagesStore = create<PagesStore>((set, get) => ({
     // Remove layer from current position
     let newLayers = removeLayer(draft.layers);
 
-    // Insert at new position
+    // Insert at new position. Reordering does not change positioning;
+    // Frame/Stack toggles and new inserts own that remap.
     newLayers = insertLayer(newLayers, targetParentId, targetIndex, layerToMove);
 
     // Reset invalid CMS bindings after move

@@ -62,6 +62,7 @@ import ExpandableRichTextEditor from './ExpandableRichTextEditor';
 import RichTextEditor from './RichTextEditor';
 import ComponentVariableLabel, { VARIABLE_TYPE_ICONS } from './ComponentVariableLabel';
 import InteractionsPanel from './InteractionsPanel';
+import { BreakpointContextBar } from './BreakpointOverride';
 import LayoutControls from './LayoutControls';
 import SelfLayoutControls from './SelfLayoutControls';
 import LayerStylesPanel from './LayerStylesPanel';
@@ -874,7 +875,8 @@ const RightSidebar = React.memo(function RightSidebar({
   // style-less layers pass straight through to the layer.
   const handleDesignUpdate = useCallback((layerId: string, updates: Partial<Layer>) => {
     const chip = activeStyleIdRef.current;
-    if (!chip || updates.classes === undefined) {
+    // Child updates (frame/stack remaps) must hit that layer, not the selected chip.
+    if (!chip || updates.classes === undefined || layerId !== selectedLayer?.id) {
       handleLayerUpdate(layerId, updates);
       return;
     }
@@ -887,7 +889,7 @@ const RightSidebar = React.memo(function RightSidebar({
     // authoritative (an empty result removes the vars).
     const bgVars = design !== undefined ? (extractBgVars(design.backgrounds) ?? {}) : undefined;
     applyChipClasses(chip, str, bgVars);
-  }, [handleLayerUpdate, applyChipClasses]);
+  }, [handleLayerUpdate, applyChipClasses, selectedLayer?.id]);
 
   // Classes section sources. With a style stack, the panel is chip-scoped: it
   // shows the active chip's effective classes. Style-less layers — and rich-text
@@ -2046,6 +2048,10 @@ const RightSidebar = React.memo(function RightSidebar({
           </div>
 
           <div className="overflow-y-auto no-scrollbar overflow-x-hidden divide-y ">
+
+          {!showTextStyleControls && (
+            <BreakpointContextBar layer={controlLayer} onLayerUpdate={controlUpdate} />
+          )}
 
           {shouldShowControl('layout', selectedLayer) && !showTextStyleControls && (
             <LayoutControls layer={controlLayer} onLayerUpdate={controlUpdate} />

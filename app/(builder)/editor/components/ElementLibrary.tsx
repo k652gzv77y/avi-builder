@@ -35,6 +35,7 @@ import Image from 'next/image';
 import { getLayerFromTemplate, getBlockName, getBlockIcon, getLayoutTemplate, getLayoutCategory, getLayoutPreviewImage, getLayoutsByCategory, getAllLayoutKeys } from '@/lib/templates/blocks';
 import { DEFAULT_ASSETS } from '@/lib/asset-constants';
 import { canHaveChildren, assignOrderClassToNewLayer, collectAllSettingsIds, generateUniqueSettingsId, findLayerById } from '@/lib/layer-utils';
+import { placeChildInParent } from '@/lib/layout-model';
 import { checkCircularReference, isCircularComponentReference } from '@/lib/component-utils';
 import { cn, generateId } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -535,7 +536,7 @@ export default function ElementLibrary({ isOpen, onClose, liveLayerUpdates }: El
             const bodyIndex = tree.findIndex(l => l.id === bodyLayer.id);
             const updatedBody = {
               ...bodyLayer,
-              children: [...(bodyLayer.children || []), newLayer]
+              children: [...(bodyLayer.children || []), placeChildInParent(newLayer, bodyLayer)]
             };
             return {
               success: true,
@@ -557,10 +558,11 @@ export default function ElementLibrary({ isOpen, onClose, liveLayerUpdates }: El
 
             // Found target, check if it can have children
             if (canHaveChildren(node, newLayer.name) && !shouldAddAsSibling) {
-              // Add as child
+              // Add as child. Frames receive absolute children; stacks pull absolute children into flow.
+              const placed = placeChildInParent(newLayer, node);
               const updatedNode = {
                 ...node,
-                children: [...(node.children || []), newLayer]
+                children: [...(node.children || []), placed]
               };
               return {
                 success: true,
@@ -570,9 +572,10 @@ export default function ElementLibrary({ isOpen, onClose, liveLayerUpdates }: El
               };
             } else {
               // Cannot have children (or should add as sibling), add as sibling after this node
+              const placed = parentNode ? placeChildInParent(newLayer, parentNode) : newLayer;
               return {
                 success: true,
-                newLayers: [...tree.slice(0, i + 1), newLayer, ...tree.slice(i + 1)],
+                newLayers: [...tree.slice(0, i + 1), placed, ...tree.slice(i + 1)],
                 newLayerId: newLayer.id,
                 parentToExpand: parentNode ? parentNode.id : null
               };

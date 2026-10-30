@@ -16,6 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { OverrideReset } from './BreakpointOverride';
 import SettingsPanel from './SettingsPanel';
 import { useDesignSync } from '@/hooks/use-design-sync';
 import { useControlledInputs } from '@/hooks/use-controlled-input';
@@ -23,6 +24,17 @@ import { useEditorStore } from '@/stores/useEditorStore';
 import { usePagesStore } from '@/stores/usePagesStore';
 import { useComponentsStore } from '@/stores/useComponentsStore';
 import { extractMeasurementValue, formatMeasurementValue } from '@/lib/measurement-utils';
+import {
+  resolveSizingMode,
+  sizingFieldValue,
+  sizingUnitLabel,
+  sizingValueForMode,
+  sizingValueFromInput,
+  SIZING_MODE_LABELS,
+  SIZING_MODES,
+  type SizingAxis,
+  type SizingMode,
+} from '@/lib/layout-model';
 import type { Layer } from '@/types';
 
 interface SizingControlsProps {
@@ -54,7 +66,7 @@ const OBJECT_POSITIONS: { value: string; label: string; icon: React.ComponentPro
 const SizingControls = memo(function SizingControls({ layer, onLayerUpdate }: SizingControlsProps) {
   const activeBreakpoint = useEditorStore((s) => s.activeBreakpoint);
   const activeUIState = useEditorStore((s) => s.activeUIState);
-  const { updateDesignProperty, debouncedUpdateDesignProperty, getDesignProperty } = useDesignSync({
+  const { updateDesignProperty, debouncedUpdateDesignProperty, getDesignProperty, getPropertyInheritance } = useDesignSync({
     layer,
     onLayerUpdate,
     activeBreakpoint,
@@ -89,8 +101,8 @@ const SizingControls = memo(function SizingControls({ layer, onLayerUpdate }: Si
 
   // Local controlled inputs (prevents repopulation bug)
   const inputs = useControlledInputs({
-    width,
-    height,
+    width: sizingFieldValue(width),
+    height: sizingFieldValue(height),
     minWidth,
     minHeight,
     maxWidth,
@@ -112,56 +124,84 @@ const SizingControls = memo(function SizingControls({ layer, onLayerUpdate }: Si
     setAspectRatioInput(extractAspectRatioValue(aspectRatio));
   }, [aspectRatio]);
 
-  // Handle width changes (debounced for text input)
-  const handleWidthChange = (value: string) => {
-    setWidthInput(value);
-    debouncedUpdateDesignProperty('sizing', 'width', formatMeasurementValue(value));
+  const widthMode = resolveSizingMode(width);
+  const heightMode = resolveSizingMode(height);
+  const widthOverride = getPropertyInheritance('width').isOverride;
+  const heightOverride = getPropertyInheritance('height').isOverride;
+
+  const handleAxisInput = (axis: SizingAxis, mode: SizingMode, value: string) => {
+    if (axis === 'width') setWidthInput(value);
+    else setHeightInput(value);
+    debouncedUpdateDesignProperty('sizing', axis, sizingValueFromInput(mode, value, axis));
   };
 
-  // Get current width preset value (for Select display)
-  const getWidthPresetValue = () => {
-    if (widthInput === '100%') return 'w-[100%]';
-    if (widthInput === 'fit') return 'w-fit-content';
-    if (widthInput === '100vw') return 'w-[100vw]';
-    return '';
+  const handleAxisMode = (axis: SizingAxis, mode: SizingMode) => {
+    const current = axis === 'width' ? width : height;
+    const next = sizingValueForMode(mode, axis, current);
+    const field = sizingFieldValue(next);
+    if (axis === 'width') setWidthInput(field);
+    else setHeightInput(field);
+    updateDesignProperty('sizing', axis, next);
   };
 
-  // Preset changes are immediate (button clicks)
-  const handleWidthPresetChange = (value: string) => {
-    if (value === 'w-[100%]') {
-      setWidthInput('100%');
-      updateDesignProperty('sizing', 'width', '[100%]');
-    } else if (value === 'w-fit-content') {
-      setWidthInput('fit');
-      updateDesignProperty('sizing', 'width', 'fit');
-    } else if (value === 'w-[100vw]') {
-      setWidthInput('100vw');
-      updateDesignProperty('sizing', 'width', '[100vw]');
-    }
-  };
+  const renderSizingMode = (
+    axis: SizingAxis,
+    mode: SizingMode,
+    input: string,
+  ) => {
+    const declaredUnit = sizingUnitLabel(mode, axis);
+    const unit = input && /[a-z%]/i.test(input) ? null : declaredUnit;
+    const showInput = mode === 'fixed' || mode === 'relative' || mode === 'viewport';
+    const label = axis === 'width' ? 'Width' : 'Height';
 
-  // Handle height changes (debounced for text input)
-  const handleHeightChange = (value: string) => {
-    setHeightInput(value);
-    debouncedUpdateDesignProperty('sizing', 'height', formatMeasurementValue(value));
-  };
-
-  // Get current height preset value (for Select display)
-  const getHeightPresetValue = () => {
-    if (heightInput === '100%') return 'h-[100%]';
-    if (heightInput === '100svh') return 'h-[100svh]';
-    return '';
-  };
-
-  // Preset changes are immediate (button clicks)
-  const handleHeightPresetChange = (value: string) => {
-    if (value === 'h-[100%]') {
-      setHeightInput('100%');
-      updateDesignProperty('sizing', 'height', '[100%]');
-    } else if (value === 'h-[100svh]') {
-      setHeightInput('100svh');
-      updateDesignProperty('sizing', 'height', '[100svh]');
-    }
+    return (
+      <div className="flex flex-col gap-1.5">
+        <ButtonGroup className="w-full">
+          {showInput && (
+            <>
+              <InputGroup className="flex-1">
+                {unit && (
+                  <InputGroupAddon>
+                    <span className="text-[10px] text-muted-foreground">{unit}</span>
+                  </InputGroupAddon>
+                )}
+                <InputGroupInput
+                  value={input}
+                  aria-label={`${label} ${SIZING_MODE_LABELS[mode]}`}
+                  onChange={(e) => handleAxisInput(axis, mode, e.target.value)}
+                />
+              </InputGroup>
+              <ButtonGroupSeparator />
+            </>
+          )}
+          <Select
+            value={mode}
+            onValueChange={(next) => handleAxisMode(axis, next as SizingMode)}
+          >
+            <SelectTrigger
+              className={showInput ? 'w-[6.75rem]' : 'w-full'}
+              aria-label={`${label} sizing`}
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                {SIZING_MODES.map((item) => (
+                  <SelectItem key={item} value={item}>
+                    {SIZING_MODE_LABELS[item]}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </ButtonGroup>
+        {mode === 'fixed' && (
+          <p className="text-[11px] leading-snug text-muted-foreground">
+            Fixed sizes stay the same on every breakpoint.
+          </p>
+        )}
+      </div>
+    );
   };
 
   // Get current min/max width preset values
@@ -453,24 +493,16 @@ const SizingControls = memo(function SizingControls({ layer, onLayerUpdate }: Si
 )}
 
       <div className="grid grid-cols-3 items-start">
-        <Label variant="muted" className="h-8">Width</Label>
+        <div className="flex h-8 items-center gap-1">
+          <Label variant="muted">Width</Label>
+          <OverrideReset
+            isOverride={widthOverride}
+            propertyLabel="width"
+            onReset={() => updateDesignProperty('sizing', 'width', null)}
+          />
+        </div>
         <div className="col-span-2 flex flex-col gap-2">
-          <ButtonGroup>
-            <Input
-              value={widthInput} onChange={(e) => handleWidthChange(e.target.value)}
-            />
-            <ButtonGroupSeparator />
-            <Select value={getWidthPresetValue()} onValueChange={handleWidthPresetChange}>
-              <SelectTrigger />
-              <SelectContent>
-                <SelectGroup>
-                  <SelectItem value="w-[100%]">Fill</SelectItem>
-                  <SelectItem value="w-fit-content">Fit</SelectItem>
-                  <SelectItem value="w-[100vw]">Screen</SelectItem>
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          </ButtonGroup>
+          {renderSizingMode('width', widthMode, widthInput)}
           <div className="grid grid-cols-2 gap-2">
             <div className="w-full group relative">
               <ButtonGroup className="w-full">
@@ -545,23 +577,16 @@ const SizingControls = memo(function SizingControls({ layer, onLayerUpdate }: Si
       </div>
 
       <div className="grid grid-cols-3 items-start">
-        <Label variant="muted" className="h-8">Height</Label>
+        <div className="flex h-8 items-center gap-1">
+          <Label variant="muted">Height</Label>
+          <OverrideReset
+            isOverride={heightOverride}
+            propertyLabel="height"
+            onReset={() => updateDesignProperty('sizing', 'height', null)}
+          />
+        </div>
         <div className="col-span-2 flex flex-col gap-2">
-          <ButtonGroup>
-            <Input
-              value={heightInput} onChange={(e) => handleHeightChange(e.target.value)}
-            />
-            <ButtonGroupSeparator />
-            <Select value={getHeightPresetValue()} onValueChange={handleHeightPresetChange}>
-              <SelectTrigger />
-              <SelectContent>
-                <SelectGroup>
-                  <SelectItem value="h-[100%]">Fill</SelectItem>
-                  <SelectItem value="h-[100svh]">Screen</SelectItem>
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          </ButtonGroup>
+          {renderSizingMode('height', heightMode, heightInput)}
           <div className="grid grid-cols-2 gap-2">
             <div className="w-full group relative">
               <ButtonGroup className="w-full">
