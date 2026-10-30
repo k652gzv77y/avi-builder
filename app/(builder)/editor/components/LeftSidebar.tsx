@@ -10,23 +10,24 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 // 4. Internal components
 import ComponentVariantsSection from './ComponentVariantsSection';
 import LayersTree from './LayersTree';
+import LeftSidebarAssets from './LeftSidebarAssets';
 import LeftSidebarPages, { type LeftSidebarPagesHandle } from './LeftSidebarPages';
 
 // Lazy-loaded components (heavy, not needed immediately)
 const ElementLibrary = lazy(() => import('./ElementLibrary'));
 
 // 5. Stores
-import { useEditorStore } from '@/stores/useEditorStore';
+import { useEditorStore, type EditorSidebarTab } from '@/stores/useEditorStore';
 import { useComponentsStore } from '@/stores/useComponentsStore';
 import { usePagesStore } from '@/stores/usePagesStore';
 
 // 6. Utils
 import { resetBindingsAfterMove } from '@/lib/layer-utils';
+import { hasAssetsPanelQuery } from '@/lib/sidebar-panel-url';
 
 // 5.5 Hooks
 import { useEditorUrl } from '@/hooks/use-editor-url';
 
-import type { EditorTab } from '@/hooks/use-editor-url';
 import { useLayerLocks } from '@/hooks/use-layer-locks';
 import { useResizableSidebar } from '@/hooks/use-resizable-sidebar';
 
@@ -86,9 +87,15 @@ const LeftSidebar = React.memo(function LeftSidebar({
   useEffect(() => {
     if (!hasInitializedTabRef.current) {
       hasInitializedTabRef.current = true;
+      // Assets has no route of its own. Honor ?panel=assets on the design canvas.
+      // Read-only sessions keep the route tab, because the tab bar is hidden.
+      if (!readOnly && sidebarTab === 'layers' && hasAssetsPanelQuery()) {
+        setActiveSidebarTab('assets');
+        return;
+      }
       setActiveSidebarTab(sidebarTab);
     }
-  }, [sidebarTab, setActiveSidebarTab]);
+  }, [sidebarTab, setActiveSidebarTab, readOnly]);
 
   const activeTab = storeSidebarTab || sidebarTab;
 
@@ -325,9 +332,9 @@ const LeftSidebar = React.memo(function LeftSidebar({
           <Tabs
             value={activeTab}
             onValueChange={async (value) => {
-              const newTab = value as EditorTab;
+              const newTab = value as EditorSidebarTab;
 
-              if (newTab === 'layers' && pagesRef.current) {
+              if (newTab !== 'pages' && pagesRef.current) {
                 const canSwitch = await pagesRef.current.checkAndCloseSettings();
                 if (!canSwitch) return;
               }
@@ -335,10 +342,15 @@ const LeftSidebar = React.memo(function LeftSidebar({
               setActiveSidebarTab(newTab);
               setShowElementLibrary(false);
 
-              // Update URL without triggering Next.js navigation to avoid re-renders
+              // Stay on the component canvas while browsing assets to insert from.
+              const onComponentRoute = window.location.pathname.includes('/components/');
+              if (newTab === 'assets' && onComponentRoute) return;
+
+              // Update URL without triggering Next.js navigation to avoid re-renders.
+              // Assets keeps the design canvas (layers route) so drops land on the page.
               const targetPageId = currentPageId || (pages.length > 0 ? pages[0].id : null);
               if (targetPageId) {
-                const segment = newTab === 'layers' ? 'layers' : 'pages';
+                const segment = newTab === 'pages' ? 'pages' : 'layers';
                 const newPath = projectsPath(`/${segment}/${targetPageId}${window.location.search}`);
                 window.history.replaceState(null, '', newPath);
               }
@@ -347,8 +359,9 @@ const LeftSidebar = React.memo(function LeftSidebar({
           >
             {!readOnly && (
               <TabsList className="w-full shrink-0">
-                <TabsTrigger value="layers">Layers</TabsTrigger>
                 <TabsTrigger value="pages">Pages</TabsTrigger>
+                <TabsTrigger value="layers">Layers</TabsTrigger>
+                <TabsTrigger value="assets">Assets</TabsTrigger>
               </TabsList>
             )}
 
@@ -460,6 +473,17 @@ const LeftSidebar = React.memo(function LeftSidebar({
                 currentPageId={currentPageId}
                 onPageSelect={onPageSelect}
                 setCurrentPageId={setCurrentPageId}
+                readOnly={readOnly}
+              />
+            </TabsContent>
+
+            <TabsContent
+              value="assets"
+              className="flex flex-col min-h-0"
+              forceMount
+            >
+              <LeftSidebarAssets
+                liveLayerUpdates={liveLayerUpdates}
                 readOnly={readOnly}
               />
             </TabsContent>

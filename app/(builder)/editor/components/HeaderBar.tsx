@@ -20,7 +20,7 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useEditorStore } from '@/stores/useEditorStore';
+import { useEditorStore, type EditorSidebarTab } from '@/stores/useEditorStore';
 import { usePagesStore } from '@/stores/usePagesStore';
 import { useCollectionsStore } from '@/stores/useCollectionsStore';
 import { useLocalisationStore } from '@/stores/useLocalisationStore';
@@ -56,7 +56,7 @@ interface HeaderBarProps {
   isPublishing: boolean;
   setIsPublishing: (isPublishing: boolean) => void;
   saveImmediately: (pageId: string) => Promise<void>;
-  activeTab: 'pages' | 'layers' | 'cms';
+  activeTab: EditorSidebarTab;
   onExitComponentEditMode?: () => void;
   onPublishSuccess: () => void;
   isSettingsRoute?: boolean;

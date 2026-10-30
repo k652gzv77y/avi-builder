@@ -69,6 +69,7 @@ import { buildPreviewAuthRevision, buildLocalizedSlugPath, buildLocalizedDynamic
 import { getTranslationValue, applyCmsTranslations, extractLayerTranslatableItemsShallow } from '@/lib/localisation-utils';
 import { cn } from '@/lib/utils';
 import { getCollectionVariable, canDeleteLayer, findLayerById, findParentCollectionLayer, canLayerHaveLink, updateLayerProps, removeRichTextSublayer, isRichTextLayer, getLayerCmsFieldBinding } from '@/lib/layer-utils';
+import { insertComponentOnCanvas } from '@/lib/insert-component-on-canvas';
 import { CANVAS_BORDER, CANVAS_PADDING, updateViewportOverrides } from '@/lib/canvas-utils';
 import { BREAKPOINTS, DEFAULT_CANVAS_BREAKPOINT_FRAMES } from '@/lib/breakpoint-utils';
 import { buildFieldGroupsForLayer, flattenFieldGroups, filterFieldGroupsByType, SIMPLE_TEXT_FIELD_TYPES } from '@/lib/collection-field-utils';
@@ -1838,9 +1839,21 @@ const CenterCanvas = React.memo(function CenterCanvas({
     source: 'elements' | 'layouts' | 'components',
     dropTarget: { layerId: string; position: 'above' | 'below' | 'inside'; parentId: string | null }
   ) => {
-    if (!currentPageId) return;
     // Block element insertion in non-default locales (read-only canvas).
     if (selectedLocale && !selectedLocale.is_default) return;
+
+    if (source === 'components') {
+      insertComponentOnCanvas(elementType, {
+        placement: {
+          targetLayerId: dropTarget.layerId,
+          position: dropTarget.position,
+        },
+        liveLayerUpdates,
+      });
+      return;
+    }
+
+    if (!currentPageId) return;
 
     if (source === 'elements') {
       // Determine insert position based on drop target
@@ -1883,8 +1896,6 @@ const CenterCanvas = React.memo(function CenterCanvas({
       }
     } else if (source === 'layouts') {
       // TODO: Add layout using similar logic
-    } else if (source === 'components') {
-      // TODO: Add component using similar logic
     }
   }, [currentPageId, addLayerFromTemplate, setSelectedLayerId, liveLayerUpdates, selectedLocale]);
 
