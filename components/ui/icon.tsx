@@ -1,5 +1,6 @@
 // Icon.tsx
 import React from 'react';
+import { BUILDER_ICONS, type BuilderIconName } from './builder-icons';
 
 /**
  * Props for Icon component: any SVG attribute plus a fixed "name" key.
@@ -21,13 +22,14 @@ export interface IconProps extends React.SVGProps<SVGSVGElement> {
     | 'webflow' | 'figma' | 'space' | 'sparkles'
     | 'arrow-left-up' | 'arrow-up' | 'arrow-right-up' | 'arrow-left' | 'arrow-right' | 'arrow-left-down' | 'arrow-down' | 'arrow-right-down' | 'circle'
     | 'claude' | 'openai' | 'gemini' | 'grok'
+    | BuilderIconName
   );
 }
 
 /**
  * Map of icon names to SVG children (React nodes).
  */
-const ICONS: Record<IconProps['name'], React.ReactNode> = {
+const ICONS: Record<IconProps['name'], React.ReactNode | string> = {
   x: (
     <>
       <path d="M9.5,1.79289322 L10.2071068,2.5 L6.70689322,5.99989322 L10.2071068,9.5 L9.5,10.2071068 L5.99989322,6.70689322 L2.5,10.2071068 L1.79289322,9.5 L5.29289322,5.99989322 L1.79289322,2.5 L2.5,1.79289322 L5.99989322,5.29289322 L9.5,1.79289322 Z" />
@@ -1130,6 +1132,7 @@ const ICONS: Record<IconProps['name'], React.ReactNode> = {
       <path d="m19.25 5.08-9.52 9.67 6.64-4.96c.33-.24.79-.15.95.23.82 1.99.45 4.39-1.17 6.03-1.63 1.64-3.89 2.01-5.96 1.18l-2.26 1.06c3.24 2.24 7.18 1.69 9.64-.8 1.95-1.97 2.56-4.66 1.99-7.09-.82-3.56.2-4.98 2.29-7.89L22 2.3zm-9.53 9.67h.01zm-1.37 1.21c-2.33-2.25-1.92-5.72.06-7.73 1.47-1.48 3.87-2.09 5.97-1.2l2.25-1.05c-.41-.3-.93-.62-1.52-.84a7.45 7.45 0 0 0-8.13 1.65c-2.11 2.14-2.78 5.42-1.63 8.22.85 2.09-.54 3.57-1.95 5.07-.5.53-1 1.06-1.4 1.62z" />
     </g>
   ),
+  ...BUILDER_ICONS,
 };
 
 export const iconExists = (name: string): boolean => {
@@ -1148,6 +1151,18 @@ export const Icon: React.FC<IconProps> = React.memo(function Icon({ name, ...svg
   if (!children) {
     console.warn(`Icon: no icon found for name "${name}"`);
     return null;
+  }
+
+  if (typeof children === 'string') {
+    return (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 12 12"
+        fill="none"
+        dangerouslySetInnerHTML={{ __html: children }}
+        {...svgProps}
+      />
+    );
   }
 
   return (

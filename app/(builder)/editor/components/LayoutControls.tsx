@@ -275,8 +275,14 @@ const LayoutControls = memo(function LayoutControls({ layer, onLayerUpdate }: La
                     className="w-full"
                   >
                       <TabsList className="w-full">
-                          <TabsTrigger value="frame">Frame</TabsTrigger>
-                          <TabsTrigger value="stack">Stack</TabsTrigger>
+                          <TabsTrigger value="frame" className="gap-1">
+                            <Icon name="frame" className="size-3" />
+                            Frame
+                          </TabsTrigger>
+                          <TabsTrigger value="stack" className="gap-1">
+                            <Icon name="horizontal-stack" className="size-3" />
+                            Stack
+                          </TabsTrigger>
                       </TabsList>
                   </Tabs>
                   <div className="flex gap-1">
@@ -286,6 +292,7 @@ const LayoutControls = memo(function LayoutControls({ layer, onLayerUpdate }: La
                       variant={isGrid ? 'secondary' : 'ghost'}
                       onClick={() => handleLayoutMode('grid')}
                     >
+                      <Icon name="canvas-grid" className="size-3" />
                       Grid
                     </Button>
                     <Button
@@ -317,10 +324,10 @@ const LayoutControls = memo(function LayoutControls({ layer, onLayerUpdate }: La
                 >
                   <TabsList className="w-full">
                     <TabsTrigger value="row" aria-label="Horizontal">
-                      <Icon name="columns" />
+                      <Icon name="horizontal-stack" className="size-3.5" />
                     </TabsTrigger>
                     <TabsTrigger value="column" aria-label="Vertical">
-                      <Icon name="rows" />
+                      <Icon name="vertical-stack" className="size-3.5" />
                     </TabsTrigger>
                   </TabsList>
                 </Tabs>
@@ -339,16 +346,16 @@ const LayoutControls = memo(function LayoutControls({ layer, onLayerUpdate }: La
                             className="w-full"
                           >
                               <TabsList className="w-full">
-                                  <TabsTrigger value="start">
-                                      <Icon name="alignStart" className={stackAxis === 'column' ? '-rotate-90' : ''} />
+                                  <TabsTrigger value="start" aria-label="Align start">
+                                      <Icon name={stackAxis === 'column' ? 'layout-align-left' : 'layout-align-top'} className="size-3.5" />
                                   </TabsTrigger>
-                                  <TabsTrigger value="center">
-                                      <Icon name="alignCenter" className={stackAxis === 'column' ? '-rotate-90' : ''} />
+                                  <TabsTrigger value="center" aria-label="Align center">
+                                      <Icon name={stackAxis === 'column' ? 'layout-align-center-horizontally' : 'layout-align-center-vertically'} className="size-3.5" />
                                   </TabsTrigger>
-                                  <TabsTrigger value="end">
-                                      <Icon name="alignEnd" className={stackAxis === 'column' ? '-rotate-90' : ''} />
+                                  <TabsTrigger value="end" aria-label="Align end">
+                                      <Icon name={stackAxis === 'column' ? 'layout-align-right' : 'layout-align-bottom'} className="size-3.5" />
                                   </TabsTrigger>
-                                  <TabsTrigger value="stretch">
+                                  <TabsTrigger value="stretch" aria-label="Stretch">
                                       <Icon name="alignStretch" className={stackAxis === 'column' ? '-rotate-90' : ''} />
                                   </TabsTrigger>
                               </TabsList>
@@ -365,10 +372,22 @@ const LayoutControls = memo(function LayoutControls({ layer, onLayerUpdate }: La
                               </SelectTrigger>
                               <SelectContent>
                                   <SelectGroup>
-                                      <SelectItem value="start">Start</SelectItem>
-                                      <SelectItem value="center">Center</SelectItem>
-                                      <SelectItem value="end">End</SelectItem>
-                                      <SelectItem value="between">Between</SelectItem>
+                                      <SelectItem value="start">
+                                        <Icon name={stackAxis === 'column' ? 'layout-align-top' : 'layout-align-left'} className="size-3" />
+                                        Start
+                                      </SelectItem>
+                                      <SelectItem value="center">
+                                        <Icon name={stackAxis === 'column' ? 'layout-align-center-vertically' : 'layout-align-center-horizontally'} className="size-3" />
+                                        Center
+                                      </SelectItem>
+                                      <SelectItem value="end">
+                                        <Icon name={stackAxis === 'column' ? 'layout-align-bottom' : 'layout-align-right'} className="size-3" />
+                                        End
+                                      </SelectItem>
+                                      <SelectItem value="between">
+                                        <Icon name={stackAxis === 'column' ? 'distribute-vertically' : 'distribute-horizontally'} className="size-3" />
+                                        Between
+                                      </SelectItem>
                                       <SelectItem value="around">Around</SelectItem>
                                       <SelectItem value="evenly">Evenly</SelectItem>
                                   </SelectGroup>
@@ -439,7 +458,10 @@ const LayoutControls = memo(function LayoutControls({ layer, onLayerUpdate }: La
                         className="w-full"
                       >
                           <TabsList className="w-full">
-                              <TabsTrigger value="yes">Yes</TabsTrigger>
+                              <TabsTrigger value="yes" className="gap-1">
+                                <Icon name="stack-wrap" className="size-3" />
+                                Yes
+                              </TabsTrigger>
                               <TabsTrigger value="no">No</TabsTrigger>
                           </TabsList>
                       </Tabs>
@@ -525,6 +547,9 @@ const LayoutControls = memo(function LayoutControls({ layer, onLayerUpdate }: La
               <Label variant="muted" className="h-8">Padding</Label>
               <div className="col-span-2">
                 <InputGroup>
+                  <InputGroupAddon>
+                    <Icon name="padding-per-side" className="size-3" />
+                  </InputGroupAddon>
                   <InputGroupInput
                     stepper
                     min="0"

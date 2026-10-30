@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Plus, X } from 'lucide-react';
+import { X } from 'lucide-react';
+import Icon from '@/components/ui/icon';
 import {
   CANVAS_BREAKPOINT_FRAMES_SETTING,
   clampFrameWidth,
@@ -198,6 +199,10 @@ export default function BreakpointFrames({
                 className="flex min-w-0 items-baseline gap-2 text-left"
                 onClick={() => handleSelect(frame)}
               >
+                <Icon
+                  name={frame.id === 'tablet' ? 'tablet' : frame.id === 'mobile' ? 'canvas-phone' : frame.id === 'desktop' ? 'desktop' : 'breakpoint'}
+                  className="size-3.5 shrink-0 self-center"
+                />
                 <span className="truncate font-medium text-neutral-800 dark:text-white/80">
                   {frame.label}
                 </span>
@@ -274,7 +279,7 @@ export default function BreakpointFrames({
         aria-label="Add breakpoint"
         className="mt-7 flex size-8 shrink-0 items-center justify-center rounded-full border border-dashed border-neutral-300 text-neutral-500 transition hover:border-neutral-400 hover:text-neutral-800 dark:border-white/20 dark:text-white/50 dark:hover:border-white/40 dark:hover:text-white/80"
       >
-        <Plus className="size-3.5" />
+        <Icon name="canvas-plus" className="size-3.5" />
       </button>
     </div>
   );
