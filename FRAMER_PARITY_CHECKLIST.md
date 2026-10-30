@@ -12,7 +12,7 @@ or materially below Framer's workflow.
 - [x] Pages, page folders, routes, redirects, and page settings
 - [x] Canvas selection, drag/drop, zoom, guides, gap indicators, and layer tree
 - [x] Desktop/tablet/phone breakpoints
-- [~] Per-breakpoint layout overrides with a clear inherited-value indicator
+- [x] Per-breakpoint layout overrides with a clear inherited-value indicator
 - [ ] Independent breakpoint creation, naming, ordering, and range editing
 - [ ] Framer-style breakpoint canvas switcher and viewport presets
 - [ ] Per-page canvas presets and device frames
@@ -28,7 +28,7 @@ or materially below Framer's workflow.
 - [x] Stack/flex layout, grid, padding, gap, alignment, wrap, and positioning
 - [x] Width, height, min/max sizing, overflow, and aspect-ratio support
 - [~] Visual layout controls need Framer-level density and discoverability
-- [ ] Framer-style `Fill`, `Hug`, `Fixed`, and `Relative` sizing modes everywhere
+- [x] Framer-style `Fill`, `Fit`, `Fixed`, `Relative`, and `Viewport` sizing for width and height (`Fit`, not Hug)
 - [ ] Fractional grid controls, named grid areas, and visual cell placement
 - [ ] Full positioning pin controls with responsive constraints
 - [ ] Auto layout suggestions when grouping or arranging selected layers
@@ -156,7 +156,7 @@ Mark the items you want from this set first:
 - [ ] Variant property matrix and interactive variants
 - [ ] Variables/bindings picker and computed variables
 - [ ] Layer event/action panel and overlay system
-- [ ] Framer-style responsive sizing and breakpoint inspector
+- [x] Framer-style responsive sizing and breakpoint inspector
 - [ ] Code Components and layer overrides
 - [ ] Design-token modes/themes and style preset browser
 - [ ] Branch previews, visual version comparison, and publish workflow

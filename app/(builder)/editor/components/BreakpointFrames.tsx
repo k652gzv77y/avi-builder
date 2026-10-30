@@ -201,6 +201,11 @@ export default function BreakpointFrames({
                 <span className="truncate font-medium text-neutral-800 dark:text-white/80">
                   {frame.label}
                 </span>
+                {frame.id === 'desktop' && (
+                  <span className="text-[10px] uppercase tracking-wide text-neutral-400 dark:text-white/35">
+                    Primary
+                  </span>
+                )}
                 <span className="tabular-nums">{frame.width}</span>
               </button>
               {!frame.locked && frames.length > 1 && (
