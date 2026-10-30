@@ -5,6 +5,7 @@ import { EditorState, UIState } from '../types';
 import type { Layer, Breakpoint, Asset, AssetCategoryFilter } from '../types';
 import { useCanvasTextEditorStore } from './useCanvasTextEditorStore';
 import { updateUrlQueryParam } from '@/hooks/use-editor-url';
+import { syncAssetsPanelQuery } from '@/lib/sidebar-panel-url';
 
 // Debounce window for the `?layer=…` URL mirror. Long enough to coalesce
 // rapid clicks (which would otherwise each trigger a Router-wide re-render
@@ -39,7 +40,7 @@ export interface ComponentNavigationEntry {
   variantId?: string | null; // Variant to restore when returning to a component
 }
 
-export type EditorSidebarTab = 'layers' | 'pages' | 'cms';
+export type EditorSidebarTab = 'layers' | 'pages' | 'assets' | 'cms';
 
 export type CanvasDropPosition = 'above' | 'below' | 'inside';
 
@@ -679,7 +680,10 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
 
   setPreviewMode: (enabled) => set({ isPreviewMode: enabled }),
 
-  setActiveSidebarTab: (tab) => set({ activeSidebarTab: tab }),
+  setActiveSidebarTab: (tab) => {
+    set({ activeSidebarTab: tab });
+    syncAssetsPanelQuery(tab);
+  },
   setLastDesignUrl: (url) => set({ lastDesignUrl: url }),
   setPreviewReturn: (url, tab) => set({ previewReturnUrl: url, previewReturnTab: tab ?? null }),
 

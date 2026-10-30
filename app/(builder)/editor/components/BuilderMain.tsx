@@ -2355,7 +2355,7 @@ export default function BuilderApp({ children }: BuilderAppProps = {} as Builder
           <IntegrationsContent>{children}</IntegrationsContent>
         ) : (
           <>
-            {/* Left Sidebar - Pages & Layers
+            {/* Left Sidebar - Pages, Layers, and Assets
                 - Hidden in CMS mode
                 - For editor role: only shown when "Pages" tab is active */}
             <div className={activeTab === 'cms' || (isEditor && activeTab !== 'pages') ? 'hidden' : 'contents'}>
