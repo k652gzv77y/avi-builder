@@ -70,7 +70,14 @@ async function getOrCreateClient(): Promise<SupabaseClient | null> {
   const config = await getSupabaseConfig();
   if (!config) return null;
 
-  browserClient = createSupabaseBrowserClient(config.url, config.anonKey);
+  const secure = typeof window !== 'undefined' && window.location.protocol === 'https:';
+  browserClient = createSupabaseBrowserClient(config.url, config.anonKey, {
+    cookieOptions: {
+      path: '/',
+      sameSite: 'lax',
+      secure,
+    },
+  });
   return browserClient;
 }
 

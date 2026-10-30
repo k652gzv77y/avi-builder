@@ -20,6 +20,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { AUTH_ERROR_PARAM } from '@/lib/auth-flow';
 import { useAuthStore } from '@/stores/useAuthStore';
 
 const PROJECT_SLUG = 'kolbo-school';
@@ -72,7 +73,12 @@ export default function ProjectsPage() {
 
   useEffect(() => {
     if (initialized && !user) {
-      router.replace(PROJECT_URL);
+      const params = new URLSearchParams(window.location.search);
+      const authError = params.get(AUTH_ERROR_PARAM);
+      const target = authError
+        ? `${PROJECT_URL}?${AUTH_ERROR_PARAM}=${encodeURIComponent(authError)}`
+        : PROJECT_URL;
+      router.replace(target);
     }
   }, [initialized, router, user]);
 
