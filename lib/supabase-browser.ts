@@ -10,7 +10,7 @@
  */
 
 import { createBrowserClient as createSupabaseBrowserClient } from '@supabase/ssr';
-import { projectsPath } from '@/lib/project-url';
+import { projectScopedPath } from '@/lib/project-url';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 let browserClient: SupabaseClient | null = null;
@@ -32,7 +32,13 @@ export function resetBrowserClient(): void {
  */
 async function getSupabaseConfig(): Promise<{ url: string; anonKey: string } | null> {
   if (!configPromise) {
-    configPromise = fetch(projectsPath('/api/supabase/config'))
+    // Never fetch the slug-less fallback (/projects/api/supabase/config).
+    // A 404 there is cached for the page session, so sign-in stays broken
+    // after the browser moves to /projects/:slug.
+    const configUrl = projectScopedPath('/api/supabase/config');
+    if (!configUrl) return null;
+
+    configPromise = fetch(configUrl)
       .then(async (res) => {
         if (!res.ok) {
           // Handle 404 (not configured) gracefully - expected during setup
