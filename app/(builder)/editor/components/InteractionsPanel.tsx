@@ -49,6 +49,7 @@ import { Separator } from '@/components/ui/separator';
 
 // 4. Internal components
 import ColorPicker from './ColorPicker';
+import InteractionActions from './InteractionActions';
 
 // 3. Utils
 import { cn, generateId } from '@/lib/utils';
@@ -79,6 +80,7 @@ import {
   buildFilterString,
 } from '@/lib/animation-utils';
 import type { TriggerType, PropertyType, ParsedAnimationValue } from '@/lib/animation-utils';
+import { interactionSummary, withAppearPreset } from '@/lib/interactions-framer';
 
 // 4. Types
 import type { ApplyStyles, Layer, LayerInteraction, InteractionTimeline, InteractionTween, TweenProperties, Breakpoint } from '@/types';
@@ -870,7 +872,7 @@ export default function InteractionsPanel({
   // Add new interaction
   const handleAddInteraction = useCallback(
     (trigger: TriggerType) => {
-      const newInteraction: LayerInteraction = {
+      let newInteraction: LayerInteraction = {
         id: generateId('int'),
         trigger,
         timeline: {
@@ -890,6 +892,10 @@ export default function InteractionsPanel({
         },
         tweens: [], // Start with no tweens - user will add them
       };
+
+      if (trigger === 'scroll-into-view' || trigger === 'load') {
+        newInteraction = withAppearPreset(newInteraction, triggerLayer.id, 'fade', generateId('anm'));
+      }
 
       const updatedInteractions = [...interactions, newInteraction];
       onLayerUpdate(triggerLayer.id, { interactions: updatedInteractions });
@@ -1199,7 +1205,7 @@ export default function InteractionsPanel({
 
       {/* Trigger Events Header */}
       <header className="py-5 flex justify-between -mt-2">
-        <span className="font-medium">Trigger events</span>
+        <span className="font-medium">Events</span>
         <div className="-my-1">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -1208,12 +1214,12 @@ export default function InteractionsPanel({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="mr-4">
-              <DropdownMenuItem onClick={() => handleAddInteraction('click')} disabled={usedTriggers.has('click')}>Click</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleAddInteraction('hover')} disabled={usedTriggers.has('hover')}>Hover</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleAddInteraction('scroll-into-view')} disabled={usedTriggers.has('scroll-into-view')}>Scroll into view</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleAddInteraction('while-scrolling')} disabled={usedTriggers.has('while-scrolling')}>While scrolling</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleAddInteraction('click')} disabled={usedTriggers.has('click')}>{TRIGGER_LABELS.click}</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleAddInteraction('hover')} disabled={usedTriggers.has('hover')}>{TRIGGER_LABELS.hover}</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleAddInteraction('scroll-into-view')} disabled={usedTriggers.has('scroll-into-view')}>{TRIGGER_LABELS['scroll-into-view']}</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleAddInteraction('while-scrolling')} disabled={usedTriggers.has('while-scrolling')}>{TRIGGER_LABELS['while-scrolling']}</DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => handleAddInteraction('load')} disabled={usedTriggers.has('load')}>Page load</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleAddInteraction('load')} disabled={usedTriggers.has('load')}>{TRIGGER_LABELS.load}</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -1223,7 +1229,7 @@ export default function InteractionsPanel({
       {interactions.length === 0 ? (
         <Empty>
           <EmptyDescription>
-            Add a trigger event to start an interaction.
+            Add an event, then choose an action.
           </EmptyDescription>
         </Empty>
       ) : (
@@ -1256,7 +1262,7 @@ export default function InteractionsPanel({
                 variant={selectedInteractionId === interaction.id ? 'default' : 'muted'}
                 className="cursor-pointer"
               >
-                {TRIGGER_LABELS[interaction.trigger]}
+                {interactionSummary(interaction)}
               </Label>
 
               <button
@@ -1303,6 +1309,19 @@ export default function InteractionsPanel({
             ))}
           </div>
         </div>
+      )}
+
+      {selectedInteraction && (
+        <InteractionActions
+          interaction={selectedInteraction}
+          triggerLayerId={triggerLayer.id}
+          allLayers={allLayers}
+          onChange={(next) => {
+            onLayerUpdate(triggerLayer.id, {
+              interactions: interactions.map(item => (item.id === next.id ? next : item)),
+            });
+          }}
+        />
       )}
 
       {/* Interaction settings - Show when interaction is selected */}
@@ -1352,7 +1371,7 @@ export default function InteractionsPanel({
             {/* Effect - show for triggers that support looping (load has no toggle) */}
             {['click', 'hover', 'load'].includes(selectedInteraction.trigger) && (
               <div className="grid grid-cols-3 items-center">
-                <Label variant="muted">Effect</Label>
+                <Label variant="muted">Playback</Label>
                 <div className="col-span-2">
                   <Select
                     value={

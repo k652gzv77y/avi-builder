@@ -17,6 +17,7 @@ import { createRoot, Root } from 'react-dom/client';
 import gsap from 'gsap';
 
 import LayerRenderer from '@/components/LayerRenderer';
+import InteractionActionRuntime from '@/components/InteractionActionRuntime';
 import { serializeLayers, getClassesString } from '@/lib/layer-utils';
 import { collectEditorHiddenLayerIds } from '@/lib/animation-utils';
 import { getCanvasIframeHtml, updateViewportOverrides, measureContentExtent, isNonContentLayer, getClippedLayerRect } from '@/lib/canvas-utils';
@@ -250,6 +251,7 @@ function CanvasContent({
         data-layer-id="body"
         className="contents"
       >
+        <InteractionActionRuntime layers={layers} live={false} />
         <LayerRenderer
           layers={childLayers}
           isEditMode={true}

@@ -19,11 +19,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel, DropdownMenuPortal,
-  DropdownMenuSeparator,
-  DropdownMenuSub, DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger
+  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
 interface EffectControlsProps {
@@ -31,6 +27,11 @@ interface EffectControlsProps {
   onLayerUpdate: (layerId: string, updates: Partial<Layer>) => void;
   activeTextStyleKey?: string | null;
 }
+
+/**
+ * Visual effects only: opacity, shadow, layer blur, and background blur.
+ * Event → action interactions live on the Interactions tab and are not edited here.
+ */
 
 const EffectControls = memo(function EffectControls({ layer, onLayerUpdate, activeTextStyleKey }: EffectControlsProps) {
   const activeBreakpoint = useEditorStore((s) => s.activeBreakpoint);
@@ -435,38 +436,28 @@ const EffectControls = memo(function EffectControls({ layer, onLayerUpdate, acti
 
   // Get display name for shadow
   const getShadowDisplayName = (shadow: Shadow): string => {
-    const pos = shadow.position === 'inside' ? 'Inner' : 'Outer';
+    const pos = shadow.position === 'inside' ? 'Inside' : 'Outside';
     return `${pos} ${shadow.x}px ${shadow.y}px ${shadow.blur}px`;
   };
 
   return (
-    <div className="py-5">
+    <div className="py-5" data-panel="effects">
 
       <header className="py-4 -mt-4 flex items-center justify-between">
         <Label>Effects</Label>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="xs">
+            <Button
+              variant="ghost"
+              size="xs"
+              aria-label="Add effect"
+            >
               <Icon name="plus" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>Filters</DropdownMenuSubTrigger>
-              <DropdownMenuPortal>
-                <DropdownMenuSubContent>
-                  <DropdownMenuItem onClick={handleAddBlur}>Blur</DropdownMenuItem>
-                </DropdownMenuSubContent>
-              </DropdownMenuPortal>
-            </DropdownMenuSub>
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>Backdrop</DropdownMenuSubTrigger>
-              <DropdownMenuPortal>
-                <DropdownMenuSubContent>
-                  <DropdownMenuItem onClick={handleAddBackdropBlur}>Blur</DropdownMenuItem>
-                </DropdownMenuSubContent>
-              </DropdownMenuPortal>
-            </DropdownMenuSub>
+            <DropdownMenuItem onClick={handleAddBlur}>Layer Blur</DropdownMenuItem>
+            <DropdownMenuItem onClick={handleAddBackdropBlur}>Background Blur</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </header>
@@ -515,7 +506,7 @@ const EffectControls = memo(function EffectControls({ layer, onLayerUpdate, acti
                         <div className="size-5 rounded-[6px] shrink-0 -ml-1 relative overflow-hidden outline outline-current/10 -outline-offset-1">
                           <div className="absolute inset-0 opacity-15 bg-checkerboard bg-background z-10" />
                         </div>
-                        <span className="dark:opacity-50">Add...</span>
+                        <span className="dark:opacity-50">Add shadow</span>
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-56 my-0.5 flex flex-col gap-2" align="end">
@@ -697,7 +688,7 @@ const EffectControls = memo(function EffectControls({ layer, onLayerUpdate, acti
 
           {blur && (
             <div className="grid grid-cols-3">
-              <Label variant="muted">Blur</Label>
+              <Label variant="muted">Layer Blur</Label>
               <div className="col-span-2 flex items-center gap-2">
                 <div className="flex-1 grid grid-cols-2 items-center gap-2">
                   <InputGroup>
@@ -733,7 +724,7 @@ const EffectControls = memo(function EffectControls({ layer, onLayerUpdate, acti
 
           {backdropBlur && (
             <div className="grid grid-cols-3">
-              <Label variant="muted">BG Blur</Label>
+              <Label variant="muted">Background Blur</Label>
               <div className="col-span-2 flex items-center gap-2">
                 <div className="flex-1 grid grid-cols-2 items-center gap-2">
                   <InputGroup>

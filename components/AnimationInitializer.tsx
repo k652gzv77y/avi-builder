@@ -15,6 +15,8 @@ import { SplitText } from 'gsap/SplitText';
 
 import { ITEMS_INJECTED_EVENT, type ItemsInjectedDetail } from '@/components/FilterableCollection';
 import { buildGsapProps, addTweenToTimeline, createSplitTextAnimation, generateInitialAnimationCSS, getEffectiveApplyStyle, setColorVariableResolver } from '@/lib/animation-utils';
+import { prepareOverlayTargets, runInteractionActions } from '@/lib/interaction-runtime';
+import { actionsOnHoverLeave } from '@/lib/interactions-framer';
 import { BREAKPOINT_VALUES, getCurrentBreakpoint } from '@/lib/breakpoint-utils';
 import { remapLayerIdsForCollectionItem } from '@/lib/collection-utils';
 import { useColorVariablesStore } from '@/stores/useColorVariablesStore';
@@ -533,6 +535,9 @@ export default function AnimationInitializer({ layers, injectInitialCSS }: Anima
     cleanupRef.current = [];
     detachAnimations();
 
+    const actionDocument = document;
+    prepareOverlayTargets(actionDocument, effectiveLayers);
+
     collectedInteractions.forEach(({ triggerLayerId, interaction }) => {
       const triggerElement = getElement(triggerLayerId);
       if (!triggerElement) return;
@@ -570,6 +575,7 @@ export default function AnimationInitializer({ layers, injectInitialCSS }: Anima
           if (playedOneShotInteractionsRef.current.has(interaction.id)) break;
           playedOneShotInteractionsRef.current.add(interaction.id);
 
+          runInteractionActions(actionDocument, interaction, triggerElement, { live: true });
           const timeline = getTimeline();
           timeline?.play();
           break;
@@ -583,6 +589,7 @@ export default function AnimationInitializer({ layers, injectInitialCSS }: Anima
             // Check breakpoint at trigger time for interactive triggers
             if (!shouldRunOnBreakpoint(interaction, getCurrentBreakpoint())) return;
 
+            runInteractionActions(actionDocument, interaction, triggerElement, { live: true });
             const timeline = getTimeline();
             if (!timeline) return;
 
@@ -613,11 +620,17 @@ export default function AnimationInitializer({ layers, injectInitialCSS }: Anima
           const handleMouseEnter = () => {
             // Check breakpoint at trigger time for interactive triggers
             if (!shouldRunOnBreakpoint(interaction, getCurrentBreakpoint())) return;
+            runInteractionActions(actionDocument, interaction, triggerElement, { live: true });
             getTimeline()?.play();
           };
           const handleMouseLeave = () => {
             // Check breakpoint at trigger time for interactive triggers
             if (!shouldRunOnBreakpoint(interaction, getCurrentBreakpoint())) return;
+            const closing = {
+              ...interaction,
+              actions: actionsOnHoverLeave(interaction.actions),
+            };
+            runInteractionActions(actionDocument, closing, triggerElement, { live: true });
             if (interaction.timeline?.yoyo) {
               timelinesRef.current.get(interaction.id)?.reverse();
             }
@@ -652,6 +665,7 @@ export default function AnimationInitializer({ layers, injectInitialCSS }: Anima
             animation: timeline as any,
             onEnter: () => {
               playedOneShotInteractionsRef.current.add(interaction.id);
+              runInteractionActions(actionDocument, interaction, triggerElement, { live: true });
             },
           });
 
@@ -679,6 +693,12 @@ export default function AnimationInitializer({ layers, injectInitialCSS }: Anima
             end: scrollEnd,
             scrub,
             animation: timeline,
+            onUpdate: (self) => {
+              runInteractionActions(actionDocument, interaction, triggerElement, {
+                live: true,
+                scrollProgress: self.progress,
+              });
+            },
           });
 
           cleanupRef.current.push(() => scrollTrigger.kill());

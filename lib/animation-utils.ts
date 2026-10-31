@@ -397,13 +397,7 @@ export function buildFilterString(values: Partial<Record<FilterPropertyKey, stri
   return parts.length > 0 ? parts.join(' ') : null;
 }
 
-export const TRIGGER_LABELS: Record<TriggerType, string> = {
-  'click': 'Click',
-  'hover': 'Hover',
-  'scroll-into-view': 'Scroll into view',
-  'while-scrolling': 'While scrolling',
-  'load': 'Page load',
-};
+export { EVENT_LABELS as TRIGGER_LABELS } from '@/lib/interactions-framer';
 
 export const START_POSITION_OPTIONS: Record<string, { short: string; long: string }> = {
   '>': { short: 'After previous', long: 'After previous animation ends' },

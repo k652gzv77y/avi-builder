@@ -40,6 +40,7 @@ import { getComponentVariantLayers, resolvePointerVariantId } from '@/lib/compon
 import { applyStackBindingsToTree } from '@/lib/component-bindings';
 import { applyDataBindings, presentFetchText } from '@/lib/cms-framer';
 import { useFetchRuntimeStore } from '@/stores/useFetchRuntimeStore';
+import { useInteractionPreviewStore } from '@/stores/useInteractionPreviewStore';
 import { useCollectionLayerStore } from '@/stores/useCollectionLayerStore';
 import { useFilterStore } from '@/stores/useFilterStore';
 import { useCollectionsStore } from '@/stores/useCollectionsStore';
@@ -1382,11 +1383,15 @@ const LayerItemImpl: React.FC<{
   }, [layer.componentVariantVariableId, layer.componentVariantId, parentComponentVariables, parentComponentOverrides]);
 
   const editingComponentId = useEditorStore((state) => state.editingComponentId);
+  const interactionVariantId = useInteractionPreviewStore((state) => (
+    layer.componentId ? state.variantByLayerId[layer.id] : undefined
+  ));
   const [pointerState, setPointerState] = useState<'hover' | 'pressed' | null>(null);
   const previewVariantId = useMemo(() => {
+    if (interactionVariantId) return interactionVariantId;
     if (!isEditMode || editingComponentId === layer.componentId) return effectiveVariantId;
     return resolvePointerVariantId(component ?? undefined, effectiveVariantId, pointerState);
-  }, [isEditMode, editingComponentId, layer.componentId, component, effectiveVariantId, pointerState]);
+  }, [interactionVariantId, isEditMode, editingComponentId, layer.componentId, component, effectiveVariantId, pointerState]);
 
   const canPreviewPointerState = isEditMode
     && !!component
