@@ -36,7 +36,8 @@ import { hasComponentOrVariable, extractPlainTextFromTiptap } from '@/lib/tiptap
 import LayerContextMenu from '@/app/(builder)/editor/components/LayerContextMenu';
 import CanvasTextEditor from '@/app/(builder)/editor/components/CanvasTextEditor';
 import { useComponentsStore } from '@/stores/useComponentsStore';
-import { getComponentVariantLayers } from '@/lib/component-variant-utils';
+import { getComponentVariantLayers, resolvePointerVariantId } from '@/lib/component-variant-utils';
+import { applyStackBindingsToTree } from '@/lib/component-bindings';
 import { useCollectionLayerStore } from '@/stores/useCollectionLayerStore';
 import { useFilterStore } from '@/stores/useFilterStore';
 import { useCollectionsStore } from '@/stores/useCollectionsStore';
@@ -1366,21 +1367,49 @@ const LayerItemImpl: React.FC<{
     return value?.variant_id ?? layer.componentVariantId;
   }, [layer.componentVariantVariableId, layer.componentVariantId, parentComponentVariables, parentComponentOverrides]);
 
+  const editingComponentId = useEditorStore((state) => state.editingComponentId);
+  const [pointerState, setPointerState] = useState<'hover' | 'pressed' | null>(null);
+  const previewVariantId = useMemo(() => {
+    if (!isEditMode || editingComponentId === layer.componentId) return effectiveVariantId;
+    return resolvePointerVariantId(component ?? undefined, effectiveVariantId, pointerState);
+  }, [isEditMode, editingComponentId, layer.componentId, component, effectiveVariantId, pointerState]);
+
+  const canPreviewPointerState = isEditMode
+    && !!component
+    && editingComponentId !== layer.componentId
+    && (component.variants ?? []).some(variant => variant.state === 'hover' || variant.state === 'pressed');
+
   const transformedComponentLayers = useMemo(() => {
     if (!isEditMode || !component) return null;
     // Pick the variant the instance is bound to (silently falls back to the
-    // first variant when the requested one was deleted).
-    const variantLayers = getComponentVariantLayers(component, effectiveVariantId);
+    // first variant when the requested one was deleted). Hover and pressed
+    // preview a state variant without writing it onto the instance.
+    const variantLayers = getComponentVariantLayers(component, previewVariantId);
     if (!variantLayers.length) return null;
     const transformed = transformLayerIdsForInstance(variantLayers, layer.id);
+    const overrides = layer.componentOverrides?.variableLinks
+      ? resolveVariableLinks(layer.componentOverrides, parentComponentOverrides, parentComponentVariables)
+      : layer.componentOverrides;
+    const withBindings = applyStackBindingsToTree(transformed, overrides, component.variables);
     if (!currentLocale || currentLocale.is_default || !translations) {
-      return transformed;
+      return withBindings;
     }
-    return injectTranslatedText(transformed, pageId || component.id, translations, {
+    return injectTranslatedText(withBindings, pageId || component.id, translations, {
       includeIncomplete: true,
       defaultMasterComponentId: component.id,
     });
-  }, [isEditMode, component, layer.id, effectiveVariantId, currentLocale, translations, pageId]);
+  }, [
+    isEditMode,
+    component,
+    layer.id,
+    layer.componentOverrides,
+    previewVariantId,
+    parentComponentOverrides,
+    parentComponentVariables,
+    currentLocale,
+    translations,
+    pageId,
+  ]);
 
   // Collect hidden layer IDs from the component's transformed layers
   // Needed because Canvas computes editorHiddenLayerIds from serializeLayers (different ID transform)
@@ -2063,7 +2092,7 @@ const LayerItemImpl: React.FC<{
 
       const needsRootContextMenu = isEditMode && !!pageId && !isEditing && !parentComponentLayerId;
 
-      return (
+      const instanceTree = (
         <LayerRenderer
           layers={layersWithInstanceId}
           {...sharedRendererProps}
@@ -2078,6 +2107,26 @@ const LayerItemImpl: React.FC<{
           ancestorComponentIds={effectiveAncestorIds}
           componentRootContextMenu={needsRootContextMenu || undefined}
         />
+      );
+
+      if (!canPreviewPointerState) return instanceTree;
+
+      return (
+        <div
+          className="contents"
+          onPointerEnter={() => setPointerState(current => current === 'pressed' ? 'pressed' : 'hover')}
+          onPointerDown={(event) => {
+            if (event.button !== 0) return;
+            setPointerState('pressed');
+          }}
+          onPointerUp={() => setPointerState(current => current === 'pressed' ? 'hover' : current)}
+          onPointerLeave={(event) => {
+            if (event.relatedTarget == null) return;
+            setPointerState(null);
+          }}
+        >
+          {instanceTree}
+        </div>
       );
     }
 

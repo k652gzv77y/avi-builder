@@ -12,6 +12,8 @@ import { Label } from '@/components/ui/label';
 import Icon from '@/components/ui/icon';
 import { cn } from '@/lib/utils';
 import ComponentVariableLabel, { VARIABLE_TYPE_ICONS } from './ComponentVariableLabel';
+import StackVariableControl from './StackVariableControl';
+import { isStackVariableValue, stackValuesEqual } from '@/lib/component-bindings';
 import ImageSettings from './ImageSettings';
 import LinkSettings from './LinkSettings';
 import AudioSettings from './AudioSettings';
@@ -177,10 +179,14 @@ export default function ComponentVariableOverrides({
 
   /** Get the parent variables filtered to the same type as the child variable. */
   const getMatchingParentVariables = useCallback(
-    (childType?: string) => {
+    (variable: ComponentVariable) => {
       if (!parentVariables?.length) return [];
-      const effectiveType = childType || 'text';
-      return parentVariables.filter(v => (v.type || 'text') === effectiveType);
+      const effectiveType = variable.type || 'text';
+      return parentVariables.filter(v => {
+        if ((v.type || 'text') !== effectiveType) return false;
+        if (effectiveType === 'stack') return v.stack_key === variable.stack_key;
+        return true;
+      });
     },
     [parentVariables],
   );
@@ -245,7 +251,7 @@ export default function ComponentVariableOverrides({
         <ComponentVariableLabel
           label={variable.name}
           isEditingComponent
-          variables={getMatchingParentVariables(variable.type)}
+          variables={getMatchingParentVariables(variable)}
           linkedVariableId={linkedParentVar?.id}
           onLinkVariable={(parentVarId) => onLinkOverrideVariable?.(variable.id, parentVarId)}
           onManageVariables={() => onManageVariables?.(linkedParentVar?.id)}
@@ -419,6 +425,38 @@ export default function ComponentVariableOverrides({
                   </SelectContent>
                 </Select>
               )}
+            </div>
+          </div>
+        );
+      }
+      case 'stack': {
+        if (!variable.stack_key) return null;
+        const fallback = { value: '' };
+        const def = isStackVariableValue(variable.default_value) ? variable.default_value : fallback;
+        const override = componentOverrides?.stack?.[variable.id];
+        const value = isStackVariableValue(override) ? override : def;
+        const stackLabel = renderLabel(variable, { centered: true });
+        return (
+          <div key={variable.id} className="grid grid-cols-3 gap-2 items-center">
+            {stackLabel}
+            <div className="col-span-2">
+              <StackVariableControl
+                stackKey={variable.stack_key}
+                value={value}
+                onChange={(next) => {
+                  if (stackValuesEqual(next, def)) {
+                    const updated = { ...(componentOverrides?.stack ?? {}) };
+                    delete updated[variable.id];
+                    onOverridesChange({
+                      ...EMPTY_OVERRIDES,
+                      ...componentOverrides,
+                      stack: updated,
+                    });
+                    return;
+                  }
+                  handleTypedChange('stack', variable.id, next);
+                }}
+              />
             </div>
           </div>
         );

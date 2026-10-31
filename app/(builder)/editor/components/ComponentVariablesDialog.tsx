@@ -46,7 +46,9 @@ import { useComponentsStore } from '@/stores/useComponentsStore';
 import { useCollectionsStore } from '@/stores/useCollectionsStore';
 import { createTextComponentVariableValue, extractTiptapFromComponentVariable } from '@/lib/variable-utils';
 import { collectVariantVariableOptions } from '@/lib/component-variant-utils';
+import { applyStackValueToBoundLayers, isStackVariableValue } from '@/lib/component-bindings';
 import { VARIABLE_TYPE_ICONS } from './ComponentVariableLabel';
+import StackVariableControl from './StackVariableControl';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import type { ComponentVariable, VariantSettingsValue } from '@/types';
@@ -591,7 +593,33 @@ export default function ComponentVariablesDialog({
                           </SelectContent>
                         </Select>
                       );
-                    })() : selectedVariable.type === 'rich_text' ? (
+                    })() : selectedVariable.type === 'stack' && selectedVariable.stack_key ? (
+                      <StackVariableControl
+                        stackKey={selectedVariable.stack_key}
+                        value={isStackVariableValue(selectedVariable.default_value)
+                          ? selectedVariable.default_value
+                          : { value: '' }}
+                        onChange={(next) => {
+                          if (!componentId) return;
+                          void updateTextVariable(componentId, selectedVariable.id, { default_value: next });
+                          const { componentDrafts, updateComponentDraft } = useComponentsStore.getState();
+                          const drafts = componentDrafts[componentId];
+                          const stackKey = selectedVariable.stack_key;
+                          if (!drafts || !stackKey) return;
+                          for (const [variantId, layers] of Object.entries(drafts)) {
+                            const nextLayers = applyStackValueToBoundLayers(
+                              layers,
+                              selectedVariable.id,
+                              stackKey,
+                              next,
+                            );
+                            if (nextLayers !== layers) {
+                              updateComponentDraft(componentId, variantId, nextLayers);
+                            }
+                          }
+                        }}
+                      />
+                    ) : selectedVariable.type === 'rich_text' ? (
                       <ExpandableRichTextEditor
                         value={editingDefaultValue}
                         onChange={handleDefaultValueChange}

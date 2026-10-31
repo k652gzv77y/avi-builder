@@ -22,14 +22,15 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import type { Component, ComponentVariant } from '@/types';
+import { COMPONENT_STATE_PRESETS, variantHasState } from '@/lib/component-variant-utils';
+import type { Component, ComponentVariant, ComponentVariantState } from '@/types';
 
 interface ComponentVariantsSectionProps {
   component: Component;
   /** Active variant id; falls back to the first variant if missing or stale. */
   activeVariantId: string | null;
   onSelectVariant: (variantId: string) => void;
-  onAddVariant: () => Promise<void> | void;
+  onAddVariant: (preset?: { name: string; state: ComponentVariantState }) => Promise<void> | void;
   onRenameVariant: (variantId: string, name: string) => Promise<void> | void;
   onDuplicateVariant: (variantId: string) => Promise<void> | void;
   onDeleteVariant: (variantId: string) => Promise<void> | void;
@@ -97,6 +98,11 @@ function VariantRow({
           <div className="flex gap-2 items-center min-w-0">
             <Icon name="component" className="size-3 shrink-0" />
             <span className="truncate" title={variant.name}>{variant.name}</span>
+            {variant.state && variant.state !== 'default' && variant.name.toLowerCase() !== variant.state && (
+              <span className="text-[10px] uppercase tracking-wide opacity-60">
+                {variant.state}
+              </span>
+            )}
           </div>
 
           <div
@@ -241,16 +247,37 @@ export default function ComponentVariantsSection({
       <header className="py-5 flex justify-between shrink-0 z-20">
         <span className="font-medium">Component variants</span>
         <div className="-my-1">
-          <Button
-            size="xs"
-            variant="secondary"
-            onClick={() => onAddVariant()}
-            aria-label="Add variant"
-          >
-            <Icon name="plus" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                size="xs"
+                variant="secondary"
+                aria-label="Add variant"
+              >
+                <Icon name="plus" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44">
+              {COMPONENT_STATE_PRESETS.map(preset => (
+                <DropdownMenuItem
+                  key={preset.state}
+                  disabled={variantHasState(variants, preset.state)}
+                  onSelect={() => onAddVariant(preset)}
+                >
+                  {preset.name}
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => onAddVariant()}>
+                Custom
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </header>
+      <p className="px-3 pb-2 text-[11px] leading-snug text-muted-foreground">
+        Variants are UI states. Responsive layout stays on Desktop, Tablet, and Phone.
+      </p>
 
       <DndContext
         sensors={sensors} collisionDetection={closestCenter}

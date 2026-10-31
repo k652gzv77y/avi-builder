@@ -1,24 +1,14 @@
 'use client';
 
 /**
- * Reusable label with dropdown for linking/creating component variables.
+ * Reusable label with the shared bindings picker.
  * Shows a "+" button in component edit mode, or a plain label otherwise.
  */
 
-import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import Icon, { type IconProps } from '@/components/ui/icon';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuPortal,
-  DropdownMenuSubContent,
-  DropdownMenuTrigger,
-  DropdownMenuSeparator,
-} from '@/components/ui/dropdown-menu';
+import type { IconProps } from '@/components/ui/icon';
+import BindingsPicker from './BindingsPicker';
+import { defaultBindingSources } from '@/lib/component-bindings';
 import type { ComponentVariable } from '@/types';
 
 export const VARIABLE_TYPE_ICONS: Record<string, IconProps['name']> = {
@@ -30,6 +20,7 @@ export const VARIABLE_TYPE_ICONS: Record<string, IconProps['name']> = {
   video: 'video',
   icon: 'icon',
   variant: 'component',
+  stack: 'layout',
 };
 
 interface ComponentVariableLabelProps {
@@ -66,59 +57,20 @@ export default function ComponentVariableLabel({
   }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="variable"
-          size="xs"
-          className="has-[>svg]:px-0"
-        >
-          <Icon name="plus-circle-solid" />
-          {label}
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        {variables.length > 0 && (
-          <>
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>Link to variable</DropdownMenuSubTrigger>
-              <DropdownMenuPortal>
-                <DropdownMenuSubContent>
-                  {variables.map((variable) => (
-                    <DropdownMenuItem
-                      key={variable.id}
-                      onClick={() => onLinkVariable(variable.id)}
-                    >
-                      {variable.type && VARIABLE_TYPE_ICONS[variable.type] && (
-                        <Icon
-                          name={VARIABLE_TYPE_ICONS[variable.type]}
-                          className="size-3 opacity-60"
-                        />
-                      )}
-                      {variable.name}
-                      {linkedVariableId === variable.id && (
-                        <Icon name="check" className="ml-auto size-3" />
-                      )}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuSubContent>
-              </DropdownMenuPortal>
-            </DropdownMenuSub>
-            <DropdownMenuSeparator />
-          </>
-        )}
-        {onCreateVariable && (
-          <DropdownMenuItem
-            onClick={onCreateVariable}
-            disabled={!!linkedVariableId}
-          >
-            Create variable
-          </DropdownMenuItem>
-        )}
-        <DropdownMenuItem onClick={onManageVariables}>
-          Manage variables
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <BindingsPicker
+      label={label}
+      className={className}
+      linkedId={linkedVariableId}
+      onManage={onManageVariables}
+      sources={defaultBindingSources({
+        items: variables.map(variable => ({
+          id: variable.id,
+          name: variable.name,
+          icon: VARIABLE_TYPE_ICONS[variable.type || 'text'],
+        })),
+        onCreate: onCreateVariable,
+        onSelect: onLinkVariable,
+      })}
+    />
   );
 }

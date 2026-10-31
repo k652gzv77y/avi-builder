@@ -5,6 +5,7 @@
  */
 
 import type { Layer, Component, ComponentVariable, ComponentVariableValue, LayerVariables, VariantSettingsValue } from '@/types';
+import { applyStackBindings } from '@/lib/component-bindings';
 import { getComponentVariantLayers } from './component-variant-utils';
 import { normalizeComponentVariableValue } from './variable-utils';
 
@@ -292,6 +293,7 @@ const OVERRIDE_CATEGORIES: OverrideCategory[] = [
   'video',
   'icon',
   'variant',
+  'stack',
 ];
 
 function findOverrideByVariableId(
@@ -342,8 +344,11 @@ export function resolveVariableLinks(
     }
 
     if (resolvedCategory && resolvedValue !== undefined) {
-      resolved[resolvedCategory] = {
-        ...(resolved[resolvedCategory] ?? {}),
+      // Categories don't share one value type (`stack` is a breakpoint map),
+      // so the bucket is written through a loose record and narrowed at use.
+      const current = (resolved[resolvedCategory] ?? {}) as Record<string, ComponentVariableValue>;
+      (resolved as Record<string, Record<string, ComponentVariableValue>>)[resolvedCategory] = {
+        ...current,
         [childVarId]: resolvedValue,
       };
     }
@@ -362,7 +367,7 @@ export function applyComponentOverrides(
   componentVariables?: ComponentVariable[]
 ): Layer[] {
   return layers.map(layer => {
-    let updatedLayer = { ...layer };
+    let updatedLayer = applyStackBindings({ ...layer }, overrides, componentVariables);
 
     // If this nested-component instance has its variant choice driven by a
     // parent component variable, resolve the variant id from the parent's
