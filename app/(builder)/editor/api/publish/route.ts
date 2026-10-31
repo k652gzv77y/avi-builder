@@ -27,6 +27,7 @@ import { publishFonts } from '@/lib/repositories/fontRepository';
 import { getColorVariablesHash } from '@/lib/repositories/colorVariableRepository';
 import { publishGlobalVariables, hardDeleteSoftDeletedGlobalVariables } from '@/lib/repositories/globalVariableRepository';
 import { getSettingByKey, setSetting } from '@/lib/repositories/settingsRepository';
+import { projectSlugOf, recordBranchPromotion } from '@/lib/services/workspaceService';
 import type { Setting, PublishStats, PublishTableStats } from '@/types';
 
 // Disable caching for this route
@@ -61,6 +62,7 @@ interface PublishRequest {
   componentIds?: string[];
   layerStyleIds?: string[];
   publishLocales?: boolean; // Whether to publish locales/translations (defaults to true)
+  branch?: string; // Draft/staging branch being promoted to production
 }
 
 interface PublishResult {
@@ -143,6 +145,7 @@ export async function POST(request: NextRequest) {
       componentIds,
       layerStyleIds,
       publishLocales = true,
+      branch,
     } = body;
 
     const publishedAt = new Date().toISOString();
@@ -909,6 +912,15 @@ export async function POST(request: NextRequest) {
       });
     } catch {
       // Silently handle — webhook failures must not break a successful publish
+    }
+
+    if (typeof branch === 'string' && /^[a-z0-9-]+$/.test(branch)) {
+      try {
+        const slug = projectSlugOf(request);
+        if (slug) await recordBranchPromotion(slug, branch);
+      } catch (error) {
+        console.error('[publish] branch promotion stamp failed:', error);
+      }
     }
 
     // Calculate total duration

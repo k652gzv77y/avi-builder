@@ -2,7 +2,24 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse } from 'next/server';
 import { NextRequest } from 'next/server';
 import { copySetCookieHeaders } from '@/lib/auth-flow';
+import {
+  BRANCH_HEADER,
+  parsePreviewHostname,
+  projectSlugForHostname,
+  redirectLocation,
+} from '@/lib/domain-routing';
+import { PROJECT_SLUG_HEADER, RESERVED_PROJECT_SLUGS } from '@/lib/project-url';
+import { readWorkspaceGraph } from '@/lib/repositories/workspaceRepository';
+import { resolveRole } from '@/lib/roles';
 import { applySecurityHeaders } from '@/lib/security-headers-server';
+import {
+  isProjectContentApi,
+  LEGACY_PROJECT_SLUG,
+  routableDomains,
+  usesSharedCanvas,
+  canAccessProject,
+  type WorkspaceActor,
+} from '@/lib/workspace';
 
 const PUBLIC_API_PREFIXES = [
   '/editor/api/setup/',
@@ -35,7 +52,6 @@ const PUBLIC_API_EXACT = [
 const BUILDER_HOSTNAME = process.env.YCODE_BUILDER_HOSTNAME || 'avibuilder.com';
 const PROJECTS_ROOT = '/projects';
 const PROJECTS_AUTH_CALLBACK = `${PROJECTS_ROOT}/auth/callback`;
-const RESERVED_PROJECT_SLUGS = new Set(['oauth', 'auth']);
 const LEGACY_BUILDER_HOSTNAMES = (process.env.YCODE_LEGACY_BUILDER_HOSTNAMES || 'ycode.kolboschool.com')
   .split(',')
   .map((hostname) => hostname.trim().toLowerCase())
@@ -55,6 +71,10 @@ function getBuilderPath(pathname: string, hostname: string): string | null {
   if (pathname === PROJECTS_AUTH_CALLBACK) return '/editor/api/auth/callback';
   if (pathname === '/projects/oauth/cloudflare/callback') return '/editor/api/domains/cloudflare/callback';
   if (pathname === '/projects/oauth/supabase/callback') return '/editor/api/supabase/oauth/callback';
+  if (pathname === '/projects/workspace' || pathname.startsWith('/projects/workspace/')) {
+    const rest = pathname.slice('/projects/workspace'.length);
+    return `/editor/api/workspace${rest}`;
+  }
   if (pathname === PROJECTS_ROOT) return null;
   const match = pathname.match(/^\/projects\/([^/]+)(\/.*)?$/);
   if (!match) return null;
@@ -107,13 +127,96 @@ function isPublicApiRoute(pathname: string, method: string): boolean {
   return false;
 }
 
-async function verifyApiAuth(request: NextRequest): Promise<NextResponse | null> {
-  if (isPublicApiRoute(request.nextUrl.pathname, request.method)) {
+type GateUser = {
+  id: string;
+  email?: string | null;
+  app_metadata?: Record<string, unknown>;
+};
+
+type AuthGate = { response: NextResponse | null; user: GateUser | null };
+
+function requestHeadersFor(
+  request: NextRequest,
+  pathname: string,
+  slug: string | null,
+  branch?: string | null,
+): Headers {
+  const headers = new Headers(request.headers);
+  headers.set('x-pathname', pathname);
+  if (slug) headers.set(PROJECT_SLUG_HEADER, slug);
+  if (branch) headers.set(BRANCH_HEADER, branch);
+  return headers;
+}
+
+function rewriteWithProject(
+  request: NextRequest,
+  pathname: string,
+  slug: string | null,
+  branch?: string | null,
+): NextResponse {
+  const url = request.nextUrl.clone();
+  url.pathname = pathname;
+  if (branch) url.searchParams.set('branch', branch);
+  const response = NextResponse.rewrite(url, {
+    request: { headers: requestHeadersFor(request, pathname, slug, branch) },
+  });
+  response.headers.set('x-pathname', pathname);
+  if (slug) response.headers.set(PROJECT_SLUG_HEADER, slug);
+  if (branch) response.headers.set(BRANCH_HEADER, branch);
+  return response;
+}
+
+async function readGraphFast(): Promise<Awaited<ReturnType<typeof readWorkspaceGraph>> | null> {
+  try {
+    return await Promise.race([
+      readWorkspaceGraph(),
+      new Promise<null>((resolve) => {
+        setTimeout(() => resolve(null), 800);
+      }),
+    ]);
+  } catch {
     return null;
+  }
+}
+
+async function canvasPath(path: string, slug: string): Promise<string> {
+  if (path !== '/editor' && !path.startsWith('/ycode/preview')) return path;
+  const graph = await readGraphFast();
+  if (!graph || graph.projects.length === 0) {
+    return slug === LEGACY_PROJECT_SLUG ? path : '/project-space';
+  }
+  const project = graph.projects.find((entry) => entry.slug === slug);
+  if (!project || project.contentMode !== 'shared' || project.status === 'archived') {
+    return '/project-space';
+  }
+  return path;
+}
+
+async function projectGate(slug: string, user: GateUser): Promise<'allow' | 'deny' | 'metadata' | 'unknown'> {
+  try {
+    const graph = await readGraphFast();
+    if (!graph) return 'unknown';
+    const actor: WorkspaceActor = {
+      userId: user.id,
+      email: user.email ?? '',
+      appRole: resolveRole(typeof user.app_metadata?.role === 'string' ? user.app_metadata.role : null),
+    };
+    if (graph.legacyAdopted && graph.projects.length > 0 && !canAccessProject(graph, actor, slug)) {
+      return 'deny';
+    }
+    return usesSharedCanvas(graph, slug) ? 'allow' : 'metadata';
+  } catch {
+    return 'unknown';
+  }
+}
+
+async function verifyApiAuth(request: NextRequest): Promise<AuthGate> {
+  if (isPublicApiRoute(request.nextUrl.pathname, request.method)) {
+    return { response: null, user: null };
   }
 
   const config = getSupabaseEnvConfig();
-  if (!config) return null;
+  if (!config) return { response: null, user: null };
 
   let response = NextResponse.next({ request });
 
@@ -137,30 +240,75 @@ async function verifyApiAuth(request: NextRequest): Promise<NextResponse | null>
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.json(
-      { error: 'Not authenticated' },
-      { status: 401 }
-    );
+    return {
+      response: NextResponse.json(
+        { error: 'Not authenticated' },
+        { status: 401 }
+      ),
+      user: null,
+    };
   }
 
   // Return the response setAll wrote. Copying name/value onto a new response
   // drops Path, Secure, and Max-Age, so the browser keeps the previous token.
-  return response;
+  return { response, user };
 }
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const hostname = getRequestHostname(request);
+  const previewHost = parsePreviewHostname(hostname);
   const onBuilder = isBuilderHost(hostname);
-  const builderPath = getBuilderPath(pathname, hostname);
+  let builderPath = getBuilderPath(pathname, hostname);
   const projectMatch = pathname.match(/^\/projects\/([^/]+)/);
-  const projectSlug = projectMatch && !RESERVED_PROJECT_SLUGS.has(projectMatch[1])
+  let projectSlug = projectMatch && !RESERVED_PROJECT_SLUGS.has(projectMatch[1])
     ? projectMatch[1]
     : null;
-  const projectPrefix = projectSlug ? `/projects/${projectSlug}` : '/projects';
+  const branchQuery = request.nextUrl.searchParams.get('branch');
 
   if (LEGACY_BUILDER_HOSTNAMES.includes(hostname)) {
     return new NextResponse('Not Found', { status: 404 });
+  }
+
+  if (previewHost) {
+    projectSlug = previewHost.project;
+    let target = '/ycode/preview';
+    const graph = await readGraphFast();
+    if (graph && !usesSharedCanvas(graph, previewHost.project)) target = '/project-space';
+    if (!graph && previewHost.project !== LEGACY_PROJECT_SLUG) target = '/project-space';
+    const previewUrl = request.nextUrl.clone();
+    previewUrl.pathname = target;
+    previewUrl.searchParams.set('branch', previewHost.branch);
+    const auth = await verifyApiAuth(new NextRequest(previewUrl, request));
+    if (auth.response?.status === 401) {
+      return NextResponse.redirect(new URL(`/projects/${previewHost.project}`, request.url));
+    }
+    if (auth.user) {
+      const gate = await projectGate(previewHost.project, auth.user);
+      if (gate === 'deny') {
+        return NextResponse.json({ error: 'You do not have access to this project' }, { status: 403 });
+      }
+    }
+    const rewrite = rewriteWithProject(request, target, previewHost.project, previewHost.branch);
+    if (auth.response) copySetCookieHeaders(auth.response.headers, rewrite.headers);
+    return rewrite;
+  }
+
+  if (!onBuilder) {
+    try {
+      const graph = await readGraphFast();
+      const domains = graph ? routableDomains(graph) : [];
+      const target = redirectLocation(hostname, domains);
+      if (target) {
+        const dest = new URL(target);
+        dest.pathname = pathname;
+        dest.search = request.nextUrl.search;
+        return NextResponse.redirect(dest, 308);
+      }
+      projectSlug = projectSlugForHostname(hostname, domains) ?? projectSlug;
+    } catch {
+      // Custom-domain routing waits until the workspace graph can be read.
+    }
   }
 
   if (onBuilder && pathname === '/') {
@@ -175,6 +323,11 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL('/', request.url));
   }
 
+  if (projectSlug && builderPath && (builderPath === '/editor' || builderPath.startsWith('/ycode/preview'))) {
+    builderPath = await canvasPath(builderPath, projectSlug);
+  }
+
+  const projectPrefix = projectSlug ? `/projects/${projectSlug}` : '/projects';
   const effectivePathname = builderPath ?? pathname;
 
   // Legacy /ycode paths. Preview stays on /ycode/preview.
@@ -218,30 +371,36 @@ export async function proxy(request: NextRequest) {
     const authRequest = builderPath
       ? new NextRequest(new URL(effectivePathname + request.nextUrl.search, request.url), request)
       : request;
-    const authResponse = await verifyApiAuth(authRequest);
-    if (authResponse) {
-      if (authResponse.status === 401) {
-        if (effectivePathname.startsWith('/ycode/preview')) {
-          return NextResponse.redirect(new URL(projectPrefix, request.url));
-        }
-        return authResponse;
+    const auth = await verifyApiAuth(authRequest);
+    if (auth.response?.status === 401) {
+      if (effectivePathname.startsWith('/ycode/preview')) {
+        return NextResponse.redirect(new URL(projectPrefix, request.url));
       }
+      return auth.response;
+    }
+    if (auth.user && projectSlug) {
+      const gate = await projectGate(projectSlug, auth.user);
+      if (gate === 'deny') {
+        return NextResponse.json({ error: 'You do not have access to this project' }, { status: 403 });
+      }
+      if (gate === 'metadata' && isProjectContentApi(effectivePathname)) {
+        return NextResponse.json(
+          { error: 'This project does not share the live site canvas' },
+          { status: 403 },
+        );
+      }
+    }
+    if (auth.response) {
       if (builderPath) {
-        const rewriteUrl = request.nextUrl.clone();
-        rewriteUrl.pathname = effectivePathname;
-        const rewrite = NextResponse.rewrite(rewriteUrl);
-        rewrite.headers.set('x-pathname', effectivePathname);
-        if (projectSlug) {
-          rewrite.headers.set('x-avi-project-slug', projectSlug);
-        }
-        copySetCookieHeaders(authResponse.headers, rewrite.headers);
+        const rewrite = rewriteWithProject(request, effectivePathname, projectSlug, branchQuery);
+        copySetCookieHeaders(auth.response.headers, rewrite.headers);
         return rewrite;
       }
-      authResponse.headers.set('x-pathname', effectivePathname);
+      auth.response.headers.set('x-pathname', effectivePathname);
       if (projectSlug) {
-        authResponse.headers.set('x-avi-project-slug', projectSlug);
+        auth.response.headers.set(PROJECT_SLUG_HEADER, projectSlug);
       }
-      return authResponse;
+      return auth.response;
     }
   }
 
@@ -264,12 +423,14 @@ export async function proxy(request: NextRequest) {
   }
 
   const response = builderPath
-    ? NextResponse.rewrite(new URL(effectivePathname + request.nextUrl.search, request.url))
-    : NextResponse.next();
+    ? rewriteWithProject(request, effectivePathname, projectSlug, branchQuery)
+    : NextResponse.next({
+      request: { headers: requestHeadersFor(request, effectivePathname, projectSlug, branchQuery) },
+    });
 
   response.headers.set('x-pathname', effectivePathname);
   if (projectSlug) {
-    response.headers.set('x-avi-project-slug', projectSlug);
+    response.headers.set(PROJECT_SLUG_HEADER, projectSlug);
   }
 
   if (isPublicPage) {

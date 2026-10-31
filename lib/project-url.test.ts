@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { projectScopedPath, rememberProjectSlug } from '@/lib/project-url';
+import { getProjectSlugFromPath, projectScopedPath, rememberProjectSlug, resolveProjectSlug } from '@/lib/project-url';
 
 const CONFIG_SUFFIX = '/api/supabase/config';
 
@@ -30,6 +30,19 @@ test('supabase config URL is not built without a project slug', () => {
   assert.equal(projectScopedPath(CONFIG_SUFFIX, '/projects'), null);
   assert.equal(projectScopedPath(CONFIG_SUFFIX, '/editor'), null);
   assert.equal(projectScopedPath(CONFIG_SUFFIX, '/projects/auth/callback'), null);
+});
+
+test('workspace control plane is not a project slug', () => {
+  assert.equal(getProjectSlugFromPath('/projects/workspace'), null);
+  assert.equal(projectScopedPath('/api/supabase/config', '/projects/workspace'), null);
+  assert.equal(resolveProjectSlug({
+    querySlug: 'kolbo-school',
+    referer: 'https://avibuilder.com/projects/kolbo-school/settings/domains',
+  }), 'kolbo-school');
+  assert.equal(resolveProjectSlug({
+    querySlug: 'workspace',
+    referer: 'https://avibuilder.com/projects/kolbo-school',
+  }), 'kolbo-school');
 });
 
 test('remembered slug is used when the page is the projects index', () => {

@@ -1,6 +1,7 @@
 'use client';
 
-import { projectsPath } from '@/lib/project-url';
+import { getCurrentProjectSlug, projectsPath } from '@/lib/project-url';
+import { ACTIVE_BRANCH_EVENT, readActiveBranch } from '@/lib/workspace';
 
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
@@ -126,6 +127,7 @@ export default function PublishPopover({
   onPublishSuccess,
 }: PublishPopoverProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [branchName, setBranchName] = useState('staging');
   const [changeCounts, setChangeCounts] = useState<PublishPreviewCounts | null>(null);
   const [isLoadingCount, setIsLoadingCount] = useState(false);
   const [publishSuccess, setPublishSuccess] = useState(false);
@@ -140,6 +142,16 @@ export default function PublishPopover({
   const editComponent = useEditComponent();
   const setEditingComponentId = useEditorStore((state) => state.setEditingComponentId);
   const publishedAt = getSettingByKey('published_at');
+
+  useEffect(() => {
+    const syncBranch = () => {
+      const slug = getCurrentProjectSlug();
+      setBranchName(slug ? (readActiveBranch(slug) ?? 'staging') : 'staging');
+    };
+    syncBranch();
+    window.addEventListener(ACTIVE_BRANCH_EVENT, syncBranch);
+    return () => window.removeEventListener(ACTIVE_BRANCH_EVENT, syncBranch);
+  }, []);
 
   // Load changes count when popover opens
   useEffect(() => {
@@ -165,7 +177,11 @@ export default function PublishPopover({
     try {
       setIsPublishing(true);
 
-      const result = await publishApi.publish({ publishAll: true });
+      const slug = getCurrentProjectSlug();
+      const result = await publishApi.publish({
+        publishAll: true,
+        branch: slug ? (readActiveBranch(slug) ?? 'staging') : 'staging',
+      });
 
       if (result.error) {
         throw new Error(result.error);
@@ -261,6 +277,9 @@ export default function PublishPopover({
           </Label>
           <span className="text-popover-foreground text-[10px]">
             {publishedAt ? `Published ${formatRelativeTime(publishedAt, false)}` : 'Never published'}
+          </span>
+          <span className="mt-1 block text-[10px] text-muted-foreground">
+            Promotes {branchName} to production
           </span>
         </div>
 
