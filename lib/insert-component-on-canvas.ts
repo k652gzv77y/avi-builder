@@ -6,6 +6,7 @@
  */
 
 import { toast } from 'sonner';
+import { buildCodeComponentInstance, isCodeComponent } from '@/lib/code-components';
 import { buildComponentInstanceLayer, checkCircularReference } from '@/lib/component-utils';
 import { findLayerWithParent } from '@/lib/layer-utils';
 import {
@@ -71,7 +72,9 @@ export function insertComponentOnCanvas(
     : null;
   const editingComponent = !!(editor.editingComponentId && variantId);
 
-  const instance = buildComponentInstanceLayer(component);
+  const instance = isCodeComponent(component)
+    ? buildCodeComponentInstance(component)
+    : buildComponentInstanceLayer(component);
 
   if (editingComponent && editor.editingComponentId) {
     const circularError = checkCircularReference(

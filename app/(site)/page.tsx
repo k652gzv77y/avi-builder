@@ -8,6 +8,7 @@ import { generatePageMetadata, fetchGlobalPageSettings } from '@/lib/generate-pa
 import { getSettingByKey } from '@/lib/repositories/settingsRepository';
 import { matchRedirect } from '@/lib/redirect-utils';
 import { parseAuthCookie, getPasswordProtection, fetchFoldersForAuth } from '@/lib/page-auth';
+import { enforceSessionGate } from '@/lib/route-protection';
 import { getSiteBaseUrl } from '@/lib/url-utils';
 import type { Redirect as RedirectType } from '@/types';
 import type { Metadata } from 'next';
@@ -105,6 +106,8 @@ export default async function Home() {
       );
     }
   }
+
+  await enforceSessionGate(data.page, '/');
 
   return (
     <PageRenderer

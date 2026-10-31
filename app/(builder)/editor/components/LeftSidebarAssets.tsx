@@ -3,7 +3,7 @@
 /**
  * Assets tab — Framer-style list of reusable components.
  * Click inserts on the current canvas. Drag uses the existing canvas drop path.
- * Code files are not a stored asset type in this product, so the panel lists components only.
+ * Visual components and code components (HTML template + property controls).
  */
 
 import React, { useMemo, useRef, useState } from 'react';
@@ -22,6 +22,7 @@ import Icon from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { useEditComponent } from '@/hooks/use-edit-component';
 import { useLocalizationMode } from '@/hooks/use-localization-mode';
+import { isCodeComponent } from '@/lib/code-components';
 import { isCircularComponentReference } from '@/lib/component-utils';
 import { insertComponentOnCanvas } from '@/lib/insert-component-on-canvas';
 import { cn } from '@/lib/utils';
@@ -29,6 +30,7 @@ import { useComponentsStore } from '@/stores/useComponentsStore';
 import { useEditorStore } from '@/stores/useEditorStore';
 import type { UseLiveLayerUpdatesReturn } from '@/hooks/use-live-layer-updates';
 import type { Component } from '@/types';
+import CodeComponentDialog from './CodeComponentDialog';
 import RenameComponentDialog from './RenameComponentDialog';
 
 interface LeftSidebarAssetsProps {
@@ -122,7 +124,10 @@ function AssetComponentRow({
           onInsert(component.id);
         }}
       >
-        <Icon name="component" className="size-3 mx-2 shrink-0 opacity-60" />
+        <Icon
+          name={isCodeComponent(component) ? 'code' : 'component'}
+          className="size-3 mx-2 shrink-0 opacity-60"
+        />
         <span className="flex-1 truncate text-xs font-medium">{component.name}</span>
       </button>
 
@@ -175,6 +180,9 @@ export default function LeftSidebarAssets({
 
   const [query, setQuery] = useState('');
   const [componentsOpen, setComponentsOpen] = useState(true);
+  const [codeOpen, setCodeOpen] = useState(true);
+  const [codeDialog, setCodeDialog] = useState<Component | null>(null);
+  const [codeDialogOpen, setCodeDialogOpen] = useState(false);
   const [renameTarget, setRenameTarget] = useState<Component | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Component | null>(null);
   const [deleteDescription, setDeleteDescription] = useState('Delete this component?');
@@ -188,16 +196,35 @@ export default function LeftSidebarAssets({
     );
   }, [components, editingComponentId]);
 
+  const visualComponents = useMemo(
+    () => components.filter((component) => !isCodeComponent(component)),
+    [components],
+  );
+  const codeComponents = useMemo(
+    () => components.filter((component) => isCodeComponent(component)),
+    [components],
+  );
+
   const visibleComponents = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     const filtered = normalized
-      ? components.filter((component) => component.name.toLowerCase().includes(normalized))
-      : components;
+      ? visualComponents.filter((component) => component.name.toLowerCase().includes(normalized))
+      : visualComponents;
 
     return [...filtered].sort((a, b) => a.name.localeCompare(b.name));
-  }, [components, query]);
+  }, [visualComponents, query]);
+
+  const visibleCode = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    const filtered = normalized
+      ? codeComponents.filter((component) => component.name.toLowerCase().includes(normalized))
+      : codeComponents;
+
+    return [...filtered].sort((a, b) => a.name.localeCompare(b.name));
+  }, [codeComponents, query]);
 
   const sectionOpen = query.trim().length > 0 || componentsOpen;
+  const codeSectionOpen = query.trim().length > 0 || codeOpen;
   const canInsert = !readOnly && !isLocalizing;
 
   const handleInsert = (componentId: string) => {
@@ -298,7 +325,7 @@ export default function LeftSidebarAssets({
           <span className="text-xs font-medium">Components</span>
         </button>
 
-        {sectionOpen && components.length === 0 && (
+        {sectionOpen && visualComponents.length === 0 && (
           <Empty className="px-2 py-6">
             <EmptyTitle>No components yet</EmptyTitle>
             <EmptyDescription>
@@ -307,7 +334,7 @@ export default function LeftSidebarAssets({
           </Empty>
         )}
 
-        {sectionOpen && components.length > 0 && visibleComponents.length === 0 && (
+        {sectionOpen && visualComponents.length > 0 && visibleComponents.length === 0 && (
           <Empty className="px-2 py-6">
             <EmptyTitle>No matching components</EmptyTitle>
             <EmptyDescription>Try a different name</EmptyDescription>
@@ -336,7 +363,75 @@ export default function LeftSidebarAssets({
             })}
           </div>
         )}
+
+        <div className="mt-2 flex items-center">
+          <button
+            type="button"
+            className="flex flex-1 items-center gap-1.5 py-2 text-left"
+            aria-expanded={codeSectionOpen}
+            onClick={() => setCodeOpen((open) => !open)}
+          >
+            <Icon
+              name="triangle-down"
+              className={cn('size-3 opacity-40 transition-transform', !codeSectionOpen && '-rotate-90')}
+            />
+            <span className="text-xs font-medium">Code</span>
+          </button>
+          {!readOnly && !isLocalizing && (
+            <Button
+              type="button"
+              size="xs"
+              variant="ghost"
+              aria-label="New code component"
+              onClick={() => {
+                setCodeDialog(null);
+                setCodeDialogOpen(true);
+              }}
+            >
+              <Icon name="plus" className="size-3" />
+            </Button>
+          )}
+        </div>
+
+        {codeSectionOpen && codeComponents.length === 0 && (
+          <Empty className="px-2 py-6">
+            <EmptyTitle>No code components</EmptyTitle>
+            <EmptyDescription>
+              Create one to place a template with property controls
+            </EmptyDescription>
+          </Empty>
+        )}
+
+        {codeSectionOpen && visibleCode.length > 0 && (
+          <div className="flex flex-col">
+            {visibleCode.map((component) => (
+              <AssetComponentRow
+                key={component.id}
+                component={component}
+                insertDisabled={!canInsert}
+                showActions={!readOnly && !isLocalizing}
+                onInsert={handleInsert}
+                onEdit={(componentId) => {
+                  const target = codeComponents.find((item) => item.id === componentId);
+                  if (!target) return;
+                  setCodeDialog(target);
+                  setCodeDialogOpen(true);
+                }}
+                onRename={setRenameTarget}
+                onDelete={(target) => {
+                  void handleDelete(target);
+                }}
+              />
+            ))}
+          </div>
+        )}
       </div>
+
+      <CodeComponentDialog
+        open={codeDialogOpen}
+        component={codeDialog}
+        onOpenChange={setCodeDialogOpen}
+      />
 
       <RenameComponentDialog
         open={!!renameTarget}

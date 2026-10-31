@@ -116,6 +116,12 @@ function isPublicApiRoute(pathname: string, method: string): boolean {
     return true;
   }
 
+  // The handler rejects anonymous visitors. Keeping the route reachable
+  // lets the form show that error instead of an auth redirect page.
+  if ((pathname === '/editor/api/collection-writes' || pathname === '/ycode/api/collection-writes') && method === 'POST') {
+    return true;
+  }
+
   if (PUBLIC_API_EXACT.includes(pathname)) return true;
   if (PUBLIC_API_PREFIXES.some((prefix) => pathname.startsWith(prefix))) return true;
 

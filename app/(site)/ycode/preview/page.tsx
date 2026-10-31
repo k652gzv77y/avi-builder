@@ -7,6 +7,7 @@ import { getSettingsByKeys } from '@/lib/repositories/settingsRepository';
 import { generateColorVariablesCss } from '@/lib/repositories/colorVariableRepository';
 import { generatePageMetadata } from '@/lib/generate-page-metadata';
 import { parseAuthCookie, getPasswordProtection, fetchFoldersForAuth } from '@/lib/page-auth';
+import { enforceSessionGate } from '@/lib/route-protection';
 import type { Metadata } from 'next';
 
 async function fetchPreviewDraftCss() {
@@ -96,6 +97,8 @@ export default async function Home() {
   }
 
   // Render homepage preview
+  await enforceSessionGate(data.page, projectsPath('/preview'));
+
   return (
     <PageRenderer
       page={data.page}

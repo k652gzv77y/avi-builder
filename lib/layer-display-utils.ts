@@ -31,6 +31,8 @@ export function getLayerIcon(
   // Body layers
   if (layer.id === 'body') return 'layout';
 
+  if (layer.name === 'codeComponent') return 'code';
+
   // Component layers
   if (layer.componentId) return 'component';
 
