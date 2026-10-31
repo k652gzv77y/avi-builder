@@ -7,6 +7,7 @@ import { useAgentSettingsStore } from '@/stores/useAgentSettingsStore';
 import { useAiChatStore } from '@/stores/useAiChatStore';
 
 import AiChatPanel from './ai/AiChatPanel';
+import FetchCreator from './FetchCreator';
 import RightSidebar from './RightSidebar';
 
 import type { Layer } from '@/types';
@@ -43,7 +44,12 @@ export default function RightPanel({ onLayerUpdate }: RightPanelProps) {
   };
 
   if (!agentEnabled) {
-    return <RightSidebar onLayerUpdate={onLayerUpdate} />;
+    return (
+      <>
+        <RightSidebar onLayerUpdate={onLayerUpdate} />
+        <FetchCreator />
+      </>
+    );
   }
 
   return (
@@ -65,6 +71,7 @@ export default function RightPanel({ onLayerUpdate }: RightPanelProps) {
           <RightSidebar embedded onLayerUpdate={onLayerUpdate} />
         )}
       </div>
+      <FetchCreator />
     </div>
   );
 }

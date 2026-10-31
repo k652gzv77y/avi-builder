@@ -254,6 +254,8 @@ export interface LayerSettings {
   tag?: string; // HTML tag override (e.g., 'h1', 'h2', etc.)
   hidden?: boolean; // Element visibility in canvas
   customAttributes?: Record<string, string>; // Custom HTML attributes { attributeName: attributeValue }
+  /** Sibling designed as the empty state for a Collection List layer. */
+  collectionEmptyFor?: string;
   locale?: {
     format?: 'locale' | 'code'; // Display format for `localeSelector` layers (locale => 'English', code => 'EN')
   };
@@ -470,6 +472,12 @@ export interface Layer {
    * or the variable default when the component is rendered.
    */
   stackBindings?: Partial<Record<StackVariableKey, string>>;
+  /**
+   * Binds a stack property to a CMS field or a Fetch. Resolved at render
+   * from the current collection item or the fetch value. Separate from
+   * `stackBindings`, which point at component variables.
+   */
+  dataBindings?: Partial<Record<StackVariableKey, DataBinding>>;
   componentOverrides?: {
     text?: Record<string, ComponentVariableValue>; // ComponentVariable.id → override value (text)
     rich_text?: Record<string, ComponentVariableValue>; // ComponentVariable.id → override value (rich text)
@@ -804,6 +812,11 @@ export interface PageSettings {
       sort_order?: 'asc' | 'desc';
     };
   };
+  /**
+   * Single-value Fetch bindings for this page. Read from Supabase collections.
+   * Loading and Error are design variants; they are not interaction states.
+   */
+  fetches?: FetchSpec[];
   auth?: {
     enabled: boolean;
     password: string;
@@ -1523,6 +1536,33 @@ export interface CollectionPaginationConfig {
   prevButtonLayer?: PaginationLayerConfig;
   nextButtonLayer?: PaginationLayerConfig;
   pageInfoLayer?: PaginationLayerConfig;
+}
+
+export type FetchItemSource = 'first' | 'detail';
+export type FetchPreview = 'default' | 'loading' | 'error';
+
+/** One Fetch: a single collection field, with Loading and Error variants. */
+export interface FetchSpec {
+  id: string;
+  name: string;
+  collection_id: string;
+  field_id: string;
+  field_type?: CollectionFieldType | string | null;
+  /** `first` reads the first row. `detail` reads the Detail Page item. */
+  item_source: FetchItemSource;
+  /** Editor-only variant. Published pages show the resolved value. */
+  preview?: FetchPreview;
+  loading_text?: string;
+  error_text?: string;
+}
+
+/** Stack property bound to a CMS field or a Fetch. */
+export interface DataBinding {
+  kind: 'cms' | 'fetch';
+  field_id?: string;
+  source?: 'page' | 'collection' | 'global';
+  collection_layer_id?: string;
+  fetch_id?: string;
 }
 
 export interface CollectionVariable {

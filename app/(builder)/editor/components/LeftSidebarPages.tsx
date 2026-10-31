@@ -165,7 +165,12 @@ const LeftSidebarPages = React.forwardRef<LeftSidebarPagesHandle, LeftSidebarPag
     // Get the next available page number in this folder context
     const pagesInFolder = pages.filter(p => p.page_folder_id === parentFolderId);
     const pageNumber = getNextNumberFromNames(pagesInFolder, 'Page');
-    const newPageName = `Page ${pageNumber}`;
+    const collection = collectionId ? collections.find(item => item.id === collectionId) : undefined;
+    const detailName = collection?.name || 'Detail';
+    const detailTaken = pages.some(item => item.name === detailName && item.deleted_at === null);
+    const newPageName = collectionId
+      ? (detailTaken ? `${detailName} ${pageNumber}` : detailName)
+      : `Page ${pageNumber}`;
 
     // Calculate order: insert right after selected item if it's a page, otherwise append to end
     const newOrder = calculateNextOrder(parentFolderId, newDepth, pages, folders, selectedItemId);
@@ -810,7 +815,7 @@ const LeftSidebarPages = React.forwardRef<LeftSidebarPagesHandle, LeftSidebarPag
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger>
                     <Icon name="dynamicPage" className="size-3 opacity-60" />
-                    CMS
+                    Detail Page
                   </DropdownMenuSubTrigger>
                   <DropdownMenuSubContent>
                     {collections.length > 0 ? (

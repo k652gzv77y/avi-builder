@@ -108,6 +108,19 @@ import { createTextComponentVariableValue } from '@/lib/variable-utils';
 import { getRichTextValue, extractPlainTextFromTiptap, getSoleCmsFieldBinding } from '@/lib/tiptap-utils';
 import { DEFAULT_TEXT_STYLES, getTextStyle, getTiptapTextContent } from '@/lib/text-format-utils';
 import { buildFieldGroupsForLayer, getFieldIcon, hasBoundCollectionSource, isMultipleAssetField, MULTI_ASSET_COLLECTION_ID, SIMPLE_TEXT_FIELD_TYPES } from '@/lib/collection-field-utils';
+import {
+  buildCollectionEmptyState,
+  emptyRichText,
+  fetchBindingDoc,
+  fieldBindingDoc,
+  findCollectionEmptyState,
+  findFieldInGroups,
+  insertSiblingAfter,
+  parseCmsBindingId,
+  readContentBinding,
+  isFetchPreview,
+} from '@/lib/cms-framer';
+import { useCmsBindingSources } from '@/hooks/use-cms-binding-sources';
 import { getInverseReferenceFields } from '@/lib/collection-utils';
 
 // 7. Types
@@ -289,6 +302,11 @@ const RightSidebar = React.memo(function RightSidebar({
   const addRichTextVariable = useComponentsStore((state) => state.addRichTextVariable);
   const updateTextVariable = useComponentsStore((state) => state.updateTextVariable);
 
+  const { cmsItems, fetchItems, openFetchCreator } = useCmsBindingSources(selectedLayerId);
+  const pageFetches = usePagesStore((state) => (
+    state.pages.find(item => item.id === currentPageId)?.settings?.fetches ?? []
+  ));
+  const updatePage = usePagesStore((state) => state.updatePage);
   const collections = useCollectionsStore((state) => state.collections);
   const fields = useCollectionsStore((state) => state.fields);
   const loadFields = useCollectionsStore((state) => state.loadFields);
@@ -2446,6 +2464,44 @@ const RightSidebar = React.memo(function RightSidebar({
                 });
               };
 
+              const contentBinding = readContentBinding(selectedLayer.variables?.text);
+              const linkedFetch = contentBinding?.kind === 'fetch'
+                ? pageFetches.find(spec => spec.id === contentBinding.id)
+                : undefined;
+              const cmsLinkedItem = contentBinding?.kind === 'cms'
+                ? cmsItems.find(item => item.id.endsWith(`:${contentBinding.id}`))
+                : undefined;
+
+              const setBoundText = (content: object) => {
+                if (!selectedLayerId) return;
+                handleLayerUpdate(selectedLayerId, {
+                  variables: {
+                    ...selectedLayer.variables,
+                    text: { type: 'dynamic_rich_text', data: { content } },
+                  },
+                });
+              };
+
+              const handleSelectCms = (encodedId: string) => {
+                const parsed = parseCmsBindingId(encodedId);
+                if (!parsed) return;
+                const found = findFieldInGroups(fieldGroups, parsed.fieldId);
+                if (!found) return;
+                setBoundText(fieldBindingDoc(found.field, found.source, found.layerId));
+              };
+
+              const handleSelectFetch = (fetchId: string) => {
+                const current = usePagesStore.getState().pages.find(item => item.id === currentPageId);
+                const spec = current?.settings?.fetches?.find(item => item.id === fetchId)
+                  ?? pageFetches.find(item => item.id === fetchId);
+                if (!spec) return;
+                setBoundText(fetchBindingDoc(spec));
+              };
+
+              const handleUnlinkContentBinding = () => {
+                setBoundText(emptyRichText().data.content);
+              };
+
               // Handle unlinking a layer from a variable
               const handleUnlinkVariable = () => {
                 if (!selectedLayerId) return;
@@ -2474,7 +2530,14 @@ const RightSidebar = React.memo(function RightSidebar({
                           label="Content"
                           isEditingComponent={!!editingComponentId}
                           variables={componentVariables}
-                          linkedVariableId={linkedVariableId}
+                          linkedVariableId={linkedVariableId ?? (contentBinding?.kind === 'fetch' ? contentBinding.id : cmsLinkedItem?.id)}
+                          linkedName={linkedVariable ? undefined : contentBinding?.name}
+                          onUnlink={contentBinding && !linkedVariable ? handleUnlinkContentBinding : undefined}
+                          cmsItems={cmsItems}
+                          onSelectCms={handleSelectCms}
+                          fetchItems={fetchItems}
+                          onSelectFetch={handleSelectFetch}
+                          onCreateFetch={() => openFetchCreator(handleSelectFetch)}
                           onLinkVariable={handleLinkVariable}
                           onManageVariables={() => openVariablesDialog()}
                           onCreateVariable={editingComponentId ? async () => {
@@ -2550,6 +2613,41 @@ const RightSidebar = React.memo(function RightSidebar({
                       )}
                     </div>
                   </div>
+                  {linkedFetch && (
+                    <div className="flex flex-col gap-2 mt-3">
+                      <div className="grid grid-cols-3 items-center">
+                        <Label variant="muted">Variant</Label>
+                        <div className="col-span-2">
+                          <ToggleGroup
+                            options={[
+                              { label: 'Value', value: 'default' },
+                              { label: 'Loading', value: 'loading' },
+                              { label: 'Error', value: 'error' },
+                            ]}
+                            value={linkedFetch.preview ?? 'default'}
+                            onChange={(value) => {
+                              if (!currentPageId || !isFetchPreview(String(value))) return;
+                              const current = pages.find(item => item.id === currentPageId);
+                              if (!current) return;
+                              void updatePage(currentPageId, {
+                                settings: {
+                                  ...current.settings,
+                                  fetches: (current.settings?.fetches ?? []).map(spec => (
+                                    spec.id === linkedFetch.id
+                                      ? { ...spec, preview: value as 'default' | 'loading' | 'error' }
+                                      : spec
+                                  )),
+                                },
+                              });
+                            }}
+                          />
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Loading and Error are design variants. The published page shows the value.
+                      </p>
+                    </div>
+                  )}
                 </SettingsPanel>
               );
             })()}
@@ -2624,14 +2722,17 @@ const RightSidebar = React.memo(function RightSidebar({
               </SettingsPanel>
             )}
 
-            {/* Collection Binding Panel - only show for collection layers (hide when optionsSource manages it) */}
+            {/* Collection List — design one item; it repeats for each row. */}
             {selectedLayer && getCollectionVariable(selectedLayer) && !selectedLayer.settings?.optionsSource && (
               <SettingsPanel
-                title="CMS"
+                title="Collection List"
                 isOpen={collectionBindingOpen}
                 onToggle={() => setCollectionBindingOpen(!collectionBindingOpen)}
               >
                 <div className="flex flex-col gap-2">
+                  <p className="text-xs text-muted-foreground">
+                    Design one item inside this list. It repeats for each row from Supabase.
+                  </p>
                   {/* Collection Selector */}
                   <div className="grid grid-cols-3">
                     <Label variant="muted">Collection</Label>
@@ -2929,6 +3030,36 @@ const RightSidebar = React.memo(function RightSidebar({
                       )}
                       </>
                       )}
+
+                      <div className="grid grid-cols-3 items-center">
+                        <Label variant="muted">Empty</Label>
+                        <div className="col-span-2">
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            className="w-full"
+                            onClick={() => {
+                              if (!selectedLayerId) return;
+                              const existing = findCollectionEmptyState(allLayers, selectedLayerId);
+                              if (existing) {
+                                setSelectedLayerId(existing.id);
+                                return;
+                              }
+                              const empty = buildCollectionEmptyState(selectedLayerId);
+                              const next = insertSiblingAfter(allLayers, selectedLayerId, empty);
+                              if (!next) return;
+                              if (editingComponentId && activeComponentVariantId) {
+                                useComponentsStore.getState().updateComponentDraft(editingComponentId, activeComponentVariantId, next);
+                              } else if (currentPageId) {
+                                setDraftLayers(currentPageId, next);
+                              }
+                              setSelectedLayerId(empty.id);
+                            }}
+                          >
+                            {findCollectionEmptyState(allLayers, selectedLayer.id) ? 'Edit empty state' : 'Design empty state'}
+                          </Button>
+                        </div>
+                      </div>
 
                       {/* Total Limit */}
                       <div className="grid grid-cols-3">

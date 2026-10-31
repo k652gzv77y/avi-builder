@@ -5,8 +5,8 @@
  * into a Variable from the + control. Many layers share one variable. Instances
  * override the value per breakpoint, using the Sprint 1 desktop-first cascade.
  *
- * CMS fields and Fetch reuse the same source list later. They stay disabled
- * until those binders exist.
+ * CMS fields and Fetch reuse this source list. Pass items to enable them.
+ * Without items they stay disabled, which is the Sprint 2 slot.
  */
 
 import type {
@@ -233,7 +233,7 @@ export interface BindingSourceItem {
 
 /**
  * One section in the + bindings menu. `cms` and `fetch` stay disabled until
- * Sprint 3 plugs real items and an onSelect into the same shape.
+ * a caller passes items and onSelect. Variables keep their Sprint 2 names.
  */
 export interface BindingSource {
   kind: 'variable' | 'cms' | 'fetch';
@@ -245,16 +245,31 @@ export interface BindingSource {
   onSelect?: (id: string) => void;
 }
 
-export function defaultBindingSources(variable: {
-  items?: BindingSourceItem[];
-  onCreate?: () => void;
-  onSelect?: (id: string) => void;
-}): BindingSource[] {
+export function defaultBindingSources(
+  variable: {
+    items?: BindingSourceItem[];
+    onCreate?: () => void;
+    onSelect?: (id: string) => void;
+    /** When false, Variables stay in the menu but cannot be chosen. */
+    enabled?: boolean;
+  },
+  extras?: {
+    cms?: { items?: BindingSourceItem[]; onSelect?: (id: string) => void };
+    fetch?: { items?: BindingSourceItem[]; onSelect?: (id: string) => void; onCreate?: () => void };
+  },
+): BindingSource[] {
+  const cmsItems = extras?.cms?.items ?? [];
+  const fetchItems = extras?.fetch?.items ?? [];
+  const cmsEnabled = cmsItems.length > 0 && !!extras?.cms?.onSelect;
+  const fetchEnabled = fetchItems.length > 0 || !!extras?.fetch?.onCreate;
   return [
     {
       kind: 'variable',
       label: 'Variables',
-      enabled: true,
+      enabled: variable.enabled !== false,
+      unavailableReason: variable.enabled === false
+        ? 'Variables are available while editing a component.'
+        : undefined,
       items: variable.items,
       onCreate: variable.onCreate,
       onSelect: variable.onSelect,
@@ -262,14 +277,19 @@ export function defaultBindingSources(variable: {
     {
       kind: 'cms',
       label: 'CMS',
-      enabled: false,
-      unavailableReason: 'Collection fields can bind here later.',
+      enabled: cmsEnabled,
+      items: cmsEnabled ? cmsItems : undefined,
+      onSelect: extras?.cms?.onSelect,
+      unavailableReason: 'Bind a Collection List or open a Detail Page to use collection fields.',
     },
     {
       kind: 'fetch',
       label: 'Fetch',
-      enabled: false,
-      unavailableReason: 'Fetch data can bind here later.',
+      enabled: fetchEnabled,
+      items: fetchItems,
+      onSelect: extras?.fetch?.onSelect,
+      onCreate: extras?.fetch?.onCreate,
+      unavailableReason: 'Fetch a single collection value, with Loading and Error variants.',
     },
   ];
 }

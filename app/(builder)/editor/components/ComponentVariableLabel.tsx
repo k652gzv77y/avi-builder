@@ -8,7 +8,7 @@
 import { Label } from '@/components/ui/label';
 import type { IconProps } from '@/components/ui/icon';
 import BindingsPicker from './BindingsPicker';
-import { defaultBindingSources } from '@/lib/component-bindings';
+import { defaultBindingSources, type BindingSourceItem } from '@/lib/component-bindings';
 import type { ComponentVariable } from '@/types';
 
 export const VARIABLE_TYPE_ICONS: Record<string, IconProps['name']> = {
@@ -38,6 +38,16 @@ interface ComponentVariableLabelProps {
   onManageVariables: () => void;
   /** Called to create a new variable of this type with current values as defaults */
   onCreateVariable?: () => void;
+  /** Collection fields from a Collection List or Detail Page. */
+  cmsItems?: BindingSourceItem[];
+  onSelectCms?: (id: string) => void;
+  /** Single-value Fetch bindings. */
+  fetchItems?: BindingSourceItem[];
+  onSelectFetch?: (id: string) => void;
+  onCreateFetch?: () => void;
+  /** Name shown on the trigger when CMS or Fetch is linked. */
+  linkedName?: string;
+  onUnlink?: () => void;
   /** Extra className for the outer wrapper */
   className?: string;
 }
@@ -50,9 +60,18 @@ export default function ComponentVariableLabel({
   onLinkVariable,
   onManageVariables,
   onCreateVariable,
+  cmsItems,
+  onSelectCms,
+  fetchItems,
+  onSelectFetch,
+  onCreateFetch,
+  linkedName,
+  onUnlink,
   className,
 }: ComponentVariableLabelProps) {
-  if (!isEditingComponent) {
+  const hasCms = (cmsItems?.length ?? 0) > 0 && !!onSelectCms;
+  const hasFetch = !!onCreateFetch || (fetchItems?.length ?? 0) > 0;
+  if (!isEditingComponent && !hasCms && !hasFetch) {
     return <Label variant="muted" className={className}>{label}</Label>;
   }
 
@@ -61,15 +80,21 @@ export default function ComponentVariableLabel({
       label={label}
       className={className}
       linkedId={linkedVariableId}
-      onManage={onManageVariables}
+      linkedName={linkedName}
+      onUnlink={onUnlink}
+      onManage={isEditingComponent ? onManageVariables : undefined}
       sources={defaultBindingSources({
+        enabled: isEditingComponent,
         items: variables.map(variable => ({
           id: variable.id,
           name: variable.name,
           icon: VARIABLE_TYPE_ICONS[variable.type || 'text'],
         })),
-        onCreate: onCreateVariable,
-        onSelect: onLinkVariable,
+        onCreate: isEditingComponent ? onCreateVariable : undefined,
+        onSelect: isEditingComponent ? onLinkVariable : undefined,
+      }, {
+        cms: { items: cmsItems, onSelect: onSelectCms },
+        fetch: { items: fetchItems, onSelect: onSelectFetch, onCreate: onCreateFetch },
       })}
     />
   );
