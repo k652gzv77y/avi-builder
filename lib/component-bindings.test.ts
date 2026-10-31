@@ -98,9 +98,22 @@ test('bindings picker keeps CMS and Fetch slots beside Variables', () => {
   });
   assert.deepEqual(sources.map(source => source.kind), ['variable', 'cms', 'fetch']);
   assert.equal(sources[0].enabled, true);
+  assert.equal(sources[0].label, 'Variables');
   assert.equal(sources[1].enabled, false);
   assert.equal(sources[2].enabled, false);
   assert.equal(sources[1].unavailableReason?.length ? true : false, true);
+
+  const live = defaultBindingSources({
+    items: [{ id: 'gap', name: 'Gap' }],
+    onSelect: () => undefined,
+  }, {
+    cms: { items: [{ id: 'cms:collection::title', name: 'Title' }], onSelect: () => undefined },
+    fetch: { items: [{ id: 'fetch-1', name: 'Title' }], onSelect: () => undefined, onCreate: () => undefined },
+  });
+  assert.equal(live[1].enabled, true);
+  assert.equal(live[1].label, 'CMS');
+  assert.equal(live[2].enabled, true);
+  assert.equal(live[2].label, 'Fetch');
 });
 
 test('hover and pressed variants preview only from the resting state', () => {

@@ -35,6 +35,7 @@ import { SWIPER_CLASS_MAP, SWIPER_DATA_ATTR_MAP } from '@/lib/slider-constants';
 import { resolveInlineVariables, resolveInlineVariablesFromData } from '@/lib/inline-variables';
 import { buildPaginationNumbers, getPaginationLayerKind, hasPaginationVariables, paginationTextVariableToTemplate, resolvePaginationTextVariable } from '@/lib/pagination-text-utils';
 import { formatFieldValue, resolveFieldFromSources } from '@/lib/cms-variables-utils';
+import { applyCmsRuntime, collectFetchSpecs, type FetchRuntime } from '@/lib/cms-framer';
 import { buildLayerTranslationKey, getTranslationByKey, hasValidTranslationValue, getTranslationValue, injectTranslatedText, applyCmsTranslations, translateComponentOverrides } from '@/lib/localisation-utils';
 import { formatDateFieldsInItemValues } from '@/lib/date-format-utils';
 import { getSettingByKey } from '@/lib/repositories/settingsRepository';
@@ -759,7 +760,7 @@ async function fetchPageByPathInternal(
 
             // Resolve all AssetVariables to URLs server-side (prevents client-side API calls)
             const resolved = await resolveAllAssets(resolvedLayers, isPublished, components);
-            resolvedLayers = resolved.layers;
+            resolvedLayers = await finalizeCmsLayers(resolved.layers, matchingPage, isPublished, enhancedItemValues);
 
             // Fetch the ordered list of ids + slugs for the page's collection
             // so links using `next-item` / `previous-item` can resolve at
@@ -867,7 +868,7 @@ async function fetchPageByPathInternal(
     }
 
     const resolved = await resolveAllAssets(resolvedLayers, isPublished, components);
-    resolvedLayers = resolved.layers;
+    resolvedLayers = await finalizeCmsLayers(resolved.layers, matchingPage, isPublished);
 
     return {
       page: matchingPage,
@@ -885,6 +886,54 @@ async function fetchPageByPathInternal(
     console.error('Failed to fetch page:', error);
     return null;
   }
+}
+
+/**
+ * Fill Fetch values and stack CMS bindings after collection rows are expanded.
+ * Editor preview of Loading / Error is ignored here so the live page shows the value.
+ */
+async function finalizeCmsLayers(
+  layers: Layer[],
+  page: { settings?: Page['settings'] } | null | undefined,
+  isPublished: boolean,
+  pageItemValues?: Record<string, string>,
+): Promise<Layer[]> {
+  const specs = collectFetchSpecs(layers, page?.settings?.fetches);
+  const needsBindings = layers.some(function hasBinding(layer: Layer): boolean {
+    if (layer.dataBindings && Object.keys(layer.dataBindings).length > 0) return true;
+    return !!layer.children?.some(hasBinding);
+  });
+  if (specs.length === 0 && !needsBindings) return layers;
+
+  const runtime: FetchRuntime = { specs, values: {}, status: {} };
+  const collectionIds = [...new Set(
+    specs.filter(spec => spec.item_source === 'first' && spec.collection_id).map(spec => spec.collection_id),
+  )];
+  try {
+    const loaded = await Promise.all(collectionIds.map(async (collectionId) => {
+      const { items } = await getItemsWithValues(collectionId, isPublished, { limit: 1 });
+      return [collectionId, items[0]] as const;
+    }));
+    const byCollection = Object.fromEntries(loaded);
+    for (const spec of specs) {
+      if (spec.item_source === 'detail') {
+        const raw = pageItemValues?.[spec.field_id];
+        runtime.values[spec.id] = raw != null ? formatFieldValue(raw, spec.field_type) : '';
+        runtime.status[spec.id] = 'ready';
+        continue;
+      }
+      const item = byCollection[spec.collection_id];
+      const raw = item?.values?.[spec.field_id];
+      runtime.values[spec.id] = raw != null ? formatFieldValue(raw, spec.field_type) : '';
+      runtime.status[spec.id] = 'ready';
+    }
+  } catch (error) {
+    console.error('[finalizeCmsLayers] Fetch read failed:', error);
+    for (const spec of specs) {
+      if (!runtime.status[spec.id]) runtime.status[spec.id] = 'error';
+    }
+  }
+  return applyCmsRuntime(layers, runtime, pageItemValues);
 }
 
 export const fetchPageByPath = cache(async function fetchPageByPath(
@@ -974,7 +1023,7 @@ export async function fetchErrorPage(
 
     // Resolve all AssetVariables to URLs server-side (prevents client-side API calls)
     const resolved = await resolveAllAssets(resolvedLayers, isPublished, components);
-    resolvedLayers = resolved.layers;
+    resolvedLayers = await finalizeCmsLayers(resolved.layers, errorPage, isPublished);
 
     return {
       page: errorPage,
@@ -1064,7 +1113,7 @@ export const fetchHomepage = cache(async function fetchHomepage(
 
     // Resolve all AssetVariables to URLs server-side (prevents client-side API calls)
     const resolved = await resolveAllAssets(resolvedLayers, isPublished, components);
-    resolvedLayers = resolved.layers;
+    resolvedLayers = await finalizeCmsLayers(resolved.layers, homepage, isPublished);
 
     return {
       page: homepage,
@@ -1631,6 +1680,11 @@ function resolveRichTextVariables(
   // Handle dynamicVariable node - replace with resolved content
   if (content.type === 'dynamicVariable') {
     const variable = content.attrs?.variable;
+    // Fetch is resolved later by applyCmsRuntime. Leave the node in place
+    // so the Loading / Error copy and the value are not wiped here.
+    if (variable?.type === 'fetch') {
+      return content;
+    }
     if (variable?.type === 'field' && variable.data?.field_id) {
       const fieldId = variable.data.field_id;
       const globalMeta = variable.data.source === 'global' ? globalsMeta?.[fieldId] : undefined;

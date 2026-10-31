@@ -44,6 +44,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import Icon from '@/components/ui/icon';
+import { detailRouteToken } from '@/lib/cms-framer';
 import { getPageIcon, isHomepage, buildSlugPath, buildFolderPath, folderHasIndexPage, generateUniqueSlug, generateSlug, sanitizeSlug, isReservedRootSlug } from '@/lib/page-utils';
 import { isAssetOfType, ASSET_CATEGORIES } from '@/lib/asset-utils';
 import { Textarea } from '@/components/ui/textarea';
@@ -814,7 +815,7 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
       const collectionFields = fields[activeCollectionId] || [];
       const selectedSlugField = collectionFields.find(field => field.id === activeSlugFieldId);
 
-      slugFieldKey = `{${selectedSlugField?.key}}`;
+      slugFieldKey = detailRouteToken(selectedSlugField?.key ?? undefined);
     }
 
     const basePath = buildSlugPath(tempPage as Page, folders, 'page', slugFieldKey);
@@ -1429,7 +1430,7 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
                       <Field>
                         <div className="flex items-center gap-2">
                           <div className="w-full space-y-2">
-                            <FieldLabel>Default item sort</FieldLabel>
+                            <FieldLabel>Previous / Next</FieldLabel>
                             <Select
                               value={nextPrevSortBy}
                               onValueChange={(value) => {

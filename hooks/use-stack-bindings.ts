@@ -16,9 +16,12 @@ import {
   writeStackBreakpoint,
   type BindingSource,
 } from '@/lib/component-bindings';
+import { parseCmsBindingId } from '@/lib/cms-framer';
+import { useCmsBindingSources } from '@/hooks/use-cms-binding-sources';
 import { useComponentsStore } from '@/stores/useComponentsStore';
 import { useEditorStore } from '@/stores/useEditorStore';
-import type { Layer, StackVariableKey, StackVariableValue } from '@/types';
+import { usePagesStore } from '@/stores/usePagesStore';
+import type { DataBinding, Layer, StackVariableKey, StackVariableValue } from '@/types';
 
 interface UseStackBindingsArgs {
   layer: Layer | null;
@@ -36,6 +39,11 @@ export function useStackBindings({ layer, onLayerUpdate }: UseStackBindingsArgs)
   ));
   const addStackVariable = useComponentsStore(state => state.addStackVariable);
   const updateTextVariable = useComponentsStore(state => state.updateTextVariable);
+  const currentPageId = useEditorStore(state => state.currentPageId);
+  const { cmsItems, fetchItems, openFetchCreator } = useCmsBindingSources(layer?.id ?? null);
+  const fetches = usePagesStore(state => (
+    state.pages.find(item => item.id === currentPageId)?.settings?.fetches ?? []
+  ));
 
   const syncValue = useCallback((key: StackVariableKey, raw: string) => {
     if (!layer || !editingComponentId || activeUIState !== 'neutral') return;
@@ -59,8 +67,11 @@ export function useStackBindings({ layer, onLayerUpdate }: UseStackBindingsArgs)
 
   const linkVariable = useCallback((key: StackVariableKey, variableId: string) => {
     if (!layer) return;
+    const nextData = { ...(layer.dataBindings ?? {}) };
+    delete nextData[key];
     onLayerUpdate(layer.id, {
       stackBindings: { ...(layer.stackBindings ?? {}), [key]: variableId },
+      dataBindings: Object.keys(nextData).length > 0 ? nextData : undefined,
     });
     const variable = component?.variables?.find(item => item.id === variableId);
     if (!isStackVariableValue(variable?.default_value) || !editingComponentId) return;
@@ -87,17 +98,33 @@ export function useStackBindings({ layer, onLayerUpdate }: UseStackBindingsArgs)
       initial,
     );
     if (!variableId) return;
+    const nextData = { ...(layer.dataBindings ?? {}) };
+    delete nextData[key];
     onLayerUpdate(layer.id, {
       stackBindings: { ...(layer.stackBindings ?? {}), [key]: variableId },
+      dataBindings: Object.keys(nextData).length > 0 ? nextData : undefined,
     });
   }, [activeBreakpoint, addStackVariable, editingComponentId, layer, onLayerUpdate]);
 
   const unlinkVariable = useCallback((key: StackVariableKey) => {
-    if (!layer?.stackBindings?.[key]) return;
-    const next = { ...layer.stackBindings };
-    delete next[key];
+    if (!layer) return;
+    const nextStack = { ...(layer.stackBindings ?? {}) };
+    const nextData = { ...(layer.dataBindings ?? {}) };
+    delete nextStack[key];
+    delete nextData[key];
     onLayerUpdate(layer.id, {
-      stackBindings: Object.keys(next).length > 0 ? next : undefined,
+      stackBindings: Object.keys(nextStack).length > 0 ? nextStack : undefined,
+      dataBindings: Object.keys(nextData).length > 0 ? nextData : undefined,
+    });
+  }, [layer, onLayerUpdate]);
+
+  const bindData = useCallback((key: StackVariableKey, binding: DataBinding) => {
+    if (!layer) return;
+    const nextStack = { ...(layer.stackBindings ?? {}) };
+    delete nextStack[key];
+    onLayerUpdate(layer.id, {
+      stackBindings: Object.keys(nextStack).length > 0 ? nextStack : undefined,
+      dataBindings: { ...(layer.dataBindings ?? {}), [key]: binding },
     });
   }, [layer, onLayerUpdate]);
 
@@ -110,14 +137,20 @@ export function useStackBindings({ layer, onLayerUpdate }: UseStackBindingsArgs)
   } | null => {
     if (!editingComponentId || !layer) return null;
     const linkedId = layer.stackBindings?.[key];
+    const dataBinding = layer.dataBindings?.[key];
     const variables = (component?.variables ?? []).filter(item => (
       item.type === 'stack' && item.stack_key === key
     ));
     const linked = variables.find(item => item.id === linkedId);
+    const linkedFetch = fetches.find(item => item.id === dataBinding?.fetch_id);
+    const linkedCms = cmsItems.find(item => dataBinding?.field_id && item.id.endsWith(`:${dataBinding.field_id}`));
+    const dataLinkedId = dataBinding?.kind === 'fetch'
+      ? dataBinding.fetch_id
+      : linkedCms?.id;
     return {
       label: STACK_VARIABLE_LABELS[key],
-      linkedId,
-      linkedName: linked?.name,
+      linkedId: linkedId ?? dataLinkedId,
+      linkedName: linked?.name ?? linkedFetch?.name ?? linkedCms?.name,
       onUnlink: () => unlinkVariable(key),
       sources: defaultBindingSources({
         items: variables.map(item => ({ id: item.id, name: item.name })),
@@ -125,9 +158,30 @@ export function useStackBindings({ layer, onLayerUpdate }: UseStackBindingsArgs)
           void createVariable(key, masterStackValue(layer, key));
         },
         onSelect: (variableId) => linkVariable(key, variableId),
+      }, {
+        cms: {
+          items: cmsItems,
+          onSelect: (encodedId) => {
+            const parsed = parseCmsBindingId(encodedId);
+            if (!parsed) return;
+            bindData(key, {
+              kind: 'cms',
+              field_id: parsed.fieldId,
+              source: parsed.source,
+              collection_layer_id: parsed.layerId,
+            });
+          },
+        },
+        fetch: {
+          items: fetchItems,
+          onCreate: () => openFetchCreator((fetchId) => {
+            bindData(key, { kind: 'fetch', fetch_id: fetchId });
+          }),
+          onSelect: (fetchId) => bindData(key, { kind: 'fetch', fetch_id: fetchId }),
+        },
       }),
     };
-  }, [component?.variables, createVariable, editingComponentId, layer, linkVariable, unlinkVariable]);
+  }, [bindData, cmsItems, component?.variables, createVariable, editingComponentId, fetchItems, fetches, layer, linkVariable, openFetchCreator, unlinkVariable]);
 
   return { bindingFor, syncValue };
 }

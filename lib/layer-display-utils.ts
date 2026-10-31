@@ -109,10 +109,10 @@ export function getLayerName(
     return context?.component_name || 'Component';
   }
 
-  // Use field name or collection name in parentheses after "Collection" (skip when optionsSource manages the binding)
+  // Collection List: one designed item, repeated for each row.
   if (getCollectionVariable(layer) && !layer.settings?.optionsSource) {
     const label = context?.source_field_name ?? context?.collection_name;
-    return label ? `Collection (${label})` : 'Collection';
+    return label ? `Collection List (${label})` : 'Collection List';
   }
 
   // Layout layers (Columns, Rows, Grid) - breakpoint-aware names

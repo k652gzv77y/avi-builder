@@ -77,8 +77,17 @@ export function resolveInlineVariablesFromData(
   const normalized = normalizeInlineVariableFormats(text);
 
   if (!collectionItemData && !pageCollectionItemData) {
-    // Remove variable tags if no data available
-    return normalized.replace(INLINE_VARIABLE_REGEX, '');
+    // Remove field tags when no collection data is available. Keep Fetch
+    // tags so a later pass can fill Loading, Error, or the value.
+    return normalized.replace(INLINE_VARIABLE_REGEX, (match, variableContent: string) => {
+      try {
+        const parsed = JSON.parse(String(variableContent).trim()) as { type?: string };
+        if (parsed.type === 'fetch') return match;
+      } catch {
+        // Not JSON.
+      }
+      return '';
+    });
   }
 
   return normalized.replace(INLINE_VARIABLE_REGEX, (match, variableContent) => {

@@ -38,6 +38,8 @@ import CanvasTextEditor from '@/app/(builder)/editor/components/CanvasTextEditor
 import { useComponentsStore } from '@/stores/useComponentsStore';
 import { getComponentVariantLayers, resolvePointerVariantId } from '@/lib/component-variant-utils';
 import { applyStackBindingsToTree } from '@/lib/component-bindings';
+import { applyDataBindings, presentFetchText } from '@/lib/cms-framer';
+import { useFetchRuntimeStore } from '@/stores/useFetchRuntimeStore';
 import { useCollectionLayerStore } from '@/stores/useCollectionLayerStore';
 import { useFilterStore } from '@/stores/useFilterStore';
 import { useCollectionsStore } from '@/stores/useCollectionsStore';
@@ -505,7 +507,16 @@ const LayerItemImpl: React.FC<{
   const lock = useCollaborationPresenceStore((state) => state.resourceLocks[lockKey]);
   // Check if locked by another user (only compute when lock exists)
   const isLockedByOther = !!(lock && lock.user_id !== currentUserId && Date.now() <= lock.expires_at);
-  const classesString = getClassesString(layer);
+  const fetchTick = useFetchRuntimeStore((state) => state.tick);
+  const boundLayer = useMemo(
+    () => applyDataBindings(layer, {
+      collectionItemData: layer._collectionItemValues || collectionItemData,
+      pageItemData: pageCollectionItemData ?? undefined,
+      runtime: useFetchRuntimeStore.getState(),
+    }),
+    [layer, collectionItemData, pageCollectionItemData, fetchTick],
+  );
+  const classesString = getClassesString(boundLayer);
   // Collection layer data (from repeaters/loops) - separate from page collection data
   // Use layer's pre-resolved values if present (from SSR), otherwise use prop from parent
   const collectionLayerItemId = layer._collectionItemId || collectionItemId;
@@ -660,7 +671,10 @@ const LayerItemImpl: React.FC<{
 
   // Check if we need to override the tag for rich text with block elements
   // Tags like <p>, <h1>-<h6> cannot contain block elements like <ul>/<ol>
-  const textVariable = layer.variables?.text;
+  const textVariable = useMemo(
+    () => presentFetchText(layer.variables?.text, useFetchRuntimeStore.getState(), isEditMode),
+    [layer.variables?.text, fetchTick, isEditMode],
+  );
   let useSpanForParagraphs = false;
 
   const restrictiveBlockTags = ['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'a', 'button'];

@@ -1,8 +1,8 @@
 'use client';
 
 /**
- * + menu for binding a property. Variables are live. CMS and Fetch use the
- * same source list and stay disabled until those binders are connected.
+ * + menu for binding a property. Variables, CMS, and Fetch share this menu.
+ * A source stays disabled until it has items or a create action.
  */
 
 import React from 'react';
@@ -56,7 +56,7 @@ export default function BindingsPicker({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-52">
-        {sources.filter(source => source.enabled).map(source => {
+        {sources.filter(source => source.enabled && source.kind === 'variable').map(source => {
           const items = source.items ?? [];
           return (
             <React.Fragment key={source.kind}>
@@ -95,6 +95,40 @@ export default function BindingsPicker({
                 </DropdownMenuSub>
               )}
             </React.Fragment>
+          );
+        })}
+        {sources.filter(source => source.enabled && source.kind !== 'variable').map(source => {
+          const items = source.items ?? [];
+          return (
+            <DropdownMenuSub key={source.kind}>
+              <DropdownMenuSubTrigger>{source.label}</DropdownMenuSubTrigger>
+              <DropdownMenuPortal>
+                <DropdownMenuSubContent className="w-56">
+                  {source.onCreate && (
+                    <DropdownMenuItem onClick={source.onCreate}>
+                      {source.kind === 'fetch' ? 'New fetch' : 'Create'}
+                    </DropdownMenuItem>
+                  )}
+                  {items.map(item => (
+                    <DropdownMenuItem
+                      key={item.id}
+                      onClick={() => source.onSelect?.(item.id)}
+                    >
+                      {item.icon && (
+                        <Icon
+                          name={item.icon as IconProps['name']}
+                          className="size-3 opacity-60"
+                        />
+                      )}
+                      <span className="truncate">{item.name}</span>
+                      {linkedId === item.id && (
+                        <Icon name="check" className="ml-auto size-3" />
+                      )}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuSubContent>
+              </DropdownMenuPortal>
+            </DropdownMenuSub>
           );
         })}
         {sources.some(source => !source.enabled) && <DropdownMenuSeparator />}

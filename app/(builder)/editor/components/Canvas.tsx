@@ -28,6 +28,7 @@ import { extractStyleBlockContents } from '@/lib/parse-head-html';
 import { useEditorStore } from '@/stores/useEditorStore';
 import { useFontsStore } from '@/stores/useFontsStore';
 import { useColorVariablesStore } from '@/stores/useColorVariablesStore';
+import { useFetchRuntime } from '@/hooks/use-fetch-runtime';
 import { usePagesStore } from '@/stores/usePagesStore';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 
@@ -170,6 +171,7 @@ function CanvasContent({
 }: CanvasContentProps) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(null);
+  useFetchRuntime(layers, pageCollectionItemData);
 
   // Seed ancestor set with the component being edited so its own rich-text
   // collection data cannot re-embed itself (prevents infinite loops)
