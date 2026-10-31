@@ -464,6 +464,12 @@ export interface Layer {
   // `applyComponentOverrides` and written back to `componentVariantId` before
   // the component tree is expanded.
   componentVariantVariableId?: string;
+  /**
+   * Links a stack property on this layer to a component variable id.
+   * Many layers can share one variable. Resolved from the instance override
+   * or the variable default when the component is rendered.
+   */
+  stackBindings?: Partial<Record<StackVariableKey, string>>;
   componentOverrides?: {
     text?: Record<string, ComponentVariableValue>; // ComponentVariable.id → override value (text)
     rich_text?: Record<string, ComponentVariableValue>; // ComponentVariable.id → override value (rich text)
@@ -473,6 +479,7 @@ export interface Layer {
     video?: Record<string, ComponentVariableValue>; // ComponentVariable.id → override value (video)
     icon?: Record<string, ComponentVariableValue>; // ComponentVariable.id → override value (icon)
     variant?: Record<string, ComponentVariableValue>; // ComponentVariable.id → override value (variant)
+    stack?: Record<string, StackVariableValue>; // ComponentVariable.id → per-breakpoint stack override
     variableLinks?: Record<string, string>; // childVariableId → parentVariableId (pass-through from nested component to parent)
   };
 
@@ -696,17 +703,40 @@ export interface BlockTemplate {
 export interface ComponentVariable {
   id: string;        // Unique variable ID
   name: string;      // Display name (e.g., "Button title")
-  type?: 'text' | 'rich_text' | 'image' | 'link' | 'audio' | 'video' | 'icon' | 'variant'; // Variable type (defaults to 'text' for backwards compatibility)
+  type?: 'text' | 'rich_text' | 'image' | 'link' | 'audio' | 'video' | 'icon' | 'variant' | 'stack'; // Variable type (defaults to 'text' for backwards compatibility)
+  /** Which stack property a `stack` variable controls. */
+  stack_key?: StackVariableKey;
   placeholder?: string; // Placeholder text shown in text override inputs
   default_value?: ComponentVariableValue; // Default value
 }
 
-// A named layer tree variant of a component (e.g. "Default", "Small", "Large").
-// All variants share the same component-level `variables`.
+/**
+ * UI state a component variant represents. Variants are alternate states of
+ * the same component (open, closed, hover, pressed), not responsive layouts.
+ * Breakpoints already override layout per viewport.
+ */
+export type ComponentVariantState = 'default' | 'open' | 'closed' | 'hover' | 'pressed';
+
+/** Stack properties that can be exposed as component variables. */
+export type StackVariableKey = 'direction' | 'gap' | 'padding' | 'distribute' | 'align';
+
+/**
+ * Value for a stack variable. Desktop is the base (`value`). Tablet and phone
+ * store overrides and fall back to the larger breakpoint when unset.
+ */
+export interface StackVariableValue {
+  value: string;
+  breakpoints?: Partial<Record<'tablet' | 'mobile', string>>;
+}
+
+// A named layer tree variant of a component. Use variants for UI states
+// (open/closed, hover, pressed). All variants share component-level variables.
 export interface ComponentVariant {
   id: string;
   name: string;
   layers: Layer[];
+  /** UI state this variant represents. Absent means the resting state. */
+  state?: ComponentVariantState;
 }
 
 // Component Types (Reusable Layer Trees)
@@ -1475,7 +1505,7 @@ export interface VariantSettingsValue {
 }
 
 // Component variable value type (text, image, link, audio, video, icon, and variant variables)
-export type ComponentVariableValue = DynamicTextVariable | DynamicRichTextVariable | ImageSettingsValue | LinkSettingsValue | AudioSettingsValue | VideoSettingsValue | IconSettingsValue | VariantSettingsValue;
+export type ComponentVariableValue = DynamicTextVariable | DynamicRichTextVariable | ImageSettingsValue | LinkSettingsValue | AudioSettingsValue | VideoSettingsValue | IconSettingsValue | VariantSettingsValue | StackVariableValue;
 
 // Pagination Layer Definition (partial Layer for styling pagination controls)
 export interface PaginationLayerConfig {

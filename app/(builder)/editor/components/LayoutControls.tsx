@@ -9,6 +9,7 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/in
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { OverrideReset } from './BreakpointOverride';
+import { StackPropertyLabel } from './BindingsPicker';
 import { useDesignSync } from '@/hooks/use-design-sync';
 import { useControlledInput, useControlledInputs } from '@/hooks/use-controlled-input';
 import { useModeToggle } from '@/hooks/use-mode-toggle';
@@ -22,6 +23,7 @@ import {
   type LayoutMode,
 } from '@/lib/layout-model';
 import { removeSpaces } from '@/lib/utils';
+import { useStackBindings } from '@/hooks/use-stack-bindings';
 import type { Layer } from '@/types';
 
 interface LayoutControlsProps {
@@ -32,6 +34,7 @@ interface LayoutControlsProps {
 const LayoutControls = memo(function LayoutControls({ layer, onLayerUpdate }: LayoutControlsProps) {
   const activeBreakpoint = useEditorStore((s) => s.activeBreakpoint);
   const activeUIState = useEditorStore((s) => s.activeUIState);
+  const { bindingFor, syncValue } = useStackBindings({ layer, onLayerUpdate });
   const { updateDesignProperty, updateDesignProperties, debouncedUpdateDesignProperty, getDesignProperty, getPropertyInheritance } = useDesignSync({
     layer,
     onLayerUpdate,
@@ -185,25 +188,30 @@ const LayoutControls = memo(function LayoutControls({ layer, onLayerUpdate }: La
 
   const handleDirectionChange = (value: 'row' | 'column') => {
     updateDesignProperty('layout', 'flexDirection', value);
+    syncValue('direction', value);
   };
 
   const handlePaddingChange = (value: string) => {
     setPaddingInput(value);
-    const sanitized = removeSpaces(value) || null;
-    debouncedUpdateDesignProperty('spacing', 'paddingTop', sanitized);
-    debouncedUpdateDesignProperty('spacing', 'paddingRight', sanitized);
-    debouncedUpdateDesignProperty('spacing', 'paddingBottom', sanitized);
-    debouncedUpdateDesignProperty('spacing', 'paddingLeft', sanitized);
+    const sanitized = removeSpaces(value);
+    const stored = sanitized || null;
+    debouncedUpdateDesignProperty('spacing', 'paddingTop', stored);
+    debouncedUpdateDesignProperty('spacing', 'paddingRight', stored);
+    debouncedUpdateDesignProperty('spacing', 'paddingBottom', stored);
+    debouncedUpdateDesignProperty('spacing', 'paddingLeft', stored);
+    syncValue('padding', sanitized);
   };
 
   // Handle align items change
   const handleAlignChange = (value: string) => {
     updateDesignProperty('layout', 'alignItems', value);
+    syncValue('align', value);
   };
 
   // Handle justify content change
   const handleJustifyChange = (value: string) => {
     updateDesignProperty('layout', 'justifyContent', value);
+    syncValue('distribute', value);
   };
 
   // Handle wrap mode change
@@ -217,6 +225,7 @@ const LayoutControls = memo(function LayoutControls({ layer, onLayerUpdate }: La
     if (gapModeToggle.mode === 'all') {
       const sanitized = removeSpaces(value);
       debouncedUpdateDesignProperty('layout', 'gap', sanitized || null);
+      syncValue('gap', sanitized);
     }
   };
 
@@ -315,7 +324,7 @@ const LayoutControls = memo(function LayoutControls({ layer, onLayerUpdate }: La
 
           {isStack && (
             <div className="grid grid-cols-3">
-              <Label variant="muted">Direction</Label>
+              <StackPropertyLabel binding={bindingFor('direction')} fallback="Direction" />
               <div className="col-span-2">
                 <Tabs
                   value={stackAxis}
@@ -338,7 +347,9 @@ const LayoutControls = memo(function LayoutControls({ layer, onLayerUpdate }: La
           {(isStack || isGrid) && (
               <>
                   <div className="grid grid-cols-3">
-                      <Label variant="muted">Align</Label>
+                      {isStack
+                        ? <StackPropertyLabel binding={bindingFor('align')} fallback="Align" />
+                        : <Label variant="muted">Align</Label>}
                       <div className="col-span-2">
                           <Tabs
                             value={alignItems || 'start'}
@@ -364,7 +375,9 @@ const LayoutControls = memo(function LayoutControls({ layer, onLayerUpdate }: La
                   </div>
 
                   <div className="grid grid-cols-3">
-                      <Label variant="muted">{isStack ? 'Distribute' : 'Justify'}</Label>
+                      {isStack
+                        ? <StackPropertyLabel binding={bindingFor('distribute')} fallback="Distribute" />
+                        : <Label variant="muted">Justify</Label>}
                       <div className="col-span-2 *:w-full">
                           <Select value={justifyContent} onValueChange={handleJustifyChange}>
                               <SelectTrigger>
@@ -471,7 +484,15 @@ const LayoutControls = memo(function LayoutControls({ layer, onLayerUpdate }: La
 
           {(isStack || isGrid) && (
               <div className="grid grid-cols-3 items-start">
-                  <Label variant="muted" className="h-8">Gap</Label>
+                  {isStack
+                    ? (
+                      <StackPropertyLabel
+                        binding={bindingFor('gap')}
+                        fallback="Gap"
+                        className="h-8"
+                      />
+                    )
+                    : <Label variant="muted" className="h-8">Gap</Label>}
                   <div className="col-span-2 flex flex-col gap-2">
                       <div className="flex items-center gap-2">
                           <InputGroup className="flex-1">
@@ -544,7 +565,11 @@ const LayoutControls = memo(function LayoutControls({ layer, onLayerUpdate }: La
 
           {isStack && (
             <div className="grid grid-cols-3 items-start">
-              <Label variant="muted" className="h-8">Padding</Label>
+              <StackPropertyLabel
+                binding={bindingFor('padding')}
+                fallback="Padding"
+                className="h-8"
+              />
               <div className="col-span-2">
                 <InputGroup>
                   <InputGroupAddon>

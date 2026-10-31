@@ -6,7 +6,47 @@
  * circular import.
  */
 
-import type { Component, Layer } from '@/types';
+import type { Component, ComponentVariant, ComponentVariantState, Layer } from '@/types';
+
+/** Preset variants for UI states. Responsive layout stays on breakpoints. */
+export const COMPONENT_STATE_PRESETS: ReadonlyArray<{
+  state: Exclude<ComponentVariantState, 'default'>;
+  name: string;
+}> = [
+  { state: 'open', name: 'Open' },
+  { state: 'closed', name: 'Closed' },
+  { state: 'hover', name: 'Hover' },
+  { state: 'pressed', name: 'Pressed' },
+];
+
+export function variantHasState(
+  variants: ComponentVariant[] | undefined,
+  state: ComponentVariantState,
+): boolean {
+  return (variants ?? []).some(variant => variant.state === state);
+}
+
+/**
+ * While the pointer is over a resting instance, preview the hover or pressed
+ * variant when one exists. An explicitly chosen state (open, closed, hover,
+ * pressed) stays put so the instance control wins.
+ */
+export function resolvePointerVariantId(
+  component: Component | undefined,
+  selectedVariantId: string | undefined,
+  pointer: 'hover' | 'pressed' | null,
+): string | undefined {
+  if (!component || !pointer) return selectedVariantId;
+  const variants = component.variants ?? [];
+  const selected = (selectedVariantId && variants.find(variant => variant.id === selectedVariantId))
+    || variants[0];
+  // Explicit states and extra custom variants stay selected. Hover and
+  // pressed only stand in for the resting variant.
+  if (selected?.state && selected.state !== 'default') return selectedVariantId;
+  if (selected && !selected.state && variants[0]?.id !== selected.id) return selectedVariantId;
+  const match = variants.find(variant => variant.state === pointer);
+  return match?.id ?? selectedVariantId;
+}
 
 /**
  * Resolve the layer tree for a specific variant of a component.

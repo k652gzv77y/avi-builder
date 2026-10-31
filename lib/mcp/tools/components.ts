@@ -1206,6 +1206,23 @@ function unlinkVariableFromLayers(layers: Layer[], variableId: string): Layer[] 
       next = rest as Layer;
     }
 
+    if (next.stackBindings) {
+      const bindings = { ...next.stackBindings };
+      let removed = false;
+      for (const key of Object.keys(bindings) as (keyof typeof bindings)[]) {
+        if (bindings[key] === variableId) {
+          delete bindings[key];
+          removed = true;
+        }
+      }
+      if (removed) {
+        next = {
+          ...next,
+          stackBindings: Object.keys(bindings).length > 0 ? bindings : undefined,
+        };
+      }
+    }
+
     if (next.children && next.children.length > 0) {
       next = { ...next, children: unlinkVariableFromLayers(next.children, variableId) };
     }

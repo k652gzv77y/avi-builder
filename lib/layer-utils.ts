@@ -8,6 +8,7 @@ import { generateId } from '@/lib/utils';
 import { resolveInlineVariablesFromData } from '@/lib/inline-variables';
 import { DEFAULT_TEXT_STYLES } from '@/lib/text-format-utils';
 import { getCmsFieldBinding } from '@/lib/tiptap-utils';
+import { applyStackBindings } from '@/lib/component-bindings';
 import { applyComponentOverrides } from '@/lib/resolve-components';
 import { getComponentVariantLayers } from '@/lib/component-variant-utils';
 import { resolveFieldFromSources } from '@/lib/cms-variables-utils';
@@ -2664,7 +2665,7 @@ function resolveComponentsInLayers(
         // _originalLayerId is the component's root template ID — translations on the
         // root wrapper itself are stored under that ID, while the runtime ID is the
         // page-instance ID.
-        const resolved = {
+        const resolved = applyStackBindings({
           ...layer,
           ...componentContent, // Merge the component's properties (classes, design, etc.)
           id: layer.id, // Keep the instance's ID
@@ -2674,7 +2675,7 @@ function resolveComponentsInLayers(
           children: taggedChildren,
           _masterComponentId: component.id,
           _originalLayerId: componentContent.id,
-        };
+        }, layer.componentOverrides, component.variables);
 
         return resolved;
       }

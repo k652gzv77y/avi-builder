@@ -17,7 +17,8 @@ import {
 import { detachStyleFromLayers, updateLayersWithStyle } from '@/lib/layer-style-utils';
 import { scheduleIdle } from '@/lib/schedule-idle';
 import { generateId } from '@/lib/utils';
-import type { Component, ComponentVariant, Layer, LayerStyle } from '@/types';
+import { applyStackValueToBoundLayers, uniqueName } from '@/lib/component-bindings';
+import type { Component, ComponentVariant, ComponentVariantState, Layer, LayerStyle, StackVariableKey, StackVariableValue } from '@/types';
 
 /**
  * Per-component, per-variant working copy of layers used while editing a
@@ -39,6 +40,9 @@ function buildVariantsFromDrafts(
     : [{ id: generateId('cmpvar'), name: 'Default', layers: component.layers ?? [] }];
   return variants.map(v => ({ ...v, layers: drafts?.[v.id] ?? v.layers }));
 }
+
+/** Latest in-flight variable write per component+variable, so a slow response cannot clobber a newer edit. */
+const variableSaveVersion = new Map<string, number>();
 
 /** Pick the first variant id of a component, used as the safe default. */
 function getPrimaryVariantId(component: Component | undefined): string | null {
@@ -180,7 +184,11 @@ interface ComponentsActions {
   getComponentDraftLayers: (componentId: string, variantId?: string | null) => Layer[];
 
   // Variant management
-  addVariant: (componentId: string, fromVariantId?: string | null) => Promise<string | null>;
+  addVariant: (
+    componentId: string,
+    fromVariantId?: string | null,
+    options?: { name?: string; state?: ComponentVariantState },
+  ) => Promise<string | null>;
   renameVariant: (componentId: string, variantId: string, name: string) => Promise<void>;
   duplicateVariant: (componentId: string, variantId: string) => Promise<string | null>;
   deleteVariant: (componentId: string, variantId: string) => Promise<void>;
@@ -206,6 +214,13 @@ interface ComponentsActions {
    *  variable that drives the `componentVariantId` of any nested-instance layer
    *  whose `componentVariantVariableId` points at it. */
   addVariantVariable: (componentId: string, name: string) => Promise<string | null>;
+  /** Expose a stack property (direction, gap, padding, distribute, align) as a variable. */
+  addStackVariable: (
+    componentId: string,
+    name: string,
+    stackKey: StackVariableKey,
+    defaultValue: StackVariableValue,
+  ) => Promise<string | null>;
   updateTextVariable: (componentId: string, variableId: string, updates: { name?: string; placeholder?: string; default_value?: any }) => Promise<void>;
   reorderVariables: (componentId: string, orderedIds: string[]) => Promise<void>;
   deleteTextVariable: (componentId: string, variableId: string) => Promise<void>;
@@ -1236,14 +1251,20 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
       }
     },
 
-    // Update a text variable's name and/or default value
-    updateTextVariable: async (componentId, variableId, updates) => {
+    addStackVariable: async (componentId, name, stackKey, defaultValue) => {
       const component = get().getComponentById(componentId);
-      if (!component) return;
+      if (!component) return null;
 
-      const updatedVariables = (component.variables || []).map((v) =>
-        v.id === variableId ? { ...v, ...updates } : v
-      );
+      const variableId = generateId('cpv');
+      const unique = uniqueName((component.variables || []).map(variable => variable.name), name);
+      const newVariable = {
+        id: variableId,
+        name: unique,
+        type: 'stack' as const,
+        stack_key: stackKey,
+        default_value: defaultValue,
+      };
+      const updatedVariables = [...(component.variables || []), newVariable];
 
       try {
         const response = await fetch(projectsPath(`/api/components/${componentId}`), {
@@ -1254,8 +1275,8 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
 
         const result = await response.json();
         if (result.error) {
-          console.error('Failed to update text variable:', result.error);
-          return;
+          console.error('Failed to add stack variable:', result.error);
+          return null;
         }
 
         set((state) => ({
@@ -1263,8 +1284,58 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
             c.id === componentId ? { ...c, variables: updatedVariables } : c
           ),
         }));
+
+        return variableId;
+      } catch (error) {
+        console.error('Failed to add stack variable:', error);
+        return null;
+      }
+    },
+
+    // Update a text variable's name and/or default value
+    updateTextVariable: async (componentId, variableId, updates) => {
+      const component = get().getComponentById(componentId);
+      if (!component) return;
+
+      const previous = component.variables || [];
+      const updatedVariables = previous.map((v) =>
+        v.id === variableId ? { ...v, ...updates } : v
+      );
+      const saveKey = `${componentId}:${variableId}`;
+      const version = (variableSaveVersion.get(saveKey) ?? 0) + 1;
+      variableSaveVersion.set(saveKey, version);
+
+      set((state) => ({
+        components: state.components.map((c) =>
+          c.id === componentId ? { ...c, variables: updatedVariables } : c
+        ),
+      }));
+
+      try {
+        const response = await fetch(projectsPath(`/api/components/${componentId}`), {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ variables: updatedVariables }),
+        });
+
+        const result = await response.json();
+        if (variableSaveVersion.get(saveKey) !== version) return;
+        if (result.error) {
+          console.error('Failed to update text variable:', result.error);
+          set((state) => ({
+            components: state.components.map((c) =>
+              c.id === componentId ? { ...c, variables: previous } : c
+            ),
+          }));
+        }
       } catch (error) {
         console.error('Failed to update text variable:', error);
+        if (variableSaveVersion.get(saveKey) !== version) return;
+        set((state) => ({
+          components: state.components.map((c) =>
+            c.id === componentId ? { ...c, variables: previous } : c
+          ),
+        }));
       }
     },
 
@@ -1342,6 +1413,20 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
           if (updatedLayer.componentVariantVariableId === variableId) {
             const { componentVariantVariableId: _, ...rest } = updatedLayer;
             updatedLayer = rest;
+          }
+
+          if (updatedLayer.stackBindings) {
+            const bindings = { ...updatedLayer.stackBindings };
+            let removed = false;
+            for (const key of Object.keys(bindings) as (keyof typeof bindings)[]) {
+              if (bindings[key] === variableId) {
+                delete bindings[key];
+                removed = true;
+              }
+            }
+            if (removed) {
+              updatedLayer.stackBindings = Object.keys(bindings).length > 0 ? bindings : undefined;
+            }
           }
 
           updatedLayer = removeVariableLinksPointingTo(updatedLayer, variableId);
@@ -1478,13 +1563,19 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
      * appended to the working draft so the editor can switch to it
      * immediately. Returns the new variant id.
      */
-    addVariant: async (componentId, fromVariantId) => {
+    addVariant: async (componentId, fromVariantId, options) => {
       const component = get().getComponentById(componentId);
       if (!component) return null;
 
       const baseline: ComponentVariant[] = component.variants && component.variants.length > 0
         ? component.variants
         : [{ id: generateId('cmpvar'), name: 'Default', layers: component.layers ?? [] }];
+
+      // One variant per UI state. Re-adding Hover returns the existing one.
+      if (options?.state && options.state !== 'default') {
+        const existing = baseline.find(variant => variant.state === options.state);
+        if (existing) return existing.id;
+      }
 
       // Pick the variant to clone (caller-specified, otherwise the first).
       const fromVariant = (fromVariantId && baseline.find(v => v.id === fromVariantId)) || baseline[0];
@@ -1495,19 +1586,23 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
         regenerateIdsWithInteractionRemapping(JSON.parse(JSON.stringify(layer)))
       );
 
-      // Pick a unique "Variant N" name based on existing variants.
-      const existingNames = new Set(baseline.map(v => v.name));
-      let suffix = baseline.length + 1;
-      let proposedName = `Variant ${suffix}`;
-      while (existingNames.has(proposedName)) {
-        suffix += 1;
-        proposedName = `Variant ${suffix}`;
+      const existingNames = baseline.map(variant => variant.name);
+      let proposedName = options?.name
+        ? uniqueName(existingNames, options.name)
+        : `Variant ${baseline.length + 1}`;
+      if (!options?.name) {
+        let suffix = baseline.length + 1;
+        while (existingNames.includes(proposedName)) {
+          suffix += 1;
+          proposedName = `Variant ${suffix}`;
+        }
       }
 
       const newVariant: ComponentVariant = {
         id: generateId('cmpvar'),
         name: proposedName,
         layers: clonedLayers,
+        ...(options?.state ? { state: options.state } : {}),
       };
 
       const updatedVariants = [...baseline, newVariant];

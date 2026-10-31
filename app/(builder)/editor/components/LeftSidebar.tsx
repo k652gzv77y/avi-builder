@@ -390,8 +390,12 @@ const LeftSidebar = React.memo(function LeftSidebar({
                     const firstLayerId = layersForVariant[0]?.id ?? null;
                     onLayerSelect(firstLayerId);
                   }}
-                  onAddVariant={async () => {
-                    const newId = await addVariant(editingComponentId, activeComponentVariantId);
+                  onAddVariant={async (preset) => {
+                    const newId = await addVariant(
+                      editingComponentId,
+                      activeComponentVariantId,
+                      preset,
+                    );
                     if (newId) setEditingComponentVariantId(newId);
                   }}
                   onRenameVariant={(variantId, name) => renameVariant(editingComponentId, variantId, name)}
