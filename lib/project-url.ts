@@ -71,6 +71,32 @@ export function projectsPath(
   return `/projects/${slug}${path}`;
 }
 
+/**
+ * Absolute `/projects/:slug` path for API fetches.
+ *
+ * Returns null when no slug can be resolved. `projectsPath` falls back to
+ * `/projects` + suffix, which turns `/api/supabase/config` into
+ * `/projects/api/supabase/config` and drops the project. A page at
+ * `/projects/:slug` with no trailing slash must still keep the slug — this
+ * concatenates the path, it does not resolve a relative URL.
+ *
+ * Pass `pathname` to read the slug only from that path (no remembered
+ * fallback). Omit it to use the browser URL, then the remembered slug.
+ */
+export function projectScopedPath(
+  suffix = '',
+  pathname?: string | null,
+): string | null {
+  const slug = pathname
+    ? getProjectSlugFromPath(pathname)
+    : getCurrentProjectSlug();
+
+  if (!slug) return null;
+  if (!suffix) return `/projects/${slug}`;
+  const path = suffix.startsWith('/') ? suffix : `/${suffix}`;
+  return `/projects/${slug}${path}`;
+}
+
 /** Safe variant for non-critical UI that can fall back when outside a project. */
 export function projectsPathOr(suffix: string, fallbackSlug: string, pathname?: string | null): string {
   try {

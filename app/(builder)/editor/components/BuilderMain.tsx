@@ -1,5 +1,5 @@
 'use client';
-import { projectsPath } from '@/lib/project-url';
+import { projectScopedPath, projectsPath } from '@/lib/project-url';
 
 /**
  * Avi Builder Main Component
@@ -513,8 +513,12 @@ export default function BuilderApp({ children }: BuilderAppProps = {} as Builder
 
   useEffect(() => {
     const checkSupabaseConfig = async () => {
+      const statusUrl = projectScopedPath('/api/setup/status');
+      // Missing slug would request /projects/api/setup/status and 404.
+      if (!statusUrl) return;
+
       try {
-        const response = await fetch(projectsPath('/api/setup/status'));
+        const response = await fetch(statusUrl);
         const data = await response.json();
 
         if (!data.is_configured) {

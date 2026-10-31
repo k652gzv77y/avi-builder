@@ -21,6 +21,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { AUTH_ERROR_PARAM } from '@/lib/auth-flow';
+import { rememberProjectSlug } from '@/lib/project-url';
 import { useAuthStore } from '@/stores/useAuthStore';
 
 const PROJECT_SLUG = 'kolbo-school';
@@ -66,6 +67,12 @@ export default function ProjectsPage() {
   const user = useAuthStore((state) => state.user);
   const [projectName, setProjectName] = useState('Kolbo School');
   const [query, setQuery] = useState('');
+
+  // The index lives at /projects, which has no slug. Auth fetches
+  // /projects/:slug/api/supabase/config — remember the slug before
+  // initialize() or that request 404s and is cached across the redirect
+  // to the sign-in page.
+  rememberProjectSlug(PROJECT_SLUG);
 
   useEffect(() => {
     initialize();
