@@ -10,6 +10,7 @@ import PageRenderer from '@/components/PageRenderer';
 import PasswordForm from '@/components/PasswordForm';
 import { getSettingByKey } from '@/lib/repositories/settingsRepository';
 import { parseAuthCookie, getPasswordProtection, fetchFoldersForAuth } from '@/lib/page-auth';
+import { enforceSessionGate } from '@/lib/route-protection';
 import { getSiteBaseUrl } from '@/lib/url-utils';
 import { getOffCanonicalDynamicRedirect } from '@/lib/hreflang-utils';
 import { matchRedirect } from '@/lib/redirect-utils';
@@ -369,6 +370,8 @@ export default async function Page({ params }: PageProps) {
       );
     }
   }
+
+  await enforceSessionGate(page, currentPath);
 
   return (
     <PageRenderer

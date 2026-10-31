@@ -45,6 +45,8 @@ import ImageSettings, { type ImageSettingsValue } from './ImageSettings';
 import VideoSettings, { type VideoSettingsValue } from './VideoSettings';
 import AudioSettings, { type AudioSettingsValue } from './AudioSettings';
 import IconSettings, { type IconSettingsValue } from './IconSettings';
+import CodeComponentSettings from './CodeComponentSettings';
+import CodeOverrideSettings from './CodeOverrideSettings';
 import FormSettings from './FormSettings';
 import FilterSettings from './FilterSettings';
 import AlertSettings from './AlertSettings';
@@ -3188,6 +3190,16 @@ const RightSidebar = React.memo(function RightSidebar({
             />
 
             <HTMLEmbedSettings
+              layer={selectedLayer}
+              onLayerUpdate={handleLayerUpdate}
+            />
+
+            <CodeComponentSettings
+              layer={selectedLayer}
+              onLayerUpdate={handleLayerUpdate}
+            />
+
+            <CodeOverrideSettings
               layer={selectedLayer}
               onLayerUpdate={handleLayerUpdate}
             />

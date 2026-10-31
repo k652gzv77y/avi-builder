@@ -5,6 +5,7 @@ import PageRenderer from '@/components/PageRenderer';
 import PasswordForm from '@/components/PasswordForm';
 import { fetchGlobalPageSettings } from '@/lib/generate-page-metadata';
 import { parseAuthCookie, getPasswordProtection, fetchFoldersForAuth } from '@/lib/page-auth';
+import { enforceSessionGate } from '@/lib/route-protection';
 import { getSettingByKey } from '@/lib/repositories/settingsRepository';
 import { generateColorVariablesCss } from '@/lib/repositories/colorVariableRepository';
 
@@ -117,6 +118,8 @@ export default async function DynamicHome({ searchParams }: DynamicHomeProps) {
   }
 
   const globalSettings = await fetchGlobalPageSettings();
+
+  await enforceSessionGate(data.page, '/');
 
   return (
     <PageRenderer

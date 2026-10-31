@@ -174,7 +174,53 @@ export interface DesignProperties {
   transitions?: TransitionsDesign;
 }
 
-export type FormType = 'standard' | 'password_protected';
+export type FormType = 'standard' | 'password_protected' | 'supabase_sign_in';
+
+/**
+ * Property controls for a code component. The set follows the same jobs as
+ * common visual-builder controls (text, number, boolean, color, image, enum,
+ * link) without copying another product's control API.
+ */
+export type PropertyControlType = 'string' | 'number' | 'boolean' | 'color' | 'image' | 'enum' | 'link';
+
+export interface PropertyControl {
+  id: string;
+  name: string;
+  type: PropertyControlType;
+  defaultValue?: string | number | boolean;
+  /** Enum choices. Each entry is both the stored value and the label. */
+  options?: string[];
+  placeholder?: string;
+  min?: number;
+  max?: number;
+}
+
+/** Canvas instance values plus the master source stored on the component. */
+export interface CodeComponentSettings {
+  source?: string;
+  controls?: PropertyControl[];
+  componentId?: string;
+  values?: Record<string, string | number | boolean>;
+}
+
+/**
+ * Light code override. Interactions own events and actions. Effects own
+ * opacity, shadow, and blur. An override may only add a class or a
+ * data-/aria- attribute.
+ */
+export interface CodeOverrideSettings {
+  className?: string;
+  attributes?: Record<string, string>;
+}
+
+/** Form → collection insert/update. Input names match field keys. */
+export interface CollectionWriteSettings {
+  enabled: boolean;
+  collection_id: string;
+  mode: 'insert' | 'update';
+  /** Field whose value must match the form input with that field's key. */
+  match_field_id?: string;
+}
 
 export type PasswordProtectionContext = {
   pageId?: string;
@@ -196,6 +242,8 @@ export interface FormSettings {
     to: string; // Email address to send notifications to
     subject?: string; // Email subject line
   };
+  /** Native collection insert/update. Requires a signed-in Supabase user so RLS applies. */
+  collection_write?: CollectionWriteSettings;
 }
 
 export type SwiperAnimationEffect = 'slide' | 'fade' | 'cube' | 'flip' | 'coverflow' | 'cards';
@@ -262,6 +310,8 @@ export interface LayerSettings {
   htmlEmbed?: {
     code?: string; // Custom HTML code to embed
   };
+  codeComponent?: CodeComponentSettings;
+  codeOverride?: CodeOverrideSettings;
   slider?: SliderSettings; // Slider-specific settings (only for slider layers)
   lightbox?: LightboxSettings; // Lightbox-specific settings (only for lightbox layers)
   form?: FormSettings; // Form-specific settings (only for form layers)
@@ -879,6 +929,10 @@ export interface PageSettings {
   auth?: {
     enabled: boolean;
     password: string;
+    /** Published route requires a Supabase session. Password protection is separate. */
+    requireSession?: boolean;
+    /** Sign-in page path. Defaults to /sign-in. */
+    signInPath?: string;
   };
   seo?: {
     image: StringAssetId | FieldVariable | null; // Asset ID or Field Variable (image field)
