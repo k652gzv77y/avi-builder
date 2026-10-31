@@ -5,14 +5,27 @@
  * Derive the slug from the current path — never hardcode a project name.
  */
 
-const RESERVED_PROJECT_SLUGS = new Set(['oauth', 'auth']);
+export const RESERVED_PROJECT_SLUGS = new Set(['oauth', 'auth', 'workspace']);
 const PROJECTS_FALLBACK = '/projects';
+
+export function isReservedProjectSlug(slug: string | null | undefined): boolean {
+  return !!slug && RESERVED_PROJECT_SLUGS.has(slug);
+}
 
 /** Set by proxy.ts on rewritten /projects/:slug requests so server routes can resolve the slug. */
 export const PROJECT_SLUG_HEADER = 'x-avi-project-slug';
 
 export function getProjectSlugFromPath(pathname: string | null | undefined): string | null {
-  const match = pathname?.match(/^\/projects\/([^/]+)/);
+  if (!pathname) return null;
+  let path = pathname;
+  if (path.startsWith('http://') || path.startsWith('https://')) {
+    try {
+      path = new URL(path).pathname;
+    } catch {
+      return null;
+    }
+  }
+  const match = path.match(/^\/projects\/([^/]+)/);
   if (!match) return null;
   if (RESERVED_PROJECT_SLUGS.has(match[1])) return null;
   return match[1];
@@ -21,6 +34,21 @@ export function getProjectSlugFromPath(pathname: string | null | undefined): str
 export function getProjectSlugFromHeaders(headers: Headers | null | undefined): string | null {
   const value = headers?.get(PROJECT_SLUG_HEADER);
   return value && !RESERVED_PROJECT_SLUGS.has(value) ? value : null;
+}
+
+/**
+ * Resolve a project slug from the proxy header, an explicit query value,
+ * or the page that issued the request. Never treats the workspace
+ * control-plane path as a project.
+ */
+export function resolveProjectSlug(input: {
+  headerSlug?: string | null;
+  querySlug?: string | null;
+  referer?: string | null;
+}): string | null {
+  if (input.querySlug && !isReservedProjectSlug(input.querySlug)) return input.querySlug;
+  if (input.headerSlug && !isReservedProjectSlug(input.headerSlug)) return input.headerSlug;
+  return getProjectSlugFromPath(input.referer);
 }
 
 /** Last known slug for this isolate (SSR header or client URL). */

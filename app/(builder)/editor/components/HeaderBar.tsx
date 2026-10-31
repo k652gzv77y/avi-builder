@@ -36,6 +36,7 @@ import { Label } from '@/components/ui/label';
 import Icon from '@/components/ui/icon';
 import { Separator } from '@/components/ui/separator';
 import { BackupRestoreDialog } from '@/components/project/BackupRestoreDialog';
+import BranchMenu from '@/components/workspace/branch-menu';
 import { isCloudVersion } from '@/lib/utils';
 import { useRole } from '@/hooks/use-role';
 import AviBuilderMark from '@/components/branding/AviBuilderMark';
@@ -441,6 +442,7 @@ export default function HeaderBar({
         <div className="flex items-center justify-end w-16 text-xs text-zinc-500 dark:text-white/50">
           {isSaving ? <span>Saving</span> : hasUnsavedChanges ? <span>Unsaved</span> : lastSaved ? <span>Saved</span> : <span>Ready</span>}
         </div>
+        <BranchMenu />
         <Button
           size="sm"
           variant="secondary"

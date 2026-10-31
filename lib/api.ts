@@ -232,6 +232,7 @@ export const publishApi = {
     layerStyleIds?: string[];
     publishLocales?: boolean;
     publishAll?: boolean;
+    branch?: string;
   } = {}): Promise<ApiResponse<{
     changes: {
       folders: number;
