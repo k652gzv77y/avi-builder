@@ -7,6 +7,7 @@
 import type { Layer, Component, ComponentVariable, ComponentVariableValue, LayerVariables, VariantSettingsValue } from '@/types';
 import { applyStackBindings } from '@/lib/component-bindings';
 import { getComponentVariantLayers } from './component-variant-utils';
+import { mergeLayerInteractions, remapComponentRootInteraction, remapInteractionTargets } from '@/lib/interactions-framer';
 import { normalizeComponentVariableValue } from './variable-utils';
 
 /**
@@ -256,12 +257,8 @@ export function transformLayerIdsForInstance(
     // Interaction IDs must be unique per instance to prevent timeline caching issues
     if (layer.interactions && layer.interactions.length > 0) {
       transformedLayer.interactions = layer.interactions.map(interaction => ({
-        ...interaction,
+        ...remapInteractionTargets(interaction, (id) => idMap.get(id) || id),
         id: `${instanceLayerId}-${interaction.id}`,
-        tweens: interaction.tweens.map(tween => ({
-          ...tween,
-          layer_id: idMap.get(tween.layer_id) || tween.layer_id,
-        })),
       }));
     }
 
@@ -681,16 +678,9 @@ export function resolveComponents(
         // Without this, tween.layer_id still points to original IDs that no longer exist in the DOM
         let resolvedInteractions = overriddenRoot.interactions;
         if (resolvedInteractions?.length) {
-          resolvedInteractions = resolvedInteractions.map(interaction => ({
-            ...interaction,
-            id: `${layer.id}-${interaction.id}`,
-            tweens: interaction.tweens.map(tween => ({
-              ...tween,
-              layer_id: tween.layer_id === componentContent.id
-                ? layer.id
-                : `${layer.id}-${tween.layer_id}`,
-            })),
-          }));
+          resolvedInteractions = resolvedInteractions.map(interaction => (
+            remapComponentRootInteraction(interaction, layer.id, componentContent.id)
+          ));
         }
 
         // Merge component content with instance layer, keeping instance ID
@@ -706,7 +696,7 @@ export function resolveComponents(
           _masterComponentId: component.id,
           _originalLayerId: componentContent.id,
           children: resolvedChildren,
-          interactions: resolvedInteractions,
+          interactions: mergeLayerInteractions(resolvedInteractions, layer.interactions),
         };
       }
 

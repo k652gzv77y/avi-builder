@@ -324,11 +324,70 @@ export interface LayerStyle {
   deleted_at?: string | null; // Soft delete for undo/redo support
 }
 
+/** Where an overlay sits when an interaction opens it. */
+export type OverlayPlacement = 'fixed' | 'relative';
+
+/**
+ * How an open overlay goes away.
+ * Escape and an outside click dismiss it. Focus returns to the trigger when
+ * `restoreFocus` is set, and the overlay itself takes focus while open.
+ */
+export interface OverlayDismiss {
+  escape: boolean;
+  outside: boolean;
+  restoreFocus: boolean;
+}
+
+/** Appear animation presets. The matching tween is what GSAP plays. */
+export type AppearPresetId = 'fade' | 'slide-up' | 'slide-down' | 'scale';
+
+/**
+ * One action on an interaction event.
+ * Tweens remain the animation track. These actions are the event grammar:
+ * set a component variant, open or close an overlay, navigate, or
+ * change variant as the layer scrolls.
+ */
+export type InteractionAction =
+  | {
+      id: string;
+      type: 'set-variant';
+      targetLayerId: string;
+      variantId: string;
+    }
+  | {
+      id: string;
+      type: 'overlay';
+      operation: 'open' | 'close';
+      targetLayerId: string;
+      placement: OverlayPlacement;
+      dismiss: OverlayDismiss;
+    }
+  | {
+      id: string;
+      type: 'navigate';
+      destination: 'page' | 'url';
+      pageId?: string;
+      /** Public path or URL, stored when the author picks a page or types a URL. */
+      href?: string;
+      openInNewTab?: boolean;
+    }
+  | {
+      id: string;
+      type: 'scroll-variant';
+      targetLayerId: string;
+      /** Scroll progress 0–1 at which this variant becomes active. */
+      stops: Array<{ at: number; variantId: string }>;
+    };
+
 export interface LayerInteraction {
   id: string;
   trigger: 'click' | 'hover' | 'scroll-into-view' | 'while-scrolling' | 'load';
   timeline: InteractionTimeline;
   tweens: InteractionTween[];
+  /** Event actions. Kept beside tweens so existing animations stay intact. */
+  actions?: InteractionAction[];
+  /** Appear preset last applied to this event. Absent when the tween is custom. */
+  appearPreset?: AppearPresetId;
 }
 
 export interface InteractionTimeline {

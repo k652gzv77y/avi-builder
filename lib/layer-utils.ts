@@ -11,6 +11,7 @@ import { getCmsFieldBinding } from '@/lib/tiptap-utils';
 import { applyStackBindings } from '@/lib/component-bindings';
 import { applyComponentOverrides } from '@/lib/resolve-components';
 import { getComponentVariantLayers } from '@/lib/component-variant-utils';
+import { mergeLayerInteractions, remapActionTarget, remapInteractionTargets } from '@/lib/interactions-framer';
 import { resolveFieldFromSources } from '@/lib/cms-variables-utils';
 import { compareDateFilter, isDateFieldType, isDatePreset, parseItemIdList, resolveDateFilterValue } from '@/lib/collection-field-utils';
 import { parseMultiReferenceValue, normalizeBooleanValue } from '@/lib/collection-utils';
@@ -1953,15 +1954,21 @@ export function regenerateInteractionIds(
 ): Layer['interactions'] {
   if (!interactions || interactions.length === 0) return interactions;
 
+  const mapId = (id: string) => (
+    layerIdMap?.has(id) ? layerIdMap.get(id)! : id
+  );
+
   return interactions.map(interaction => ({
     ...interaction,
     id: generateId('int'), // Regenerate interaction ID
     tweens: interaction.tweens.map(tween => ({
       ...tween,
       id: generateId('twn'), // Regenerate tween ID
-      layer_id: layerIdMap?.has(tween.layer_id)
-        ? layerIdMap.get(tween.layer_id)!
-        : tween.layer_id, // Keep external layer references unchanged
+      layer_id: mapId(tween.layer_id), // Keep external layer references unchanged
+    })),
+    actions: interaction.actions?.map(action => ({
+      ...remapActionTarget(action, mapId),
+      id: generateId('act'),
     })),
   }));
 }
@@ -2477,13 +2484,10 @@ function remapInteractionLayerIds(
 ): Layer['interactions'] {
   if (!interactions) return interactions;
 
-  return interactions.map(interaction => ({
-    ...interaction,
-    tweens: interaction.tweens.map(tween => ({
-      ...tween,
-      layer_id: idMap.get(tween.layer_id) || tween.layer_id,
-    })),
-  }));
+  return interactions.map(interaction => remapInteractionTargets(
+    interaction,
+    (id) => idMap.get(id) || id,
+  ));
 }
 
 /**
@@ -2546,12 +2550,8 @@ function transformLayersForInstance(
     // Remap interaction IDs and tween layer_id references
     if (layer.interactions && layer.interactions.length > 0) {
       transformedLayer.interactions = layer.interactions.map(interaction => ({
-        ...interaction,
+        ...remapInteractionTargets(interaction, (id) => idMap.get(id) || id),
         id: `${instanceLayerId}_${interaction.id}`,
-        tweens: interaction.tweens.map(tween => ({
-          ...tween,
-          layer_id: idMap.get(tween.layer_id) || tween.layer_id,
-        })),
       }));
     }
 
@@ -2671,7 +2671,7 @@ function resolveComponentsInLayers(
           id: layer.id, // Keep the instance's ID
           componentId: layer.componentId, // Keep the original componentId for selection
           componentOverrides: layer.componentOverrides, // Keep instance overrides
-          interactions: remappedInteractions, // Use remapped interactions
+          interactions: mergeLayerInteractions(remappedInteractions, layer.interactions),
           children: taggedChildren,
           _masterComponentId: component.id,
           _originalLayerId: componentContent.id,

@@ -3342,7 +3342,11 @@ const RightSidebar = React.memo(function RightSidebar({
           </div>
         </TabsContent>
 
-        <TabsContent value="interactions" className="flex-1 overflow-y-auto no-scrollbar mt-0 data-[state=inactive]:hidden">
+        <TabsContent
+          value="interactions"
+          data-panel="interactions"
+          className="flex-1 overflow-y-auto no-scrollbar mt-0 data-[state=inactive]:hidden"
+        >
           {interactionOwnerLayer ? (
             <InteractionsPanel
               triggerLayer={interactionOwnerLayer}
