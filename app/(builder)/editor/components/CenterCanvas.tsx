@@ -61,7 +61,7 @@ import AiActivityOverlay from '@/components/AiActivityOverlay';
 import SelectionOverlay from '@/components/SelectionOverlay';
 import RichTextLinkPopover from './RichTextLinkPopover';
 import PageSelector from './PageSelector';
-import CollectionItemSelector from './CollectionItemSelector';
+import DetailItemPreview from './detail-item-preview';
 import RichTextEditorSheet from './RichTextEditorSheet';
 
 // 6. Utils
@@ -649,7 +649,6 @@ const CenterCanvas = React.memo(function CenterCanvas({
   const setCurrentPageId = useEditorStore((state) => state.setCurrentPageId);
   const returnToPageId = useEditorStore((state) => state.returnToPageId);
   const currentPageCollectionItemId = useEditorStore((state) => state.currentPageCollectionItemId);
-  const setCurrentPageCollectionItemId = useEditorStore((state) => state.setCurrentPageCollectionItemId);
   const setHoveredLayerId = useEditorStore((state) => state.setHoveredLayerId);
   const isPreviewMode = useEditorStore((state) => state.isPreviewMode);
   const aiBuildingPageId = useEditorStore((state) => state.aiBuildingPageId);
@@ -2257,13 +2256,8 @@ const CenterCanvas = React.memo(function CenterCanvas({
               popoverClassName="min-w-60"
             />
 
-            {/* Collection item selector for dynamic pages */}
             {currentPage?.is_dynamic && collectionId && (
-              <CollectionItemSelector
-                collectionId={collectionId}
-                value={currentPageCollectionItemId}
-                onValueChange={setCurrentPageCollectionItemId}
-              />
+              <DetailItemPreview collectionId={collectionId} />
             )}
           </div>
         )}
