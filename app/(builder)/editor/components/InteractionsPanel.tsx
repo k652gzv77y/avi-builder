@@ -46,6 +46,7 @@ import { Empty, EmptyDescription } from '@/components/ui/empty';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Slider } from '@/components/ui/slider';
 import { Separator } from '@/components/ui/separator';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 // 4. Internal components
 import ColorPicker from './ColorPicker';
@@ -80,10 +81,11 @@ import {
   buildFilterString,
 } from '@/lib/animation-utils';
 import type { TriggerType, PropertyType, ParsedAnimationValue } from '@/lib/animation-utils';
-import { interactionSummary, withAppearPreset } from '@/lib/interactions-framer';
+import { interactionSummary, withAppearPreset, withScrollPreset } from '@/lib/interactions-framer';
+import { applyInteractionChange } from '@/lib/overlay-setup';
 
 // 4. Types
-import type { ApplyStyles, Layer, LayerInteraction, InteractionTimeline, InteractionTween, TweenProperties, Breakpoint } from '@/types';
+import type { ApplyStyles, Layer, LayerInteraction, InteractionTimeline, InteractionTween, TweenProperties, Breakpoint, OverlayPlacement } from '@/types';
 import { BREAKPOINTS, BREAKPOINT_VALUES } from '@/lib/breakpoint-utils';
 import { useColorVariablesStore } from '@/stores/useColorVariablesStore';
 import { Badge } from '@/components/ui/badge';
@@ -100,6 +102,9 @@ interface InteractionsPanelProps {
     shouldRefresh?: boolean;
   }) => void;
   onSelectLayer?: (layerId: string) => void; // Callback to select a layer in the editor
+  /** Replace the layer tree after an action edit so overlay dismiss stays in sync. */
+  onLayersChange?: (layers: Layer[]) => void;
+  onCreateOverlay?: (placement: OverlayPlacement) => void;
 }
 
 // Sortable animation item component
@@ -212,6 +217,8 @@ export default function InteractionsPanel({
   activeBreakpoint = 'desktop',
   onStateChange,
   onSelectLayer,
+  onLayersChange,
+  onCreateOverlay,
 }: InteractionsPanelProps) {
   const [selectedInteractionId, setSelectedInteractionId] = useState<string | null>(null);
   const [selectedTweenId, setSelectedTweenId] = useState<string | null>(null);
@@ -896,6 +903,9 @@ export default function InteractionsPanel({
       if (trigger === 'scroll-into-view' || trigger === 'load') {
         newInteraction = withAppearPreset(newInteraction, triggerLayer.id, 'fade', generateId('anm'));
       }
+      if (trigger === 'while-scrolling') {
+        newInteraction = withScrollPreset(newInteraction, triggerLayer.id, 'fade', generateId('anm'));
+      }
 
       const updatedInteractions = [...interactions, newInteraction];
       onLayerUpdate(triggerLayer.id, { interactions: updatedInteractions });
@@ -1220,6 +1230,13 @@ export default function InteractionsPanel({
               <DropdownMenuItem onClick={() => handleAddInteraction('while-scrolling')} disabled={usedTriggers.has('while-scrolling')}>{TRIGGER_LABELS['while-scrolling']}</DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => handleAddInteraction('load')} disabled={usedTriggers.has('load')}>{TRIGGER_LABELS.load}</DropdownMenuItem>
+              {onCreateOverlay && !triggerLayer.overlay && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => onCreateOverlay('fixed')}>Create fixed overlay</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onCreateOverlay('relative')}>Create relative overlay</DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -1317,6 +1334,10 @@ export default function InteractionsPanel({
           triggerLayerId={triggerLayer.id}
           allLayers={allLayers}
           onChange={(next) => {
+            if (onLayersChange) {
+              onLayersChange(applyInteractionChange(allLayers, triggerLayer.id, next));
+              return;
+            }
             onLayerUpdate(triggerLayer.id, {
               interactions: interactions.map(item => (item.id === next.id ? next : item)),
             });
@@ -1407,9 +1428,19 @@ export default function InteractionsPanel({
               </div>
             )}
 
-            {/* Scroll Settings - show for scroll-into-view and while-scrolling */}
+            {/* Viewport positions stay available, collapsed so Appear and Scroll presets lead. */}
             {(selectedInteraction.trigger === 'scroll-into-view' || selectedInteraction.trigger === 'while-scrolling') && (
-              <>
+              <Collapsible>
+                <CollapsibleTrigger asChild>
+                  <Button
+                    type="button" variant="ghost"
+                    size="sm" className="w-full justify-between px-0"
+                  >
+                    Advanced
+                    <Icon name="chevronDown" className="size-3 opacity-50" />
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="flex flex-col gap-2 pt-2">
                 {/* Start Position - values read directly from layer data */}
                 <div className="grid grid-cols-3 items-center">
                   <div className="flex items-center gap-1.5">
@@ -1569,8 +1600,6 @@ export default function InteractionsPanel({
                     </div>
                   </>
                 )}
-              </>
-            )}
 
             {/* Toggle Actions - only show for scroll-into-view */}
             {selectedInteraction.trigger === 'scroll-into-view' && (
@@ -1706,6 +1735,9 @@ export default function InteractionsPanel({
                   );
                 })()}
               </>
+            )}
+                </CollapsibleContent>
+              </Collapsible>
             )}
           </div>
         </div>

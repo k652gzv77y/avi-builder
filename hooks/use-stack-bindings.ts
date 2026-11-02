@@ -135,7 +135,7 @@ export function useStackBindings({ layer, onLayerUpdate }: UseStackBindingsArgs)
     sources: BindingSource[];
     onUnlink?: () => void;
   } | null => {
-    if (!editingComponentId || !layer) return null;
+    if (!layer) return null;
     const linkedId = layer.stackBindings?.[key];
     const dataBinding = layer.dataBindings?.[key];
     const variables = (component?.variables ?? []).filter(item => (
@@ -147,17 +147,19 @@ export function useStackBindings({ layer, onLayerUpdate }: UseStackBindingsArgs)
     const dataLinkedId = dataBinding?.kind === 'fetch'
       ? dataBinding.fetch_id
       : linkedCms?.id;
+    const canUseVariables = !!editingComponentId;
     return {
       label: STACK_VARIABLE_LABELS[key],
       linkedId: linkedId ?? dataLinkedId,
       linkedName: linked?.name ?? linkedFetch?.name ?? linkedCms?.name,
       onUnlink: () => unlinkVariable(key),
       sources: defaultBindingSources({
-        items: variables.map(item => ({ id: item.id, name: item.name })),
-        onCreate: () => {
+        enabled: canUseVariables,
+        items: canUseVariables ? variables.map(item => ({ id: item.id, name: item.name })) : [],
+        onCreate: canUseVariables ? () => {
           void createVariable(key, masterStackValue(layer, key));
-        },
-        onSelect: (variableId) => linkVariable(key, variableId),
+        } : undefined,
+        onSelect: canUseVariables ? (variableId) => linkVariable(key, variableId) : undefined,
       }, {
         cms: {
           items: cmsItems,

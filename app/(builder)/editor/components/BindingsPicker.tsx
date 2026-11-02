@@ -59,7 +59,7 @@ export default function BindingsPicker({
         {sources.filter(source => source.enabled && source.kind === 'variable').map(source => {
           const items = source.items ?? [];
           return (
-            <React.Fragment key={source.kind}>
+            <React.Fragment key={source.id}>
               {source.onCreate && (
                 <DropdownMenuItem
                   onClick={source.onCreate}
@@ -70,7 +70,7 @@ export default function BindingsPicker({
               )}
               {items.length > 0 && source.onSelect && (
                 <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>Link to variable</DropdownMenuSubTrigger>
+                  <DropdownMenuSubTrigger>Variables</DropdownMenuSubTrigger>
                   <DropdownMenuPortal>
                     <DropdownMenuSubContent>
                       {items.map(item => (
@@ -100,7 +100,7 @@ export default function BindingsPicker({
         {sources.filter(source => source.enabled && source.kind !== 'variable').map(source => {
           const items = source.items ?? [];
           return (
-            <DropdownMenuSub key={source.kind}>
+            <DropdownMenuSub key={source.id}>
               <DropdownMenuSubTrigger>{source.label}</DropdownMenuSubTrigger>
               <DropdownMenuPortal>
                 <DropdownMenuSubContent className="w-56">
@@ -134,7 +134,7 @@ export default function BindingsPicker({
         {sources.some(source => !source.enabled) && <DropdownMenuSeparator />}
         {sources.filter(source => !source.enabled).map(source => (
           <DropdownMenuItem
-            key={source.kind}
+            key={source.id}
             disabled
             title={source.unavailableReason}
           >
@@ -145,7 +145,7 @@ export default function BindingsPicker({
           <>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={onUnlink}>
-              Remove variable
+              Remove binding
             </DropdownMenuItem>
           </>
         )}

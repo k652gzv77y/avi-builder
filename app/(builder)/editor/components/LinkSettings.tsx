@@ -17,6 +17,7 @@ import Icon, { type IconProps } from '@/components/ui/icon';
 import SettingsPanel from './SettingsPanel';
 import RichTextEditor from './RichTextEditor';
 import { filterFieldGroupsByType, flattenFieldGroups, LINK_FIELD_TYPES, buildReferenceItemOptions } from '@/lib/collection-field-utils';
+import { cmsItemsFromGroups, findCmsItem, selectCmsBinding } from '@/lib/cms-framer';
 import { generateLinkHref } from '@/lib/link-utils';
 import { cn } from '@/lib/utils';
 import LinkCollectionItemPicker from './LinkCollectionItemPicker';
@@ -237,6 +238,11 @@ export default function LinkSettings(props: LinkSettingsProps) {
   const linkFields = useMemo(
     () => flattenFieldGroups(linkFieldGroups),
     [linkFieldGroups]
+  );
+
+  const linkCmsItems = useMemo(
+    () => cmsItemsFromGroups(linkFieldGroups, LINK_FIELD_TYPES),
+    [linkFieldGroups],
   );
 
   // Check if we have collection fields available (from collection layer context)
@@ -527,6 +533,7 @@ export default function LinkSettings(props: LinkSettingsProps) {
 
       updateLinkSettings({
         ...linkSettings,
+        type: 'field',
         field: {
           type: 'field',
           data: {
@@ -651,7 +658,13 @@ export default function LinkSettings(props: LinkSettingsProps) {
             label="Link To"
             isEditingComponent={!!editingComponentId}
             variables={linkComponentVariables}
-            linkedVariableId={linkedLinkVariableId}
+            linkedVariableId={linkedLinkVariableId ?? (linkType === 'field' ? findCmsItem(linkCmsItems, fieldId)?.id : undefined)}
+            linkedName={linkedLinkVariable || linkType !== 'field' ? undefined : findCmsItem(linkCmsItems, fieldId)?.name}
+            onUnlink={!linkedLinkVariable && linkType === 'field' ? () => handleLinkTypeChange('url') : undefined}
+            cmsItems={linkCmsItems}
+            onSelectCms={(id) => {
+              selectCmsBinding(id, handleFieldChange);
+            }}
             onLinkVariable={handleLinkLinkVariable}
             onManageVariables={() => onOpenVariablesDialog?.()}
             onCreateVariable={editingComponentId ? async () => {

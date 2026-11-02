@@ -38,9 +38,12 @@ import {
   hrefForPage,
   nextScrollStop,
   removeInteractionAction,
+  OVERLAY_DISMISS_ROWS,
+  SCROLL_PRESETS,
   upsertInteractionAction,
   variantTargets,
   withAppearPreset,
+  withScrollPreset,
 } from '@/lib/interactions-framer';
 import { getLayerName } from '@/lib/layer-display-utils';
 import { generateId } from '@/lib/utils';
@@ -53,6 +56,7 @@ import type {
   LayerInteraction,
   OverlayDismiss,
   OverlayPlacement,
+  ScrollPresetId,
 } from '@/types';
 
 interface InteractionActionsProps {
@@ -72,7 +76,8 @@ export default function InteractionActions({
   const components = useComponentsStore(state => state.components);
   const actions = interaction.actions ?? [];
   const showAppear = interaction.trigger === 'scroll-into-view' || interaction.trigger === 'load';
-  const showScrollAction = interaction.trigger === 'while-scrolling';
+  const showScroll = interaction.trigger === 'while-scrolling';
+  const showScrollAction = showScroll;
 
   const layers = useMemo(
     () => flattenLayers(allLayers).filter(layer => layer.id !== 'body'),
@@ -161,6 +166,31 @@ export default function InteractionActions({
               <SelectContent>
                 <SelectItem value="custom">Custom</SelectItem>
                 {APPEAR_PRESETS.map(preset => (
+                  <SelectItem key={preset.id} value={preset.id}>{preset.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      )}
+
+      {showScroll && (
+        <div className="grid grid-cols-3 items-center pb-4">
+          <Label variant="muted">Scroll</Label>
+          <div className="col-span-2">
+            <Select
+              value={interaction.scrollPreset ?? 'custom'}
+              onValueChange={(value) => {
+                if (value === 'custom') return;
+                onChange(withScrollPreset(interaction, triggerLayerId, value as ScrollPresetId, generateId('anm')));
+              }}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="custom">Custom</SelectItem>
+                {SCROLL_PRESETS.map(preset => (
                   <SelectItem key={preset.id} value={preset.id}>{preset.label}</SelectItem>
                 ))}
               </SelectContent>
@@ -447,14 +477,9 @@ function DismissFields({
   dismiss: OverlayDismiss;
   onChange: (dismiss: OverlayDismiss) => void;
 }) {
-  const rows: Array<{ key: keyof OverlayDismiss; label: string }> = [
-    { key: 'escape', label: 'Escape' },
-    { key: 'outside', label: 'Outside click' },
-    { key: 'restoreFocus', label: 'Return focus' },
-  ];
   return (
     <div className="flex flex-col gap-2">
-      {rows.map(row => (
+      {OVERLAY_DISMISS_ROWS.map(row => (
         <label key={row.key} className="flex items-center gap-2">
           <Checkbox
             checked={dismiss[row.key]}

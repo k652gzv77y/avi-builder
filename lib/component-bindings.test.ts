@@ -90,30 +90,42 @@ test('one stack variable updates every bound layer and instance overrides win', 
   assert.doesNotMatch(classes, /gap-\[32px\]/);
 });
 
-test('bindings picker keeps CMS and Fetch slots beside Variables', () => {
+test('bindings picker splits Collection List, Detail, and Fetch beside Variables', () => {
   const sources = defaultBindingSources({
     items: [{ id: 'gap', name: 'Gap' }],
     onCreate: () => undefined,
     onSelect: () => undefined,
   });
-  assert.deepEqual(sources.map(source => source.kind), ['variable', 'cms', 'fetch']);
+  assert.deepEqual(sources.map(source => source.label), ['Variables', 'Collection List', 'Detail', 'Fetch']);
   assert.equal(sources[0].enabled, true);
-  assert.equal(sources[0].label, 'Variables');
   assert.equal(sources[1].enabled, false);
   assert.equal(sources[2].enabled, false);
-  assert.equal(sources[1].unavailableReason?.length ? true : false, true);
+  assert.equal(sources[3].enabled, false);
+  assert.match(sources[1].unavailableReason ?? '', /Collection List/);
+  assert.match(sources[2].unavailableReason ?? '', /Detail Page/);
 
   const live = defaultBindingSources({
     items: [{ id: 'gap', name: 'Gap' }],
     onSelect: () => undefined,
   }, {
-    cms: { items: [{ id: 'cms:collection::title', name: 'Title' }], onSelect: () => undefined },
+    cms: {
+      items: [
+        { id: 'cms:collection:list-1:title', name: 'Posts · Title' },
+        { id: 'cms:page::title', name: 'Detail Page · Title' },
+      ],
+      onSelect: () => undefined,
+    },
     fetch: { items: [{ id: 'fetch-1', name: 'Title' }], onSelect: () => undefined, onCreate: () => undefined },
   });
-  assert.equal(live[1].enabled, true);
-  assert.equal(live[1].label, 'CMS');
-  assert.equal(live[2].enabled, true);
-  assert.equal(live[2].label, 'Fetch');
+  const list = live.find(source => source.id === 'collection-list');
+  const detail = live.find(source => source.id === 'detail');
+  const fetch = live.find(source => source.id === 'fetch');
+  assert.equal(list?.enabled, true);
+  assert.equal(list?.items?.[0].name, 'Posts · Title');
+  assert.equal(detail?.enabled, true);
+  assert.equal(detail?.label, 'Detail');
+  assert.equal(fetch?.enabled, true);
+  assert.equal(fetch?.label, 'Fetch');
 });
 
 test('hover and pressed variants preview only from the resting state', () => {

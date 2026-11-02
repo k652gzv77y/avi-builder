@@ -18,6 +18,7 @@ import type {
   LayerInteraction,
   OverlayDismiss,
   OverlayPlacement,
+  ScrollPresetId,
   TweenProperties,
 } from '@/types';
 
@@ -45,6 +46,12 @@ export const DEFAULT_OVERLAY_DISMISS: OverlayDismiss = {
   outside: true,
   restoreFocus: true,
 };
+
+export const OVERLAY_DISMISS_ROWS: ReadonlyArray<{ key: keyof OverlayDismiss; label: string }> = [
+  { key: 'escape', label: 'Escape' },
+  { key: 'outside', label: 'Outside click' },
+  { key: 'restoreFocus', label: 'Return focus' },
+];
 
 export interface AppearPreset {
   id: AppearPresetId;
@@ -120,6 +127,9 @@ export function interactionSummary(interaction: LayerInteraction): string {
   if (action) return `${event} → ${actionLabel(action)}`;
   if (interaction.appearPreset) {
     return `${event} → ${appearPresetById(interaction.appearPreset).label}`;
+  }
+  if (interaction.scrollPreset) {
+    return `${event} → ${scrollPresetById(interaction.scrollPreset).label}`;
   }
   return event;
 }
@@ -233,6 +243,89 @@ export function withAppearPreset(
     ...interaction,
     appearPreset: presetId,
     tweens: [...kept, createAppearTween(layerId, presetId, tweenId)],
+  };
+}
+
+export interface ScrollPreset {
+  id: ScrollPresetId;
+  label: string;
+  from: TweenProperties;
+  to: TweenProperties;
+  duration: number;
+  ease: string;
+}
+
+/** Presets for a Scroll event. The tween scrubs with the viewport. */
+export const SCROLL_PRESETS: readonly ScrollPreset[] = [
+  {
+    id: 'fade',
+    label: 'Fade',
+    from: { autoAlpha: '0' },
+    to: { autoAlpha: '1' },
+    duration: 0.6,
+    ease: 'none',
+  },
+  {
+    id: 'slide-up',
+    label: 'Slide up',
+    from: { autoAlpha: '0', y: '48px' },
+    to: { autoAlpha: '1', y: '0px' },
+    duration: 0.6,
+    ease: 'none',
+  },
+  {
+    id: 'scale',
+    label: 'Scale',
+    from: { autoAlpha: '0', scale: '0.94' },
+    to: { autoAlpha: '1', scale: '1' },
+    duration: 0.6,
+    ease: 'none',
+  },
+  {
+    id: 'parallax',
+    label: 'Parallax',
+    from: { y: '64px' },
+    to: { y: '-64px' },
+    duration: 1,
+    ease: 'none',
+  },
+];
+
+export function scrollPresetById(id: ScrollPresetId): ScrollPreset {
+  return SCROLL_PRESETS.find(preset => preset.id === id) ?? SCROLL_PRESETS[0];
+}
+
+/**
+ * Apply a Scroll preset to the trigger layer. Other layers' tweens stay.
+ * Scrub stays on when the event already has one.
+ */
+export function withScrollPreset(
+  interaction: LayerInteraction,
+  layerId: string,
+  presetId: ScrollPresetId,
+  tweenId: string,
+): LayerInteraction {
+  const preset = scrollPresetById(presetId);
+  const kept = (interaction.tweens || []).filter(tween => tween.layer_id !== layerId);
+  return {
+    ...interaction,
+    scrollPreset: presetId,
+    timeline: {
+      ...interaction.timeline,
+      scrub: interaction.timeline?.scrub ?? 1,
+      scrollStart: interaction.timeline?.scrollStart ?? 'top bottom',
+      scrollEnd: interaction.timeline?.scrollEnd ?? 'bottom top',
+    },
+    tweens: [...kept, {
+      id: tweenId,
+      layer_id: layerId,
+      position: 0,
+      duration: preset.duration,
+      ease: preset.ease,
+      from: { ...preset.from },
+      to: { ...preset.to },
+      apply_styles: { autoAlpha: 'on-load', y: 'on-load', scale: 'on-load' },
+    }],
   };
 }
 

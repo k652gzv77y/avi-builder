@@ -90,6 +90,36 @@ function bodyCell(text: string, borders?: CellBorders) {
 }
 
 export const structureTemplates: Record<string, BlockTemplate> = {
+  frame: {
+    icon: 'block',
+    name: 'Frame',
+    template: {
+      name: 'div',
+      customName: 'Frame',
+      classes: ['relative', 'w-[200px]', 'h-[200px]'],
+      children: [],
+      design: {
+        positioning: { isActive: true, position: 'relative' },
+        sizing: { isActive: true, width: '200px', height: '200px' },
+      },
+    },
+  },
+
+  stack: {
+    icon: 'rows',
+    name: 'Stack',
+    template: {
+      name: 'div',
+      customName: 'Stack',
+      classes: ['flex', 'flex-col', 'gap-[10px]', 'w-fit'],
+      children: [],
+      design: {
+        layout: { isActive: true, display: 'Flex', flexDirection: 'column', gap: '10px' },
+        sizing: { isActive: true, width: 'fit' },
+      },
+    },
+  },
+
   div: {
     icon: 'block',
     name: 'Block',

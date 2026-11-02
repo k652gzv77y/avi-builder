@@ -60,6 +60,30 @@ export function encodeCmsBindingId(
   return `cms:${source}:${layerId ?? ''}:${fieldId}`;
 }
 
+export function selectCmsBinding(
+  id: string,
+  onSelect: (
+    fieldId: string,
+    relationships: string[],
+    source: 'page' | 'collection' | 'global',
+    layerId?: string,
+  ) => void,
+): boolean {
+  const parsed = parseCmsBindingId(id);
+  if (!parsed) return false;
+  onSelect(parsed.fieldId, [], parsed.source, parsed.layerId);
+  return true;
+}
+
+export function findCmsItem<T extends { id: string }>(
+  items: T[],
+  fieldId: string | null | undefined,
+): T | undefined {
+  if (!fieldId) return undefined;
+  const suffix = `:${fieldId}`;
+  return items.find(item => item.id.endsWith(suffix));
+}
+
 export function parseCmsBindingId(id: string): {
   source: 'page' | 'collection' | 'global';
   layerId?: string;
