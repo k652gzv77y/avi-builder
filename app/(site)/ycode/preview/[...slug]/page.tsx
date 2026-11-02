@@ -9,7 +9,7 @@ import { generateColorVariablesCss } from '@/lib/repositories/colorVariableRepos
 
 import { generatePageMetadata } from '@/lib/generate-page-metadata';
 import { parseAuthCookie, getPasswordProtection, fetchFoldersForAuth } from '@/lib/page-auth';
-import { enforceSessionGate } from '@/lib/route-protection';
+import { enforceSessionGate } from '@/lib/enforce-session-gate';
 
 async function fetchPreviewDraftCss() {
   const settings = await getSettingsByKeys(['draft_css']);

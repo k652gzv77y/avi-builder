@@ -6,7 +6,7 @@ import PasswordForm from '@/components/PasswordForm';
 import { fetchGlobalPageSettings } from '@/lib/generate-page-metadata';
 import { getSettingByKey } from '@/lib/repositories/settingsRepository';
 import { parseAuthCookie, getPasswordProtection, fetchFoldersForAuth } from '@/lib/page-auth';
-import { enforceSessionGate } from '@/lib/route-protection';
+import { enforceSessionGate } from '@/lib/enforce-session-gate';
 import { matchRedirect } from '@/lib/redirect-utils';
 import type { Redirect as RedirectType } from '@/types';
 

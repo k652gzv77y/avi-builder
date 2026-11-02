@@ -10,7 +10,7 @@ import PageRenderer from '@/components/PageRenderer';
 import PasswordForm from '@/components/PasswordForm';
 import { getSettingByKey } from '@/lib/repositories/settingsRepository';
 import { parseAuthCookie, getPasswordProtection, fetchFoldersForAuth } from '@/lib/page-auth';
-import { enforceSessionGate } from '@/lib/route-protection';
+import { enforceSessionGate } from '@/lib/enforce-session-gate';
 import { getSiteBaseUrl } from '@/lib/url-utils';
 import { getOffCanonicalDynamicRedirect } from '@/lib/hreflang-utils';
 import { matchRedirect } from '@/lib/redirect-utils';

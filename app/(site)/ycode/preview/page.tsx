@@ -7,7 +7,7 @@ import { getSettingsByKeys } from '@/lib/repositories/settingsRepository';
 import { generateColorVariablesCss } from '@/lib/repositories/colorVariableRepository';
 import { generatePageMetadata } from '@/lib/generate-page-metadata';
 import { parseAuthCookie, getPasswordProtection, fetchFoldersForAuth } from '@/lib/page-auth';
-import { enforceSessionGate } from '@/lib/route-protection';
+import { enforceSessionGate } from '@/lib/enforce-session-gate';
 import type { Metadata } from 'next';
 
 async function fetchPreviewDraftCss() {

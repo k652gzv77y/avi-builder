@@ -1,10 +1,12 @@
 /**
- * Published-route session gate.
+ * Published-route session gate (client-safe).
  *
- * Password protection stays in lib/page-auth.ts. This gate is the Supabase
- * session check: a page with auth.requireSession sends anonymous visitors
- * to its sign-in path. The sign-in page itself is not redirected, so a
- * sign-in form can live there without a loop.
+ * Password protection stays in lib/page-auth.ts. This module decides whether
+ * a page with auth.requireSession should send anonymous visitors to its
+ * sign-in path. The sign-in page itself is not redirected.
+ *
+ * The redirect itself lives in lib/enforce-session-gate.ts. That file reads
+ * the Supabase session and must not be imported from client components.
  */
 
 import type { Page } from '@/types';
@@ -56,26 +58,4 @@ export function sessionGate(page: Pick<Page, 'settings'>, currentPath: string): 
     redirect,
     location: redirect ? sessionRedirectTarget(signInPath, path) : path,
   };
-}
-
-/**
- * Redirect anonymous visitors when the page requires a Supabase session.
- * Uses the cookie session client, which is the same client RLS sees.
- */
-export async function enforceSessionGate(
-  page: Pick<Page, 'settings'>,
-  currentPath: string,
-): Promise<void> {
-  const decision = sessionGate(page, currentPath);
-  if (!decision.redirect) return;
-
-  const { connection } = await import('next/server');
-  await connection();
-
-  const { getAuthUser } = await import('@/lib/supabase-auth');
-  const auth = await getAuthUser();
-  if (auth) return;
-
-  const { redirect } = await import('next/navigation');
-  redirect(decision.location);
 }
