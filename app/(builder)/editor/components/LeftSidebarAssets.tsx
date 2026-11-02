@@ -32,6 +32,7 @@ import type { UseLiveLayerUpdatesReturn } from '@/hooks/use-live-layer-updates';
 import type { Component } from '@/types';
 import CodeComponentDialog from './CodeComponentDialog';
 import RenameComponentDialog from './RenameComponentDialog';
+import { AssetStyleLists } from './NamedStylesSection';
 
 interface LeftSidebarAssetsProps {
   liveLayerUpdates?: UseLiveLayerUpdatesReturn | null;
@@ -363,6 +364,8 @@ export default function LeftSidebarAssets({
             })}
           </div>
         )}
+
+        <AssetStyleLists query={query} readOnly={readOnly || isLocalizing} />
 
         <div className="mt-2 flex items-center">
           <button

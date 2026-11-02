@@ -11,6 +11,7 @@ import type { Component, Layer } from '@/types';
 import { projectsPath } from '@/lib/project-url';
 import { DEFAULT_TEXT_STYLES } from '@/lib/text-format-utils';
 import { TAILWIND_CUSTOM_VARIANTS } from '@/lib/tailwind-custom-variants';
+import { collectGestureCandidateClasses } from '@/lib/component-variant-utils';
 
 /**
  * Extract all classes from layers recursively
@@ -243,6 +244,14 @@ async function collectAllLayers(pageLayers: Layer[]): Promise<Layer[]> {
   // Add saved components that don't have drafts. Same reason as above:
   // include every variant so e.g. `bg-[#35b7d4]` on Variant 3 is compiled.
   components.forEach((component: Component) => {
+    const gestureClasses = collectGestureCandidateClasses(component);
+    if (gestureClasses.length > 0) {
+      componentLayers.push({
+        id: `gesture-${component.id}`,
+        name: 'div',
+        classes: gestureClasses.join(' '),
+      });
+    }
     if (draftComponentIds.has(component.id)) return;
     if (component.variants && component.variants.length > 0) {
       component.variants.forEach((variant) => {

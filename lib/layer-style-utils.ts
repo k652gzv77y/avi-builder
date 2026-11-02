@@ -7,6 +7,7 @@
 import type { Layer, LayerStyle, TextStyle } from '@/types';
 import { buildDesign } from '@/lib/import/design';
 import { getStyleIds, resolveLayerClasses } from '@/lib/layer-style-resolve';
+import { layerLinksStyle, reapplyLinkedNamedStyles, unlinkNamedStyle } from '@/lib/design-styles';
 
 export { getStyleIds } from '@/lib/layer-style-resolve';
 
@@ -253,9 +254,19 @@ export function updateLayersWithStyle(
     // locally customized keeps its value while the others follow the style.
     // The legacy single-blob `styleOverrides` still freezes the whole layer.
     const ids = getStyleIds(layer);
-    if (ids.includes(changedStyleId) && !layer.styleOverrides) {
+    const stackChanged = ids.includes(changedStyleId) && !layer.styleOverrides;
+    if (stackChanged) {
       const classes = resolveLayerClasses(layer, stylesById);
       updatedLayer = { ...updatedLayer, classes, design: buildDesignPreservingBgVars(classes, layer) };
+    }
+
+    // Named color and text styles follow the shared record. Re-apply after a
+    // combo-class flatten so the preset wins over the stack for its properties.
+    if (
+      layerLinksStyle(layer, changedStyleId)
+      || (stackChanged && (updatedLayer.namedTextStyleId || updatedLayer.colorStyleIds))
+    ) {
+      updatedLayer = reapplyLinkedNamedStyles(updatedLayer, stylesById);
     }
 
     // Update textStyles entries that reference this style (single-style only)
@@ -326,6 +337,10 @@ export function detachStyleFromLayers(
       }
     }
 
+    if (layerLinksStyle(updatedLayer, removedStyleId)) {
+      updatedLayer = unlinkNamedStyle(updatedLayer, removedStyleId);
+    }
+
     // Detach from textStyles entries
     if (layer.textStyles) {
       const updatedTextStyles = detachStyleFromTextStyles(layer.textStyles, removedStyleId);
@@ -368,6 +383,10 @@ export function countLayersUsingStyle(layers: Layer[], styleId: string): number 
           count++;
         }
       }
+    }
+
+    if (layerLinksStyle(layer, styleId)) {
+      count++;
     }
 
     if (layer.children && layer.children.length > 0) {

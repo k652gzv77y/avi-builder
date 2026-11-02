@@ -10,6 +10,7 @@ import { create } from 'zustand';
 interface InteractionPreviewState {
   variantByLayerId: Record<string, string>;
   setVariant: (layerId: string, variantId: string) => void;
+  clearVariant: (layerId: string) => void;
   clearVariants: () => void;
 }
 
@@ -20,6 +21,12 @@ export const useInteractionPreviewStore = create<InteractionPreviewState>((set) 
     return {
       variantByLayerId: { ...state.variantByLayerId, [layerId]: variantId },
     };
+  }),
+  clearVariant: (layerId) => set(state => {
+    if (!state.variantByLayerId[layerId]) return state;
+    const variantByLayerId = { ...state.variantByLayerId };
+    delete variantByLayerId[layerId];
+    return { variantByLayerId };
   }),
   clearVariants: () => set({ variantByLayerId: {} }),
 }));

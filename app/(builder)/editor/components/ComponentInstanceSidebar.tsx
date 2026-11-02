@@ -32,12 +32,67 @@ import { useComponentsStore } from '@/stores/useComponentsStore';
 import { usePagesStore } from '@/stores/usePagesStore';
 import { useEditComponent } from '@/hooks/use-edit-component';
 import { detachSpecificLayerFromComponent } from '@/lib/component-utils';
-import { collectVariantVariableOptions } from '@/lib/component-variant-utils';
+import { collectVariantVariableOptions, countReplicaOverrides, isReplicaVariant } from '@/lib/component-variant-utils';
+import { useInteractionPreviewStore } from '@/stores/useInteractionPreviewStore';
 import { cn } from '@/lib/utils';
 import { EMPTY_OVERRIDES } from '@/lib/variable-utils';
 
 import type { Layer, ComponentVariable, Component, Collection, CollectionField } from '@/types';
 import { SIMPLE_TEXT_FIELD_TYPES, type FieldGroup } from '@/lib/collection-field-utils';
+
+function GesturePreview({
+  component,
+  previewVariantId,
+  onPreview,
+}: {
+  component: Component;
+  previewVariantId: string | undefined;
+  onPreview: (state: 'hover' | 'pressed' | null) => void;
+}) {
+  const variants = component.variants ?? [];
+  const hover = variants.find(variant => variant.state === 'hover');
+  const pressed = variants.find(variant => variant.state === 'pressed');
+  const value = previewVariantId && previewVariantId === hover?.id
+    ? 'hover'
+    : previewVariantId && previewVariantId === pressed?.id
+      ? 'pressed'
+      : 'resting';
+  const active = value === 'hover' ? hover : value === 'pressed' ? pressed : undefined;
+  const overrideCount = active && isReplicaVariant(active) ? countReplicaOverrides(active.overrides) : 0;
+
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="grid grid-cols-3 items-center gap-2">
+        <span className="text-xs text-muted-foreground">Preview</span>
+        <div className="col-span-2">
+          <Select
+            value={value}
+            onValueChange={(next) => {
+              if (next === 'hover' || next === 'pressed') onPreview(next);
+              else onPreview(null);
+            }}
+          >
+            <SelectTrigger className="h-8">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="resting">Resting</SelectItem>
+              <SelectItem value="hover">Hover</SelectItem>
+              <SelectItem value="pressed">Pressed</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      {active && isReplicaVariant(active) && (
+        <p className="text-[11px] leading-snug text-muted-foreground">
+          {overrideCount === 0
+            ? `${active.name} has no style overrides yet.`
+            : `${active.name} shows ${overrideCount} ${overrideCount === 1 ? 'style override' : 'style overrides'}.`}
+        </p>
+      )}
+    </div>
+  );
+}
 
 interface ComponentInstanceSidebarProps {
   selectedLayerId: string;
@@ -79,6 +134,10 @@ export default function ComponentInstanceSidebar({
   const addVideoVariable = useComponentsStore((state) => state.addVideoVariable);
   const addIconVariable = useComponentsStore((state) => state.addIconVariable);
   const addVariantVariable = useComponentsStore((state) => state.addVariantVariable);
+  const addVariant = useComponentsStore((state) => state.addVariant);
+  const previewVariantId = useInteractionPreviewStore((state) => state.variantByLayerId[selectedLayerId]);
+  const setPreviewVariant = useInteractionPreviewStore((state) => state.setVariant);
+  const clearPreviewVariant = useInteractionPreviewStore((state) => state.clearVariant);
   const updateTextVariable = useComponentsStore((state) => state.updateTextVariable);
 
   const setDraftLayers = usePagesStore((state) => state.setDraftLayers);
@@ -373,6 +432,29 @@ export default function ComponentInstanceSidebar({
               <Icon name="edit" />
               Edit component
             </Button>
+
+            {component.variants && component.variants.length > 0 && (
+              <GesturePreview
+                component={component}
+                previewVariantId={previewVariantId}
+                onPreview={async (state) => {
+                  if (!state) {
+                    clearPreviewVariant(selectedLayerId);
+                    return;
+                  }
+                  const existing = component.variants?.find(variant => variant.state === state);
+                  if (existing) {
+                    setPreviewVariant(selectedLayerId, existing.id);
+                    return;
+                  }
+                  const createdId = await addVariant(component.id, component.variants?.[0]?.id, {
+                    name: state === 'hover' ? 'Hover' : 'Pressed',
+                    state,
+                  });
+                  if (createdId) setPreviewVariant(selectedLayerId, createdId);
+                }}
+              />
+            )}
           </SettingsPanel>
 
           <SettingsPanel

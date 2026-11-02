@@ -575,6 +575,17 @@ export interface Layer {
    * only, and "Update" folds just that entry back into the shared style.
    */
   styleOverridesByStyle?: Record<string, { classes?: string; design?: DesignProperties }>;
+  /**
+   * Named text style (typography preset) applied from the Style section.
+   * Distinct from rich-text `textStyles`, which format marks inside a text layer.
+   * Instances follow the style until the link is cleared.
+   */
+  namedTextStyleId?: string;
+  /**
+   * Named color styles applied to individual color properties. The value lives
+   * on the style, so editing the color updates every linked layer.
+   */
+  colorStyleIds?: Partial<Record<ColorStyleSlot, string>>;
 
   // Components (reusable layer trees)
   componentId?: string; // Reference to applied Component
@@ -850,6 +861,18 @@ export interface ComponentVariable {
  */
 export type ComponentVariantState = 'default' | 'open' | 'closed' | 'hover' | 'pressed';
 
+/** Color properties a named color style can drive. */
+export type ColorStyleSlot = 'backgroundColor' | 'color' | 'borderColor';
+
+/**
+ * Style delta a replica variant stores for one primary layer.
+ * Layout and breakpoint classes stay on the primary; only style tokens live here.
+ */
+export interface VariantStyleOverride {
+  classes?: string;
+  design?: DesignProperties;
+}
+
 /** Stack properties that can be exposed as component variables. */
 export type StackVariableKey = 'direction' | 'gap' | 'padding' | 'distribute' | 'align';
 
@@ -870,6 +893,14 @@ export interface ComponentVariant {
   layers: Layer[];
   /** UI state this variant represents. Absent means the resting state. */
   state?: ComponentVariantState;
+  /**
+   * When set, this variant is a style replica of the primary (or another
+   * source) variant. `layers` stays empty; `overrides` holds per-layer style
+   * diffs keyed by the source layer id. Hover and Pressed use this so one
+   * gesture applies on every breakpoint instead of cloning the tree.
+   */
+  replicaOf?: string;
+  overrides?: Record<string, VariantStyleOverride>;
 }
 
 // Component Types (Reusable Layer Trees)

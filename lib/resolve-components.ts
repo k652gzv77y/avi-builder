@@ -6,7 +6,7 @@
 
 import type { Layer, Component, ComponentVariable, ComponentVariableValue, LayerVariables, VariantSettingsValue } from '@/types';
 import { applyStackBindings } from '@/lib/component-bindings';
-import { getComponentVariantLayers } from './component-variant-utils';
+import { prepareVariantLayersForPublish } from './component-variant-utils';
 import { mergeLayerInteractions, remapComponentRootInteraction, remapInteractionTargets } from '@/lib/interactions-framer';
 import { normalizeComponentVariableValue } from './variable-utils';
 
@@ -632,7 +632,9 @@ export function resolveComponents(
       // back to the first variant when the requested variant no longer exists
       // (silent fallback for deleted variants) or to the legacy `layers` field
       // for components stored before the variants migration.
-      const variantLayers = component ? getComponentVariantLayers(component, layer.componentVariantId) : [];
+      const variantLayers = component
+        ? prepareVariantLayersForPublish(component, layer.componentVariantId)
+        : [];
 
       if (component && variantLayers.length) {
         // Track this component in the resolution chain
