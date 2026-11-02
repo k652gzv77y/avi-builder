@@ -19,6 +19,7 @@ import { TAILWIND_CUSTOM_VARIANTS } from '@/lib/tailwind-custom-variants';
 import { getAllDraftLayers, getDraftLayers, getEmbeddedComponentIdsForCollections } from '@/lib/repositories/pageLayersRepository';
 import { getAllComponents } from '@/lib/repositories/componentRepository';
 import { collectComponentIds } from '@/lib/component-utils';
+import { collectGestureCandidateClasses } from '@/lib/component-variant-utils';
 import { setSetting } from '@/lib/repositories/settingsRepository';
 import { getSupabaseAdmin } from '@/lib/supabase-server';
 
@@ -331,6 +332,14 @@ function collectLayersWithComponents(
     for (const group of layerGroupsForComponent(component)) {
       result.push(...group);
       frontier.push(group);
+    }
+    const gestureClasses = collectGestureCandidateClasses(component);
+    if (gestureClasses.length > 0) {
+      result.push({
+        id: `gesture-${component.id}`,
+        name: 'div',
+        classes: gestureClasses.join(' '),
+      });
     }
   };
 

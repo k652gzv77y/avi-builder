@@ -18,6 +18,14 @@ import { detachStyleFromLayers, updateLayersWithStyle } from '@/lib/layer-style-
 import { scheduleIdle } from '@/lib/schedule-idle';
 import { generateId } from '@/lib/utils';
 import { applyStackValueToBoundLayers, uniqueName } from '@/lib/component-bindings';
+import {
+  applyReplicaOverrides,
+  isReplicaVariant,
+  layerIdsShare,
+  reconcileReplicaEdit,
+  replicaSourceLayers,
+  withoutReplicaOverride,
+} from '@/lib/component-variant-utils';
 import type { Component, ComponentVariant, ComponentVariantState, Layer, LayerStyle, StackVariableKey, StackVariableValue } from '@/types';
 
 /**
@@ -38,7 +46,16 @@ function buildVariantsFromDrafts(
   const variants = component.variants && component.variants.length > 0
     ? component.variants
     : [{ id: generateId('cmpvar'), name: 'Default', layers: component.layers ?? [] }];
-  return variants.map(v => ({ ...v, layers: drafts?.[v.id] ?? v.layers }));
+  return variants.map(v => {
+    if (isReplicaVariant(v)) {
+      return {
+        ...v,
+        layers: [],
+        overrides: v.overrides ?? {},
+      };
+    }
+    return { ...v, layers: drafts?.[v.id] ?? v.layers };
+  });
 }
 
 /** Latest in-flight variable write per component+variable, so a slow response cannot clobber a newer edit. */
@@ -195,6 +212,14 @@ interface ComponentsActions {
   /** Persist a new ordering of a component's variants. Order matters because
    *  the first variant is the implicit "default" instances fall back to. */
   reorderVariants: (componentId: string, orderedVariantIds: string[]) => Promise<void>;
+  /** Mark a variant as Hover, Pressed, Open, Closed, or a custom state. */
+  setVariantTrigger: (
+    componentId: string,
+    variantId: string,
+    state: ComponentVariantState | null,
+  ) => Promise<void>;
+  /** Drop style overrides on a replica. Omit layerId to clear every layer. */
+  resetVariantOverrides: (componentId: string, variantId: string, layerId?: string) => Promise<void>;
 
   // Convenience actions
   renameComponent: (id: string, newName: string) => Promise<void>;
@@ -264,6 +289,22 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
       });
     });
 
+    // Replica drafts are a view of the primary plus style overrides. Rebuild
+    // them from the updated primary so a style edit doesn't freeze old colors
+    // into the gesture, and doesn't wipe gesture-only overrides.
+    for (const component of updatedComponents) {
+      const drafts = updatedDrafts[component.id];
+      if (!drafts || !component.variants) continue;
+      for (const variant of component.variants) {
+        if (!isReplicaVariant(variant)) continue;
+        const sourceId = variant.replicaOf;
+        const sourceLayers = (sourceId && drafts[sourceId])
+          || component.variants.find(item => item.id === sourceId)?.layers
+          || replicaSourceLayers(component, variant);
+        drafts[variant.id] = applyReplicaOverrides(sourceLayers, variant.overrides);
+      }
+    }
+
     set({ components: updatedComponents, componentDrafts: updatedDrafts });
   };
 
@@ -290,8 +331,17 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
       // with the AI's changes. Deep-clone so later local edits don't mutate the
       // stored component record.
       const variantDrafts: Record<string, Layer[]> = {};
+      const primaryLayers = (variants.find(variant => !isReplicaVariant(variant)) ?? variants[0]).layers ?? [];
       for (const variant of variants) {
-        variantDrafts[variant.id] = JSON.parse(JSON.stringify(variant.layers ?? []));
+        if (isReplicaVariant(variant)) {
+          const source = variants.find(item => item.id === variant.replicaOf)?.layers ?? primaryLayers;
+          variantDrafts[variant.id] = applyReplicaOverrides(
+            JSON.parse(JSON.stringify(source)),
+            variant.overrides,
+          );
+        } else {
+          variantDrafts[variant.id] = JSON.parse(JSON.stringify(variant.layers ?? []));
+        }
       }
 
       set((state) => ({
@@ -577,8 +627,17 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
           : [{ id: generateId('cmpvar'), name: 'Default', layers: component.layers ?? [] }];
 
         const variantDrafts: Record<string, Layer[]> = {};
+        const primaryLayers = (variants.find(variant => !isReplicaVariant(variant)) ?? variants[0]).layers ?? [];
         for (const variant of variants) {
-          variantDrafts[variant.id] = JSON.parse(JSON.stringify(variant.layers ?? []));
+          if (isReplicaVariant(variant)) {
+            const source = variants.find(item => item.id === variant.replicaOf)?.layers ?? primaryLayers;
+            variantDrafts[variant.id] = applyReplicaOverrides(
+              JSON.parse(JSON.stringify(source)),
+              variant.overrides,
+            );
+          } else {
+            variantDrafts[variant.id] = JSON.parse(JSON.stringify(variant.layers ?? []));
+          }
         }
 
         // Mark each variant as initializing BEFORE updating store to prevent
@@ -625,13 +684,53 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
     // for the same component share a single debounced save so we always
     // persist them together as one `variants` payload.
     updateComponentDraft: (componentId, variantId, layers) => {
+      const component = get().components.find(item => item.id === componentId);
+      const variant = component?.variants?.find(item => item.id === variantId);
+      const currentDrafts = get().componentDrafts[componentId] || {};
+      let nextVariants = component?.variants;
+      const nextDrafts: Record<string, Layer[]> = { ...currentDrafts, [variantId]: layers };
+
+      if (component && variant && isReplicaVariant(variant)) {
+        const primaryId = variant.replicaOf || getPrimaryVariantId(component) || variantId;
+        const primaryLayers = currentDrafts[primaryId]
+          ?? component.variants?.find(item => item.id === primaryId)?.layers
+          ?? [];
+        const reconciled = reconcileReplicaEdit(primaryLayers, layers);
+        const primaryJson = JSON.stringify(primaryLayers);
+        const nextPrimary = JSON.stringify(reconciled.primary) === primaryJson
+          ? primaryLayers
+          : reconciled.primary;
+        nextDrafts[primaryId] = nextPrimary;
+        nextDrafts[variantId] = applyReplicaOverrides(nextPrimary, reconciled.overrides);
+        nextVariants = (component.variants ?? []).map(item => (
+          item.id === variantId
+            ? { ...item, replicaOf: primaryId, overrides: reconciled.overrides, layers: [] }
+            : item
+        ));
+        for (const other of nextVariants) {
+          if (other.id === variantId || !isReplicaVariant(other)) continue;
+          if (other.replicaOf !== primaryId) continue;
+          nextDrafts[other.id] = applyReplicaOverrides(nextPrimary, other.overrides);
+        }
+      } else if (component?.variants) {
+        for (const other of component.variants) {
+          if (!isReplicaVariant(other)) continue;
+          const follows = other.replicaOf === variantId
+            || (!other.replicaOf && variantId === getPrimaryVariantId(component));
+          if (!follows) continue;
+          nextDrafts[other.id] = applyReplicaOverrides(layers, other.overrides);
+        }
+      }
+
       set((state) => ({
+        components: nextVariants && component
+          ? state.components.map(item => (
+            item.id === componentId ? { ...item, variants: nextVariants } : item
+          ))
+          : state.components,
         componentDrafts: {
           ...state.componentDrafts,
-          [componentId]: {
-            ...(state.componentDrafts[componentId] || {}),
-            [variantId]: layers,
-          },
+          [componentId]: nextDrafts,
         },
         componentDraftDirty: {
           ...state.componentDraftDirty,
@@ -670,7 +769,11 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
         const match = targetVariantId
           ? component.variants.find(v => v.id === targetVariantId)
           : undefined;
-        return (match ?? component.variants[0]).layers ?? [];
+        const variant = match ?? component.variants[0];
+        if (isReplicaVariant(variant)) {
+          return applyReplicaOverrides(replicaSourceLayers(component, variant), variant.overrides);
+        }
+        return variant.layers ?? [];
       }
       return component?.layers ?? [];
     },
@@ -739,10 +842,13 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
           // skipped inside recordVersionViaApi.
           import('@/lib/version-tracking').then(({ recordVersionViaApi, componentVersionEntityId }) => {
             for (const variant of variantsBeingSaved) {
+              const snapshot = isReplicaVariant(variant)
+                ? (currentDrafts?.[variant.id] ?? variant.layers)
+                : variant.layers;
               recordVersionViaApi(
                 'component',
                 componentVersionEntityId(componentId, variant.id),
-                variant.layers
+                snapshot
               );
             }
           }).catch((err) => {
@@ -1580,12 +1686,6 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
       // Pick the variant to clone (caller-specified, otherwise the first).
       const fromVariant = (fromVariantId && baseline.find(v => v.id === fromVariantId)) || baseline[0];
 
-      // Generate fresh layer IDs so animations / interactions inside the new
-      // variant target its own layers rather than the source variant's.
-      const clonedLayers: Layer[] = (fromVariant.layers ?? []).map(layer =>
-        regenerateIdsWithInteractionRemapping(JSON.parse(JSON.stringify(layer)))
-      );
-
       const existingNames = baseline.map(variant => variant.name);
       let proposedName = options?.name
         ? uniqueName(existingNames, options.name)
@@ -1598,12 +1698,45 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
         }
       }
 
-      const newVariant: ComponentVariant = {
-        id: generateId('cmpvar'),
-        name: proposedName,
-        layers: clonedLayers,
-        ...(options?.state ? { state: options.state } : {}),
-      };
+      const isGesture = options?.state === 'hover' || options?.state === 'pressed';
+      const duplicateReplica = !options?.state && isReplicaVariant(fromVariant);
+      let seedLayers: Layer[];
+      let newVariant: ComponentVariant;
+
+      if (isGesture || duplicateReplica) {
+        const primary = baseline.find(variant => !isReplicaVariant(variant)) ?? baseline[0];
+        const sourceId = duplicateReplica ? (fromVariant.replicaOf || primary.id) : primary.id;
+        const overrides = duplicateReplica
+          ? JSON.parse(JSON.stringify(fromVariant.overrides ?? {}))
+          : {};
+        newVariant = {
+          id: generateId('cmpvar'),
+          name: proposedName,
+          layers: [],
+          replicaOf: sourceId,
+          overrides,
+          ...(options?.state ? { state: options.state } : {}),
+        };
+        const sourceLayers = get().componentDrafts[componentId]?.[sourceId]
+          ?? baseline.find(variant => variant.id === sourceId)?.layers
+          ?? primary.layers
+          ?? [];
+        seedLayers = applyReplicaOverrides(JSON.parse(JSON.stringify(sourceLayers)), overrides);
+      } else {
+        // Generate fresh layer IDs so animations / interactions inside the new
+        // variant target its own layers rather than the source variant's.
+        // Open, closed, and custom variants keep a full tree. Hover and Pressed
+        // are replicas above and do not fork layout per breakpoint.
+        seedLayers = (fromVariant.layers ?? []).map(layer =>
+          regenerateIdsWithInteractionRemapping(JSON.parse(JSON.stringify(layer)))
+        );
+        newVariant = {
+          id: generateId('cmpvar'),
+          name: proposedName,
+          layers: seedLayers,
+          ...(options?.state ? { state: options.state } : {}),
+        };
+      }
 
       const updatedVariants = [...baseline, newVariant];
 
@@ -1629,7 +1762,7 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
             ...state.componentDrafts,
             [componentId]: {
               ...(state.componentDrafts[componentId] || {}),
-              [newVariant.id]: JSON.parse(JSON.stringify(clonedLayers)),
+              [newVariant.id]: JSON.parse(JSON.stringify(seedLayers)),
             },
           },
           componentDraftDirty: {
@@ -1754,6 +1887,13 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
       for (const v of component.variants) {
         if (!orderedVariantIds.includes(v.id)) next.push(v);
       }
+      // The first variant is the primary layout. Gesture replicas must not
+      // take that slot or the saved component layers would be empty.
+      const primaryIndex = next.findIndex(variant => !isReplicaVariant(variant));
+      if (primaryIndex > 0) {
+        const [primaryVariant] = next.splice(primaryIndex, 1);
+        next.unshift(primaryVariant);
+      }
 
       // Bail if nothing actually changed.
       const same = next.length === component.variants.length
@@ -1790,6 +1930,165 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
         set((state) => ({
           components: state.components.map(c => (c.id === componentId ? { ...c, variants: previousVariants } : c)),
         }));
+      }
+    },
+
+    setVariantTrigger: async (componentId, variantId, state) => {
+      const component = get().getComponentById(componentId);
+      if (!component?.variants?.length) return;
+      const primary = component.variants.find(variant => !isReplicaVariant(variant)) ?? component.variants[0];
+      if (variantId === primary.id) return;
+
+      const nextState = state === 'default' || state == null ? undefined : state;
+      let updatedVariants: ComponentVariant[] = component.variants.map(variant => {
+        if (nextState && variant.id !== variantId && variant.state === nextState) {
+          return { ...variant, state: undefined };
+        }
+        return variant;
+      });
+
+      updatedVariants = updatedVariants.map(variant => {
+        if (variant.id !== variantId) return variant;
+        const gesture = nextState === 'hover' || nextState === 'pressed';
+        if (!gesture) {
+          if (isReplicaVariant(variant)) {
+            if (!nextState) {
+              const { state: _removed, ...rest } = variant;
+              return rest;
+            }
+            const materialized = get().componentDrafts[componentId]?.[variant.id]
+              ?? applyReplicaOverrides(replicaSourceLayers(component, variant), variant.overrides);
+            const cloned = materialized.map(item =>
+              regenerateIdsWithInteractionRemapping(JSON.parse(JSON.stringify(item)))
+            );
+            const { replicaOf: _replica, overrides: _overrides, ...rest } = variant;
+            return {
+              ...rest,
+              layers: cloned,
+              state: nextState,
+            };
+          }
+          if (!nextState) {
+            const { state: _removed, ...rest } = variant;
+            return rest;
+          }
+          return { ...variant, state: nextState };
+        }
+
+        const primaryLayers = get().componentDrafts[componentId]?.[primary.id] ?? primary.layers ?? [];
+        const ownLayers = variant.layers ?? [];
+        const canShareIds = ownLayers.length === 0 || layerIdsShare(primaryLayers, ownLayers);
+        if (!canShareIds) {
+          return { ...variant, state: nextState };
+        }
+        const edited = ownLayers.length > 0
+          ? ownLayers
+          : (get().componentDrafts[componentId]?.[variant.id] ?? primaryLayers);
+        const reconciled = reconcileReplicaEdit(primaryLayers, edited);
+        return {
+          ...variant,
+          state: nextState,
+          replicaOf: primary.id,
+          overrides: isReplicaVariant(variant) ? (variant.overrides ?? {}) : reconciled.overrides,
+          layers: [],
+        };
+      });
+
+      const previous = component.variants;
+      set((store) => ({
+        components: store.components.map(item => (
+          item.id === componentId ? { ...item, variants: updatedVariants } : item
+        )),
+      }));
+
+      const changed = updatedVariants.find(variant => variant.id === variantId);
+      if (changed) {
+        const primaryLayers = get().componentDrafts[componentId]?.[primary.id] ?? primary.layers ?? [];
+        const draftLayers = isReplicaVariant(changed)
+          ? applyReplicaOverrides(primaryLayers, changed.overrides)
+          : changed.layers;
+        set((store) => ({
+          componentDrafts: {
+            ...store.componentDrafts,
+            [componentId]: {
+              ...(store.componentDrafts[componentId] || {}),
+              [changed.id]: JSON.parse(JSON.stringify(draftLayers ?? [])),
+            },
+          },
+        }));
+      }
+
+      try {
+        const response = await fetch(projectsPath(`/api/components/${componentId}`), {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ variants: updatedVariants }),
+        });
+        const result = await response.json();
+        if (result.error) {
+          console.error('Failed to set variant trigger:', result.error);
+          set((store) => ({
+            components: store.components.map(item => (
+              item.id === componentId ? { ...item, variants: previous } : item
+            )),
+          }));
+          return;
+        }
+        set((store) => ({
+          components: store.components.map(item => (item.id === componentId ? result.data : item)),
+        }));
+      } catch (error) {
+        console.error('Failed to set variant trigger:', error);
+        set((store) => ({
+          components: store.components.map(item => (
+            item.id === componentId ? { ...item, variants: previous } : item
+          )),
+        }));
+      }
+    },
+
+    resetVariantOverrides: async (componentId, variantId, layerId) => {
+      const component = get().getComponentById(componentId);
+      const variant = component?.variants?.find(item => item.id === variantId);
+      if (!component || !variant || !isReplicaVariant(variant)) return;
+
+      const overrides = withoutReplicaOverride(variant.overrides, layerId);
+      const updatedVariants = component.variants!.map(item => (
+        item.id === variantId ? { ...item, overrides, layers: [] } : item
+      ));
+      const primaryLayers = get().componentDrafts[componentId]?.[variant.replicaOf || '']
+        ?? replicaSourceLayers(component, variant);
+      const merged = applyReplicaOverrides(primaryLayers, overrides);
+
+      set((store) => ({
+        components: store.components.map(item => (
+          item.id === componentId ? { ...item, variants: updatedVariants } : item
+        )),
+        componentDrafts: {
+          ...store.componentDrafts,
+          [componentId]: {
+            ...(store.componentDrafts[componentId] || {}),
+            [variantId]: merged,
+          },
+        },
+      }));
+
+      try {
+        const response = await fetch(projectsPath(`/api/components/${componentId}`), {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ variants: updatedVariants }),
+        });
+        const result = await response.json();
+        if (result.error) {
+          console.error('Failed to reset variant overrides:', result.error);
+          return;
+        }
+        set((store) => ({
+          components: store.components.map(item => (item.id === componentId ? result.data : item)),
+        }));
+      } catch (error) {
+        console.error('Failed to reset variant overrides:', error);
       }
     },
 

@@ -167,7 +167,14 @@ export function generateComponentContentHash(componentData: {
   name: string;
   layers: any;
   variables?: any;
-  variants?: Array<{ id: string; name: string; layers: any }>;
+  variants?: Array<{
+    id: string;
+    name: string;
+    layers: any;
+    state?: string;
+    replicaOf?: string;
+    overrides?: unknown;
+  }>;
 }): string {
   const layersForHash = Array.isArray(componentData.layers)
     ? stripUIProperties(componentData.layers as Layer[])
@@ -180,6 +187,9 @@ export function generateComponentContentHash(componentData: {
     ? componentData.variants.map(v => ({
       id: v.id,
       name: v.name,
+      state: v.state,
+      replicaOf: v.replicaOf,
+      overrides: v.overrides,
       layers: Array.isArray(v.layers) ? stripUIProperties(v.layers as Layer[]) : v.layers,
     }))
     : undefined;

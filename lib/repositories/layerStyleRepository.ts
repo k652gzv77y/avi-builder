@@ -14,6 +14,7 @@ import {
   generateComponentContentHash,
 } from '../hash-utils';
 import { updateLayersWithStyle, detachStyleFromLayers, getStyleIds } from '@/lib/layer-style-utils';
+import { layerLinksStyle } from '@/lib/design-styles';
 
 /**
  * Input data for creating a new layer style
@@ -576,7 +577,7 @@ export async function getUnpublishedLayerStylesCount(): Promise<number> {
  */
 function layersContainStyle(layers: Layer[], styleId: string): boolean {
   for (const layer of layers) {
-    if (getStyleIds(layer).includes(styleId)) {
+    if (getStyleIds(layer).includes(styleId) || layerLinksStyle(layer, styleId)) {
       return true;
     }
     if (layer.children && layersContainStyle(layer.children, styleId)) {

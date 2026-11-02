@@ -71,6 +71,8 @@ import { BreakpointContextBar } from './BreakpointOverride';
 import LayoutControls from './LayoutControls';
 import SelfLayoutControls from './SelfLayoutControls';
 import LayerStylesPanel from './LayerStylesPanel';
+import NamedStylesSection from './NamedStylesSection';
+import ComponentGestureControls from './ComponentGestureControls';
 import PositionControls from './PositionControls';
 import TransformControls from './TransformControls';
 import TransitionControls from './TransitionControls';
@@ -277,6 +279,7 @@ const RightSidebar = React.memo(function RightSidebar({
   const activeBreakpoint = useEditorStore((state) => state.activeBreakpoint);
   const editingComponentId = useEditorStore((state) => state.editingComponentId);
   const editingComponentVariantId = useEditorStore((state) => state.editingComponentVariantId);
+  const setEditingComponentVariantId = useEditorStore((state) => state.setEditingComponentVariantId);
   const setSelectedLayerId = useEditorStore((state) => state.setSelectedLayerId);
   const setInteractionHighlights = useEditorStore((state) => state.setInteractionHighlights);
   const setActiveInteraction = useEditorStore((state) => state.setActiveInteraction);
@@ -2097,6 +2100,15 @@ const RightSidebar = React.memo(function RightSidebar({
             </InspectorSection>
           )}
 
+          {editingComponentId && !showTextStyleControls && (
+            <ComponentGestureControls
+              componentId={editingComponentId}
+              activeVariantId={activeComponentVariantId}
+              selectedLayerId={selectedLayerId}
+              onSelectVariant={setEditingComponentVariantId}
+            />
+          )}
+
           {!showTextStyleControls && (
             <InspectorSection
               title="Layout"
@@ -2148,6 +2160,13 @@ const RightSidebar = React.memo(function RightSidebar({
                 activeTextStyleKey={selectedLayer && isRichTextLayer(selectedLayer) ? activeTextStyleKey : null}
                 activeStyleId={activeLayerStyleId}
                 onActiveStyleChange={setActiveStyleId}
+              />
+            )}
+
+            {!showTextStyleControls && selectedLayer && (
+              <NamedStylesSection
+                layer={selectedLayer}
+                onLayerUpdate={handleLayerUpdate}
               />
             )}
 

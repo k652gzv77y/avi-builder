@@ -22,7 +22,8 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import { COMPONENT_STATE_PRESETS, variantHasState } from '@/lib/component-variant-utils';
+import { COMPONENT_STATE_PRESETS, isReplicaVariant, variantHasState } from '@/lib/component-variant-utils';
+import { useComponentsStore } from '@/stores/useComponentsStore';
 import type { Component, ComponentVariant, ComponentVariantState } from '@/types';
 
 interface ComponentVariantsSectionProps {
@@ -41,12 +42,15 @@ interface VariantRowProps {
   variant: ComponentVariant;
   isActive: boolean;
   isOnlyVariant: boolean;
+  isPrimary: boolean;
   isMenuOpen: boolean;
   onSelect: () => void;
   onStartRename: () => void;
   onMenuOpenChange: (open: boolean) => void;
   onDuplicate: () => void;
   onDelete: () => void;
+  onSetTrigger: (state: ComponentVariantState | null) => void;
+  onResetOverrides: () => void;
 }
 
 /**
@@ -63,6 +67,9 @@ function VariantRow({
   onMenuOpenChange,
   onDuplicate,
   onDelete,
+  onSetTrigger,
+  onResetOverrides,
+  isPrimary,
 }: VariantRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: variant.id,
@@ -136,6 +143,25 @@ function VariantRow({
                 <DropdownMenuItem onSelect={onDuplicate}>
                   Duplicate
                 </DropdownMenuItem>
+                {!isPrimary && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onSelect={() => onSetTrigger('hover')}>
+                      Set as Hover
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => onSetTrigger('pressed')}>
+                      Set as Pressed
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => onSetTrigger(null)}>
+                      Clear trigger
+                    </DropdownMenuItem>
+                  </>
+                )}
+                {isReplicaVariant(variant) && (
+                  <DropdownMenuItem onSelect={onResetOverrides}>
+                    Reset overrides
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   variant="destructive"
@@ -152,6 +178,17 @@ function VariantRow({
       <ContextMenuContent className="w-40">
         <ContextMenuItem onSelect={onStartRename}>Rename</ContextMenuItem>
         <ContextMenuItem onSelect={onDuplicate}>Duplicate</ContextMenuItem>
+        {!isPrimary && (
+          <>
+            <ContextMenuSeparator />
+            <ContextMenuItem onSelect={() => onSetTrigger('hover')}>Set as Hover</ContextMenuItem>
+            <ContextMenuItem onSelect={() => onSetTrigger('pressed')}>Set as Pressed</ContextMenuItem>
+            <ContextMenuItem onSelect={() => onSetTrigger(null)}>Clear trigger</ContextMenuItem>
+          </>
+        )}
+        {isReplicaVariant(variant) && (
+          <ContextMenuItem onSelect={onResetOverrides}>Reset overrides</ContextMenuItem>
+        )}
         <ContextMenuSeparator />
         <ContextMenuItem
           variant="destructive"
@@ -183,7 +220,10 @@ export default function ComponentVariantsSection({
   onDeleteVariant,
   onReorderVariants,
 }: ComponentVariantsSectionProps) {
+  const setVariantTrigger = useComponentsStore((state) => state.setVariantTrigger);
+  const resetVariantOverrides = useComponentsStore((state) => state.resetVariantOverrides);
   const variants = component.variants ?? [];
+  const primaryId = variants.find(variant => !isReplicaVariant(variant))?.id ?? variants[0]?.id;
   const [renamingVariantId, setRenamingVariantId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [openMenuVariantId, setOpenMenuVariantId] = useState<string | null>(null);
@@ -276,7 +316,7 @@ export default function ComponentVariantsSection({
         </div>
       </header>
       <p className="px-3 pb-2 text-[11px] leading-snug text-muted-foreground">
-        Variants are UI states. Responsive layout stays on Desktop, Tablet, and Phone.
+        Hover and Pressed are style variants of the primary. Open and Closed keep their own trees. Responsive layout stays on Desktop, Tablet, and Phone.
       </p>
 
       <DndContext
@@ -316,12 +356,15 @@ export default function ComponentVariantsSection({
                   variant={variant}
                   isActive={activeVariantId === variant.id}
                   isOnlyVariant={variants.length <= 1}
+                  isPrimary={variant.id === primaryId}
                   isMenuOpen={openMenuVariantId === variant.id}
                   onSelect={() => onSelectVariant(variant.id)}
                   onStartRename={() => startRename(variant.id, variant.name)}
                   onMenuOpenChange={(open) => setOpenMenuVariantId(open ? variant.id : null)}
                   onDuplicate={() => onDuplicateVariant(variant.id)}
                   onDelete={() => onDeleteVariant(variant.id)}
+                  onSetTrigger={(state) => { void setVariantTrigger(component.id, variant.id, state); }}
+                  onResetOverrides={() => { void resetVariantOverrides(component.id, variant.id); }}
                 />
               );
             })}
