@@ -594,3 +594,23 @@ export function emptyRichText(): DynamicRichTextVariable {
 export function isFetchPreview(value: string): value is FetchPreview {
   return value === 'default' || value === 'loading' || value === 'error';
 }
+
+export type FetchAffordance = 'value' | 'loading' | 'error' | 'empty';
+
+/**
+ * What the editor should explain for a Fetch.
+ * Loading and Error are design variants. An empty field stays blank.
+ */
+export function fetchAffordance(
+  spec: Pick<FetchSpec, 'preview'>,
+  status: 'loading' | 'ready' | 'error' | undefined,
+  value: string | undefined,
+): FetchAffordance {
+  const preview = spec.preview ?? 'default';
+  if (preview === 'loading') return 'loading';
+  if (preview === 'error') return 'error';
+  if (status === 'error') return 'error';
+  if (status !== 'ready') return 'loading';
+  if (!value?.trim()) return 'empty';
+  return 'value';
+}

@@ -1127,7 +1127,7 @@ export default function CollectionFiltersSettings({
 
   return (
     <SettingsPanel
-      title="Filters"
+      title="Filter"
       isOpen={isOpen}
       onToggle={() => setIsOpen(!isOpen)}
       action={
@@ -1142,9 +1142,12 @@ export default function CollectionFiltersSettings({
       }
     >
       <div className="flex flex-col gap-3">
+        <p className="text-xs text-muted-foreground">
+          Filter runs before Limit and Pagination.
+        </p>
         {groups.length === 0 ? (
           <div className="text-xs text-muted-foreground text-center py-4">
-            No filters set. Click + to add a filter.
+            No filter. Add one to narrow this Collection List.
           </div>
         ) : (
           groups.map((group, groupIndex) => (

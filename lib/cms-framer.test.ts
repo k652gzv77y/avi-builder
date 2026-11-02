@@ -7,6 +7,7 @@ import {
   buildCollectionEmptyState,
   detailRouteToken,
   encodeCmsBindingId,
+  fetchAffordance,
   fetchDisplayText,
   findCollectionEmptyState,
   insertSiblingAfter,
@@ -97,6 +98,15 @@ test('Collection List empty state is a sibling shown when the list has no items'
   assert.ok(layers);
   assert.equal(layers?.[1].id, empty.id);
   assert.equal(findCollectionEmptyState(layers ?? [], 'list-1')?.customName, 'Empty');
+});
+
+test('Fetch affordance names loading, error, empty, and a resolved value', () => {
+  assert.equal(fetchAffordance(spec({ preview: 'loading' }), 'ready', 'Hello'), 'loading');
+  assert.equal(fetchAffordance(spec({ preview: 'error' }), 'ready', 'Hello'), 'error');
+  assert.equal(fetchAffordance(spec(), 'error', ''), 'error');
+  assert.equal(fetchAffordance(spec(), undefined, undefined), 'loading');
+  assert.equal(fetchAffordance(spec(), 'ready', '   '), 'empty');
+  assert.equal(fetchAffordance(spec(), 'ready', 'Hello'), 'value');
 });
 
 test('published runtime substitutes Fetch text and ignores the editor preview', () => {

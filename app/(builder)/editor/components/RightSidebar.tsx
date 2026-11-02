@@ -40,6 +40,7 @@ import ComponentVariablesDialog from './ComponentVariablesDialog';
 import CursorControls from './CursorControls';
 import EffectControls from './EffectControls';
 import CollectionFiltersSettings from './CollectionFiltersSettings';
+import DetailPageSettings from './detail-page-settings';
 import ConditionalVisibilitySettings from './ConditionalVisibilitySettings';
 import ImageSettings, { type ImageSettingsValue } from './ImageSettings';
 import VideoSettings, { type VideoSettingsValue } from './VideoSettings';
@@ -88,6 +89,7 @@ import { useEditorStore } from '@/stores/useEditorStore';
 import { useComponentsStore } from '@/stores/useComponentsStore';
 import { usePagesStore } from '@/stores/usePagesStore';
 import { useCollectionsStore } from '@/stores/useCollectionsStore';
+import { useFetchRuntimeStore } from '@/stores/useFetchRuntimeStore';
 import { useGlobalsStore } from '@/stores/useGlobalsStore';
 import { useLayerStylesStore } from '@/stores/useLayerStylesStore';
 import { useCanvasTextEditorStore } from '@/stores/useCanvasTextEditorStore';
@@ -117,8 +119,18 @@ import { getRichTextValue, extractPlainTextFromTiptap, getSoleCmsFieldBinding } 
 import { DEFAULT_TEXT_STYLES, getTextStyle, getTiptapTextContent } from '@/lib/text-format-utils';
 import { buildFieldGroupsForLayer, getFieldIcon, hasBoundCollectionSource, isMultipleAssetField, MULTI_ASSET_COLLECTION_ID, SIMPLE_TEXT_FIELD_TYPES } from '@/lib/collection-field-utils';
 import {
+  collectionFilterCount,
+  collectionQuerySummary,
+  filterLabel,
+  paginationChoice,
+  type PaginationChoice,
+} from '@/lib/collection-query';
+import {
   buildCollectionEmptyState,
   emptyRichText,
+  FETCH_ERROR_TEXT,
+  FETCH_LOADING_TEXT,
+  fetchAffordance,
   fetchBindingDoc,
   fieldBindingDoc,
   findCollectionEmptyState,
@@ -315,6 +327,8 @@ const RightSidebar = React.memo(function RightSidebar({
   const pageFetches = usePagesStore((state) => (
     state.pages.find(item => item.id === currentPageId)?.settings?.fetches ?? []
   ));
+  const fetchStatus = useFetchRuntimeStore((state) => state.status);
+  const fetchValues = useFetchRuntimeStore((state) => state.values);
   const updatePage = usePagesStore((state) => state.updatePage);
   const collections = useCollectionsStore((state) => state.collections);
   const fields = useCollectionsStore((state) => state.fields);
@@ -1812,6 +1826,36 @@ const RightSidebar = React.memo(function RightSidebar({
     }
   };
 
+  const handlePaginationChoice = (choice: PaginationChoice) => {
+    if (!selectedLayerId || !selectedLayer) return;
+    const currentCollectionVariable = getCollectionVariable(selectedLayer);
+    if (!currentCollectionVariable) return;
+    const active = paginationChoice(currentCollectionVariable);
+    if (active === choice) return;
+    if (choice === 'off') {
+      handlePaginationEnabledChange(false);
+      return;
+    }
+    if (active === 'off') {
+      addOrReplacePaginationWrapper(selectedLayerId, choice);
+      handleLayerUpdate(selectedLayerId, {
+        variables: {
+          ...selectedLayer.variables,
+          collection: {
+            ...currentCollectionVariable,
+            pagination: {
+              enabled: true,
+              mode: choice,
+              items_per_page: currentCollectionVariable.pagination?.items_per_page || 10,
+            },
+          },
+        },
+      });
+      return;
+    }
+    handlePaginationModeChange(choice);
+  };
+
   // Get parent collection layer for the selected layer (O(1) via index)
   const parentCollectionLayer = useMemo(() => {
     if (!selectedLayerId) return null;
@@ -2742,9 +2786,72 @@ const RightSidebar = React.memo(function RightSidebar({
                           />
                         </div>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        Loading and Error are design variants. The published page shows the value.
-                      </p>
+                      {(() => {
+                        const affordance = fetchAffordance(
+                          linkedFetch,
+                          fetchStatus[linkedFetch.id],
+                          fetchValues[linkedFetch.id],
+                        );
+                        const copy = {
+                          loading: 'Loading is the design shown while Fetch reads.',
+                          error: 'Error is the design shown when Fetch cannot read.',
+                          empty: 'This field is empty. The layer stays blank until it has a value.',
+                          value: 'The published page shows this value. Loading and Error are design variants.',
+                        }[affordance];
+                        return <p className="text-xs text-muted-foreground">{copy}</p>;
+                      })()}
+                      <div className="grid grid-cols-3 items-center">
+                        <Label variant="muted">Loading</Label>
+                        <div className="col-span-2 *:w-full">
+                          <Input
+                            key={`${linkedFetch.id}:loading:${linkedFetch.loading_text ?? ''}`}
+                            defaultValue={linkedFetch.loading_text ?? FETCH_LOADING_TEXT}
+                            onBlur={(event) => {
+                              if (!currentPageId) return;
+                              const current = pages.find(item => item.id === currentPageId);
+                              if (!current) return;
+                              const loadingText = event.target.value.trim() || FETCH_LOADING_TEXT;
+                              if (loadingText === (linkedFetch.loading_text ?? FETCH_LOADING_TEXT)) return;
+                              void updatePage(currentPageId, {
+                                settings: {
+                                  ...current.settings,
+                                  fetches: (current.settings?.fetches ?? []).map(spec => (
+                                    spec.id === linkedFetch.id
+                                      ? { ...spec, loading_text: loadingText }
+                                      : spec
+                                  )),
+                                },
+                              });
+                            }}
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 items-center">
+                        <Label variant="muted">Error</Label>
+                        <div className="col-span-2 *:w-full">
+                          <Input
+                            key={`${linkedFetch.id}:error:${linkedFetch.error_text ?? ''}`}
+                            defaultValue={linkedFetch.error_text ?? FETCH_ERROR_TEXT}
+                            onBlur={(event) => {
+                              if (!currentPageId) return;
+                              const current = pages.find(item => item.id === currentPageId);
+                              if (!current) return;
+                              const errorText = event.target.value.trim() || FETCH_ERROR_TEXT;
+                              if (errorText === (linkedFetch.error_text ?? FETCH_ERROR_TEXT)) return;
+                              void updatePage(currentPageId, {
+                                settings: {
+                                  ...current.settings,
+                                  fetches: (current.settings?.fetches ?? []).map(spec => (
+                                    spec.id === linkedFetch.id
+                                      ? { ...spec, error_text: errorText }
+                                      : spec
+                                  )),
+                                },
+                              });
+                            }}
+                          />
+                        </div>
+                      </div>
                     </div>
                   )}
                 </SettingsPanel>
@@ -2821,6 +2928,8 @@ const RightSidebar = React.memo(function RightSidebar({
               </SettingsPanel>
             )}
 
+            {!isLocalizing && <DetailPageSettings />}
+
             {/* Collection List — design one item; it repeats for each row. */}
             {selectedLayer && getCollectionVariable(selectedLayer) && !selectedLayer.settings?.optionsSource && (
               <SettingsPanel
@@ -2830,7 +2939,19 @@ const RightSidebar = React.memo(function RightSidebar({
               >
                 <div className="flex flex-col gap-2">
                   <p className="text-xs text-muted-foreground">
-                    Collection List. Design one item. It repeats for each CMS row. A Detail page is the item route. Fetch reads one field.
+                    Design one item. It repeats for each CMS row.
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {collectionQuerySummary({
+                      limit: getCollectionVariable(selectedLayer)?.limit,
+                      sortBy: getCollectionVariable(selectedLayer)?.sort_by,
+                      sortOrder: getCollectionVariable(selectedLayer)?.sort_order,
+                      sortFieldName: selectedCollectionFields.find(field => field.id === getCollectionVariable(selectedLayer)?.sort_by)?.name,
+                      filterCount: collectionFilterCount(getCollectionVariable(selectedLayer)),
+                      pagination: paginationChoice(getCollectionVariable(selectedLayer)),
+                      itemsPerPage: getCollectionVariable(selectedLayer)?.pagination?.items_per_page,
+                      hasEmpty: !!findCollectionEmptyState(allLayers, selectedLayer.id),
+                    })}
                   </p>
                   {/* Collection Selector */}
                   <div className="grid grid-cols-3">
@@ -3021,7 +3142,7 @@ const RightSidebar = React.memo(function RightSidebar({
                       {getCollectionVariable(selectedLayer)?.source_field_type !== 'multi_asset' && (
                       <>
                       <div className="grid grid-cols-3">
-                        <Label variant="muted">Sort by</Label>
+                        <Label variant="muted">Sort</Label>
                         <div className="col-span-2 *:w-full flex">
                           {getCollectionVariable(selectedLayer)?.sort_by_inputLayerId ? (
                               <div className="flex items-center gap-1">
@@ -3086,7 +3207,7 @@ const RightSidebar = React.memo(function RightSidebar({
                           getCollectionVariable(selectedLayer)?.sort_by !== 'manual' &&
                           getCollectionVariable(selectedLayer)?.sort_by !== 'random')) && (
                           <div className="grid grid-cols-3">
-                            <Label variant="muted">Sort order</Label>
+                            <Label variant="muted">Order</Label>
                             <div className="col-span-2 *:w-full flex">
                               {getCollectionVariable(selectedLayer)?.sort_order_inputLayerId ? (
 
@@ -3130,6 +3251,87 @@ const RightSidebar = React.memo(function RightSidebar({
                       </>
                       )}
 
+                      <div className="grid grid-cols-3">
+                        <Label variant="muted">Limit</Label>
+                        <div className="col-span-2 *:w-full">
+                          <Input
+                            type="number"
+                            min="1"
+                            value={getCollectionVariable(selectedLayer)?.limit || ''}
+                            onChange={(e) => handleLimitChange(e.target.value)}
+                            placeholder="No limit"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-3">
+                        <Label variant="muted">Offset</Label>
+                        <div className="col-span-2 *:w-full">
+                          <Input
+                            type="number"
+                            min="0"
+                            value={getCollectionVariable(selectedLayer)?.offset || ''}
+                            onChange={(e) => handleOffsetChange(e.target.value)}
+                            placeholder="0"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-3 items-center">
+                        <Label variant="muted">Filter</Label>
+                        <div className="col-span-2 text-xs text-muted-foreground">
+                          {filterLabel(collectionFilterCount(getCollectionVariable(selectedLayer)))}
+                        </div>
+                      </div>
+
+                      {!isNestedInCollection && selectedLayer.name !== 'slide' && (
+                        <div className="grid grid-cols-3">
+                          <Label variant="muted">Pagination</Label>
+                          <div className="col-span-2 *:w-full">
+                            <Select
+                              value={paginationChoice(getCollectionVariable(selectedLayer))}
+                              onValueChange={(value) => {
+                                if (value === 'off' || value === 'pages' || value === 'load_more') {
+                                  handlePaginationChoice(value);
+                                }
+                              }}
+                              disabled={isPaginationDisabled}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectGroup>
+                                  <SelectItem value="off">Off</SelectItem>
+                                  <SelectItem value="pages">Pages</SelectItem>
+                                  <SelectItem value="load_more">Load more</SelectItem>
+                                </SelectGroup>
+                              </SelectContent>
+                            </Select>
+                            {paginationDisabledReason && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {paginationDisabledReason}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {!isNestedInCollection && selectedLayer.name !== 'slide' && paginationChoice(getCollectionVariable(selectedLayer)) !== 'off' && (
+                        <div className="grid grid-cols-3">
+                          <Label variant="muted">Per page</Label>
+                          <div className="col-span-2 *:w-full">
+                            <Input
+                              type="number"
+                              min={1}
+                              max={100}
+                              value={getCollectionVariable(selectedLayer)?.pagination?.items_per_page ?? 10}
+                              onChange={(e) => handleItemsPerPageChange(e.target.value)}
+                            />
+                          </div>
+                        </div>
+                      )}
+
                       <div className="grid grid-cols-3 items-center">
                         <Label variant="muted">Empty</Label>
                         <div className="col-span-2">
@@ -3159,98 +3361,18 @@ const RightSidebar = React.memo(function RightSidebar({
                           </Button>
                         </div>
                       </div>
-
-                      {/* Total Limit */}
-                      <div className="grid grid-cols-3">
-                        <Label variant="muted">Total limit</Label>
-                        <div className="col-span-2 *:w-full">
-                          <Input
-                            type="number"
-                            min="1"
-                            value={getCollectionVariable(selectedLayer)?.limit || ''}
-                            onChange={(e) => handleLimitChange(e.target.value)}
-                            placeholder="No limit"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Offset */}
-                      <div className="grid grid-cols-3">
-                        <Label variant="muted">Offset</Label>
-                        <div className="col-span-2 *:w-full">
-                          <Input
-                            type="number"
-                            min="0"
-                            value={getCollectionVariable(selectedLayer)?.offset || ''}
-                            onChange={(e) => handleOffsetChange(e.target.value)}
-                            placeholder="0"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Pagination - hidden for nested collections and slides */}
-                      {!isNestedInCollection && selectedLayer.name !== 'slide' && (
-                        <div className="grid grid-cols-3">
-                          <Label variant="muted">Pagination</Label>
-                          <div className="col-span-2 *:w-full">
-                            <ToggleGroup
-                              options={[
-                                { label: 'Off', value: false },
-                                { label: 'On', value: true },
-                              ]}
-                              value={getCollectionVariable(selectedLayer)?.pagination?.enabled ?? false}
-                              onChange={(value) => handlePaginationEnabledChange(value as boolean)}
-                              disabled={isPaginationDisabled}
-                            />
-                            {paginationDisabledReason && (
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {paginationDisabledReason}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Pagination type and items per page - only show when pagination enabled */}
-                      {!isNestedInCollection && selectedLayer.name !== 'slide' && getCollectionVariable(selectedLayer)?.pagination?.enabled && (
-                        <>
-                          <div className="grid grid-cols-3">
-                            <Label variant="muted">Type</Label>
-                            <div className="col-span-2 *:w-full">
-                              <Select
-                                value={getCollectionVariable(selectedLayer)?.pagination?.mode ?? 'pages'}
-                                onValueChange={(value) => handlePaginationModeChange(value as 'pages' | 'load_more')}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectGroup>
-                                    <SelectItem value="pages">Pages (Previous / Next)</SelectItem>
-                                    <SelectItem value="load_more">Load More</SelectItem>
-                                  </SelectGroup>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </div>
-                          <div className="grid grid-cols-3">
-                            <Label variant="muted">Per page</Label>
-                            <div className="col-span-2 *:w-full">
-                              <Input
-                                type="number"
-                                min={1}
-                                max={100}
-                                value={getCollectionVariable(selectedLayer)?.pagination?.items_per_page ?? 10}
-                                onChange={(e) => handleItemsPerPageChange(e.target.value)}
-                              />
-                            </div>
-                          </div>
-                        </>
-                      )}
                     </>
                   )}
                 </div>
               </SettingsPanel>
+            )}
+
+            {selectedLayer && hasBoundCollectionSource(getCollectionVariable(selectedLayer)) && (
+              <CollectionFiltersSettings
+                layer={selectedLayer}
+                onLayerUpdate={handleLayerUpdate}
+                collectionId={getCollectionVariable(selectedLayer)!.id}
+              />
             )}
 
             <ImageSettings
@@ -3352,15 +3474,6 @@ const RightSidebar = React.memo(function RightSidebar({
               layer={selectedLayer}
               onLayerUpdate={handleLayerUpdate}
             />
-
-            {/* Collection Filters - only for layers bound to a real collection source */}
-            {selectedLayer && hasBoundCollectionSource(getCollectionVariable(selectedLayer)) && (
-              <CollectionFiltersSettings
-                layer={selectedLayer}
-                onLayerUpdate={handleLayerUpdate}
-                collectionId={getCollectionVariable(selectedLayer)!.id}
-              />
-            )}
 
             <ConditionalVisibilitySettings
               layer={selectedLayer}

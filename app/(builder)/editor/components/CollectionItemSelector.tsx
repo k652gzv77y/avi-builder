@@ -15,6 +15,8 @@ interface CollectionItemSelectorProps {
   collectionId: string;
   value: string | null;
   onValueChange: (id: string) => void;
+  /** When false, the Detail page preview chooses the first item in sort order. */
+  autoSelect?: boolean;
 }
 
 const SEARCH_LIMIT = 50;
@@ -32,6 +34,7 @@ export default function CollectionItemSelector({
   collectionId,
   value,
   onValueChange,
+  autoSelect = true,
 }: CollectionItemSelectorProps) {
   const itemsByCollection = useCollectionsStore((s) => s.items);
   const fieldsByCollection = useCollectionsStore((s) => s.fields);
@@ -76,10 +79,9 @@ export default function CollectionItemSelector({
   }, [collectionId, trimmedSearch, searchAndMergeItems]);
 
   useEffect(() => {
-    if (!value && dropdownItems.length > 0) {
-      onValueChange(dropdownItems[0].id);
-    }
-  }, [value, dropdownItems, onValueChange]);
+    if (!autoSelect || value || dropdownItems.length === 0) return;
+    onValueChange(dropdownItems[0].id);
+  }, [autoSelect, value, dropdownItems, onValueChange]);
 
   const selectedLabel = dropdownItems.find((item) => item.id === value)?.label || '';
 
@@ -107,7 +109,7 @@ export default function CollectionItemSelector({
               <Icon name="database" className="size-3 opacity-50" />
             </span>
           </TooltipTrigger>
-          <TooltipContent>Collection item</TooltipContent>
+          <TooltipContent>Detail page</TooltipContent>
         </Tooltip>
       )}
       onSearchChange={setSearch}
