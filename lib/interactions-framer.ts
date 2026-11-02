@@ -5,6 +5,9 @@
  * Actions are a separate list on that event: set variant, overlay, navigate,
  * and scroll-to-variant. Tweens remain the animation track, including Appear
  * presets. Effects (opacity, shadow, blur) are not part of this model.
+ *
+ * Code overrides (lib/code-components.ts) only add a class or a data/aria
+ * attribute. They do not add events, actions, or effects.
  */
 
 import type {

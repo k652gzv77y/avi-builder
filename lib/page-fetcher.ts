@@ -1,4 +1,5 @@
 import { cache } from 'react';
+import { markupForCodeLayer, mergeOverrideClass, sanitizeCodeOverride } from '@/lib/code-components';
 import { escapeHtml } from '@/lib/escape-html';
 import { getSupabaseAdmin } from '@/lib/supabase-server';
 import { getKnexClient } from '@/lib/knex-client';
@@ -4773,6 +4774,9 @@ export function layerToHtml(
     classesStr = classesStr ? `${classesStr} swiper-slide` : 'swiper-slide';
   }
 
+  classesStr = mergeOverrideClass(classesStr, layer.settings?.codeOverride);
+  const codeOverride = sanitizeCodeOverride(layer.settings?.codeOverride);
+
   // Build attributes
   const attrs: string[] = [];
 
@@ -4835,6 +4839,12 @@ export function layerToHtml(
 
   if (classesStr) {
     attrs.push(`class="${escapeHtml(classesStr)}"`);
+  }
+
+  if (codeOverride?.attributes) {
+    for (const [key, value] of Object.entries(codeOverride.attributes)) {
+      attrs.push(`${key}="${escapeHtml(value)}"`);
+    }
   }
 
   if (layer.attributes?.id) {
@@ -5084,6 +5094,12 @@ export function layerToHtml(
     }
     // Add data-icon attribute to trigger CSS styling
     attrs.push('data-icon="true"');
+  }
+
+  if (layer.name === 'codeComponent') {
+    const markup = markupForCodeLayer(layer, components);
+    const attrsStr = attrs.length > 0 ? ' ' + attrs.join(' ') : '';
+    return `<div${attrsStr}>${markup}</div>`;
   }
 
   // Handle Code Embed layers - render as iframe for SSR

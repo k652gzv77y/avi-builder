@@ -1,6 +1,9 @@
 'use client';
 
 import { projectsPath } from '@/lib/project-url';
+import { applyCodeOverrideProps, markupForCodeLayer, mergeOverrideClass, sanitizeCodeOverride } from '@/lib/code-components';
+import { resolveFormPost } from '@/lib/collection-write';
+import { signInNextFromLocation } from '@/lib/route-protection';
 
 /**
  * LayerRendererPublic - public-only layer renderer.
@@ -1036,6 +1039,7 @@ const LayerItem: React.FC<{
     if (layer.settings?.customAttributes) {
       applyCustomAttributes(elementProps, layer.settings.customAttributes);
     }
+    applyCodeOverrideProps(elementProps, layer.settings?.codeOverride);
 
     // Pagination count/info layers: expose the (translated) template so the
     // client runtime can re-resolve the numbers after load-more/filter/page nav.
@@ -1314,17 +1318,14 @@ const LayerItem: React.FC<{
         });
 
         try {
-          const response = await fetch(projectsPath('/api/form-submissions'), {
+          const post = resolveFormPost(formSettings, payload, {
+            formId: formId || 'unnamed-form',
+            pageUrl: typeof window !== 'undefined' ? window.location.href : undefined,
+          });
+          const response = await fetch(projectsPath(post.path), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              form_id: formId || 'unnamed-form',
-              payload,
-              metadata: {
-                page_url: typeof window !== 'undefined' ? window.location.href : undefined,
-              },
-              email: formSettings?.email_notification,
-            }),
+            body: JSON.stringify(post.body),
           });
 
           const result = await response.json();
@@ -1340,6 +1341,14 @@ const LayerItem: React.FC<{
           if (response.ok) {
             // Success handling
             const successAction = formSettings?.success_action || 'message';
+
+            if (formSettings?.form_type === 'supabase_sign_in' && successAction !== 'redirect') {
+              const next = signInNextFromLocation(window.location.search);
+              if (next) {
+                window.location.href = next;
+                return;
+              }
+            }
 
             if (successAction === 'redirect' && formSettings?.redirect_url) {
               // Resolve link settings to actual URL
@@ -1435,6 +1444,30 @@ const LayerItem: React.FC<{
           style={iconAspectRatio ? { aspectRatio: iconAspectRatio, ...iconElementStyle } : iconElementStyle}
           dangerouslySetInnerHTML={{ __html: iconHtml }}
         />
+      );
+    }
+
+    if (layer.name === 'codeComponent') {
+      const markup = markupForCodeLayer(layer, allComponents);
+      return (
+        <div
+          data-layer-id={layer.id}
+          data-layer-type="codeComponent"
+          className={mergeOverrideClass(fullClassName, layer.settings?.codeOverride)}
+          style={{ width: '100%', minHeight: '48px', ...mergedStyle }}
+          ref={(node) => {
+            const attributes = sanitizeCodeOverride(layer.settings?.codeOverride)?.attributes;
+            if (!node || !attributes) return;
+            for (const [key, value] of Object.entries(attributes)) node.setAttribute(key, value);
+          }}
+        >
+          <iframe
+            sandbox="allow-scripts allow-same-origin"
+            srcDoc={markup}
+            title={layer.customName || 'Code component'}
+            style={{ width: '100%', border: 'none', display: 'block', minHeight: '48px' }}
+          />
+        </div>
       );
     }
 

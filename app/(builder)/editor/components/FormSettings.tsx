@@ -11,10 +11,20 @@ import React, { useState, useCallback, useEffect } from 'react';
 
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { collectionWriteFromSettings, fieldInputKey } from '@/lib/collection-write';
+import { useCollectionsStore } from '@/stores/useCollectionsStore';
 import SettingsPanel from './SettingsPanel';
 import LinkSettings from './LinkSettings';
-import type { Layer, FormSettings as FormSettingsType, LinkSettingsValue } from '@/types';
+import type { CollectionWriteSettings, Layer, FormSettings as FormSettingsType, LinkSettingsValue } from '@/types';
 
 interface FormSettingsProps {
   layer: Layer | null;
@@ -31,6 +41,7 @@ export default function FormSettings({ layer, onLayerUpdate }: FormSettingsProps
   const [emailOpen, setEmailOpen] = useState(false);
   const [isSmtpEnabled, setIsSmtpEnabled] = useState<boolean | null>(null);
   const [emailToInput, setEmailToInput] = useState('');
+  const { collections, fields } = useCollectionsStore();
 
   // Check if email is enabled in global settings
   useEffect(() => {
@@ -147,6 +158,14 @@ export default function FormSettings({ layer, onLayerUpdate }: FormSettingsProps
   }
 
   const emailNotification = formSettings.email_notification || { enabled: false, to: '' };
+  const isSignIn = formSettings.form_type === 'supabase_sign_in';
+  const write = collectionWriteFromSettings(formSettings.collection_write);
+  const collectionFields = fields[write.collection_id] || [];
+  const matchFields = collectionFields.filter((field) => field.fillable && !field.is_computed && field.type !== 'count' && field.type !== 'status');
+
+  const handleWriteChange = (patch: Partial<CollectionWriteSettings>) => {
+    handleSettingChange('collection_write', { ...write, ...patch });
+  };
 
   const handleEmailToChange = (value: string) => {
     setEmailToInput(value);
@@ -180,6 +199,101 @@ export default function FormSettings({ layer, onLayerUpdate }: FormSettingsProps
       onToggle={() => setIsOpen(!isOpen)}
     >
       <div className="flex flex-col gap-2.5">
+        <div className="grid grid-cols-3">
+          <Label variant="muted">Purpose</Label>
+          <div className="col-span-2 *:w-full">
+            <Tabs
+              value={isSignIn ? 'sign-in' : 'submit'}
+              onValueChange={(value) => handleSettingChange('form_type', value === 'sign-in' ? 'supabase_sign_in' : 'standard')}
+            >
+              <TabsList className="w-full">
+                <TabsTrigger value="submit" className="flex-1 text-xs">Submit</TabsTrigger>
+                <TabsTrigger value="sign-in" className="flex-1 text-xs">Sign in</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+        </div>
+
+        {isSignIn && (
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Posts email and password to the project sign-in route and stores the Supabase session. Name the inputs email and password.
+          </p>
+        )}
+
+        {!isSignIn && (
+          <div className="flex items-center justify-between gap-2">
+            <Label htmlFor="collection-write" className="text-xs">Save to collection</Label>
+            <Switch
+              id="collection-write"
+              size="sm"
+              checked={write.enabled}
+              onCheckedChange={(checked) => handleWriteChange({ enabled: checked === true })}
+            />
+          </div>
+        )}
+
+        {!isSignIn && write.enabled && (
+          <>
+            <div className="grid grid-cols-3 items-center">
+              <Label variant="muted">Collection</Label>
+              <div className="col-span-2">
+                <Select
+                  value={write.collection_id || undefined}
+                  onValueChange={(value) => handleWriteChange({ collection_id: value })}
+                >
+                  <SelectTrigger aria-label="Collection">
+                    <SelectValue placeholder="Choose" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {collections.map((collection) => (
+                      <SelectItem key={collection.id} value={collection.id}>{collection.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-3">
+              <Label variant="muted">Write</Label>
+              <div className="col-span-2 *:w-full">
+                <Tabs
+                  value={write.mode}
+                  onValueChange={(value) => handleWriteChange({ mode: value === 'update' ? 'update' : 'insert' })}
+                >
+                  <TabsList className="w-full">
+                    <TabsTrigger value="insert" className="flex-1 text-xs">Insert</TabsTrigger>
+                    <TabsTrigger value="update" className="flex-1 text-xs">Update</TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
+            </div>
+            {write.mode === 'update' && (
+              <div className="grid grid-cols-3 items-center">
+                <Label variant="muted">Match</Label>
+                <div className="col-span-2">
+                  <Select
+                    value={write.match_field_id || undefined}
+                    onValueChange={(value) => handleWriteChange({ match_field_id: value })}
+                  >
+                    <SelectTrigger aria-label="Match field">
+                      <SelectValue placeholder="Field" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {matchFields.map((field) => (
+                        <SelectItem key={field.id} value={field.id}>
+                          {field.name} ({fieldInputKey(field)})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Input names must match field keys. A signed-in visitor is required so the write follows collection row security.
+            </p>
+          </>
+        )}
+
         {/* Success Action Toggle */}
         <div className="grid grid-cols-3">
           <Label variant="muted">Success</Label>

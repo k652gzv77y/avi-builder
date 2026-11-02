@@ -142,6 +142,8 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
 
   const [authEnabled, setAuthEnabled] = useState(false);
   const [authPassword, setAuthPassword] = useState('');
+  const [requireSession, setRequireSession] = useState(false);
+  const [signInPath, setSignInPath] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
   const [collectionId, setCollectionId] = useState<string | null>(null);
@@ -220,6 +222,8 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
     customCodeBody: string;
     authEnabled: boolean;
     authPassword: string;
+    requireSession: boolean;
+    signInPath: string;
     collectionId: string | null;
     slugFieldId: string | null;
     nextPrevSortBy: string;
@@ -448,6 +452,8 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
       customCodeBody !== initial.customCodeBody ||
       authEnabled !== initial.authEnabled ||
       authPassword !== initial.authPassword ||
+      requireSession !== initial.requireSession ||
+      signInPath !== initial.signInPath ||
       collectionId !== initial.collectionId ||
       slugFieldId !== initial.slugFieldId ||
       nextPrevSortBy !== initial.nextPrevSortBy ||
@@ -462,7 +468,7 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
 
     return hasChanges;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name, slug, pageFolderId, isIndex, seoTitle, seoDescription, seoImage, seoNoindex, customCodeHead, customCodeBody, authEnabled, authPassword, collectionId, slugFieldId, nextPrevSortBy, nextPrevSortOrder, stageForPublish, canHandleStatus, saveCounter]);
+  }, [name, slug, pageFolderId, isIndex, seoTitle, seoDescription, seoImage, seoNoindex, customCodeHead, customCodeBody, authEnabled, authPassword, requireSession, signInPath, collectionId, slugFieldId, nextPrevSortBy, nextPrevSortOrder, stageForPublish, canHandleStatus, saveCounter]);
 
   // Expose method to check for unsaved changes externally
   useImperativeHandle(ref, () => ({
@@ -547,6 +553,8 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
           initialValuesRef.current.customCodeBody = settings?.custom_code?.body || '';
           initialValuesRef.current.authEnabled = settings?.auth?.enabled || false;
           initialValuesRef.current.authPassword = settings?.auth?.password || '';
+          initialValuesRef.current.requireSession = settings?.auth?.requireSession === true;
+          initialValuesRef.current.signInPath = settings?.auth?.signInPath || '';
           initialValuesRef.current.collectionId = settings?.cms?.collection_id || null;
           initialValuesRef.current.slugFieldId = settings?.cms?.slug_field_id || null;
           {
@@ -578,6 +586,8 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
       customCodeBody !== initialValuesRef.current.customCodeBody ||
       authEnabled !== initialValuesRef.current.authEnabled ||
       authPassword !== initialValuesRef.current.authPassword ||
+      requireSession !== initialValuesRef.current.requireSession ||
+      signInPath !== initialValuesRef.current.signInPath ||
       collectionId !== initialValuesRef.current.collectionId ||
       slugFieldId !== initialValuesRef.current.slugFieldId ||
       nextPrevSortBy !== initialValuesRef.current.nextPrevSortBy ||
@@ -622,6 +632,8 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
       const initialCustomCodeBody = settings?.custom_code?.body || '';
       const initialAuthEnabled = settings?.auth?.enabled || false;
       const initialAuthPassword = settings?.auth?.password || '';
+      const initialRequireSession = settings?.auth?.requireSession === true;
+      const initialSignInPath = settings?.auth?.signInPath || '';
       const initialCollectionId = settings?.cms?.collection_id || null;
       const initialSlugFieldId = settings?.cms?.slug_field_id || null;
       const initialIdFieldId = fields[settings?.cms?.collection_id || '']?.find(f => f.key === 'id')?.id;
@@ -643,6 +655,8 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
         customCodeBody: initialCustomCodeBody,
         authEnabled: initialAuthEnabled,
         authPassword: initialAuthPassword,
+        requireSession: initialRequireSession,
+        signInPath: initialSignInPath,
         collectionId: initialCollectionId,
         slugFieldId: initialSlugFieldId,
         nextPrevSortBy: initialNextPrevSortBy,
@@ -661,6 +675,8 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
       setCustomCodeBody(initialCustomCodeBody);
       setAuthEnabled(initialAuthEnabled);
       setAuthPassword(initialAuthPassword);
+      setRequireSession(initialRequireSession);
+      setSignInPath(initialSignInPath);
       setCollectionId(initialCollectionId);
       setSlugFieldId(initialSlugFieldId);
       setNextPrevSortBy(initialNextPrevSortBy);
@@ -680,6 +696,8 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
         customCodeBody: '',
         authEnabled: false,
         authPassword: '',
+        requireSession: false,
+        signInPath: '',
         collectionId: null,
         slugFieldId: null,
         nextPrevSortBy: 'manual',
@@ -698,6 +716,8 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
       setCustomCodeBody('');
       setAuthEnabled(false);
       setAuthPassword('');
+      setRequireSession(false);
+      setSignInPath('');
       setCollectionId(null);
       setSlugFieldId(null);
       setNextPrevSortBy('manual');
@@ -952,6 +972,8 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
         setCustomCodeBody(initialValuesRef.current.customCodeBody);
         setAuthEnabled(initialValuesRef.current.authEnabled);
         setAuthPassword(initialValuesRef.current.authPassword);
+        setRequireSession(initialValuesRef.current.requireSession);
+        setSignInPath(initialValuesRef.current.signInPath);
         setCollectionId(initialValuesRef.current.collectionId);
         setSlugFieldId(initialValuesRef.current.slugFieldId);
         setNextPrevSortBy(initialValuesRef.current.nextPrevSortBy);
@@ -982,6 +1004,8 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
         setCustomCodeBody(initialValuesRef.current.customCodeBody);
         setAuthEnabled(initialValuesRef.current.authEnabled);
         setAuthPassword(initialValuesRef.current.authPassword);
+        setRequireSession(initialValuesRef.current.requireSession);
+        setSignInPath(initialValuesRef.current.signInPath);
         setCollectionId(initialValuesRef.current.collectionId);
         setSlugFieldId(initialValuesRef.current.slugFieldId);
         setNextPrevSortBy(initialValuesRef.current.nextPrevSortBy);
@@ -1133,6 +1157,8 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
         auth: {
           enabled: authEnabled,
           password: authPassword.trim(),
+          requireSession,
+          signInPath: signInPath.trim() || undefined,
         },
         seo: {
           title: seoTitle.trim(),
@@ -1194,6 +1220,8 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
       setCustomCodeHead(trimmedCustomCodeHead);
       setCustomCodeBody(trimmedCustomCodeBody);
       setAuthPassword(trimmedAuthPassword);
+      const trimmedSignInPath = signInPath.trim();
+      setSignInPath(trimmedSignInPath);
       // Update collection values - normalize to null if either is missing
       const savedCollectionId = collectionId && slugFieldId ? collectionId : null;
       const savedSlugFieldId = collectionId && slugFieldId ? slugFieldId : null;
@@ -1218,6 +1246,8 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
         customCodeBody: trimmedCustomCodeBody,
         authEnabled,
         authPassword: trimmedAuthPassword,
+        requireSession,
+        signInPath: trimmedSignInPath,
         collectionId: savedCollectionId,
         slugFieldId: savedSlugFieldId,
         nextPrevSortBy: savedNextPrevSortBy,
@@ -1641,6 +1671,35 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
                         disabled={isErrorPage}
                       />
                     </Field>
+
+                    <Field orientation="horizontal" className="flex flex-row-reverse!">
+                      <FieldContent>
+                        <FieldLabel htmlFor="requireSession">
+                          Require sign-in
+                        </FieldLabel>
+                        <FieldDescription>
+                          Visitors need a Supabase account before this page loads. Password protection stays separate. The sign-in page itself is not redirected.
+                        </FieldDescription>
+                      </FieldContent>
+                      <Checkbox
+                        id="requireSession"
+                        checked={requireSession}
+                        onCheckedChange={(checked) => setRequireSession(checked === true)}
+                        disabled={isErrorPage}
+                      />
+                    </Field>
+
+                    {requireSession && (
+                      <Field>
+                        <FieldLabel>Sign-in page</FieldLabel>
+                        <Input
+                          type="text"
+                          value={signInPath}
+                          onChange={(e) => setSignInPath(e.target.value)}
+                          placeholder="/sign-in"
+                        />
+                      </Field>
+                    )}
 
                     {authEnabled && (
                       <Field>
