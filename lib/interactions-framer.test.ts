@@ -28,6 +28,7 @@ import {
   variantForScrollProgress,
   variantTargets,
   withAppearPreset,
+  withScrollPreset,
 } from '@/lib/interactions-framer';
 
 function interaction(partial: Partial<LayerInteraction> = {}): LayerInteraction {
@@ -73,6 +74,22 @@ test('actions can be added and removed without touching tweens', () => {
   assert.equal(replaced.actions?.length, 1);
   assert.equal(removeInteractionAction(replaced, 'nav').actions?.length, 0);
   assert.equal(removeInteractionAction(replaced, 'nav').tweens[0].id, 'tw');
+});
+
+test('scroll presets scrub a tween and replace the previous one', () => {
+  const first = withScrollPreset(interaction({ trigger: 'while-scrolling' }), 'hero', 'fade', 'tw-1');
+  assert.equal(first.scrollPreset, 'fade');
+  assert.equal(first.timeline.scrub, 1);
+  assert.equal(first.timeline.scrollStart, 'top bottom');
+  assert.equal(first.tweens[0].from.autoAlpha, '0');
+  assert.equal(interactionSummary(first), 'Scroll → Fade');
+
+  const next = withScrollPreset(first, 'hero', 'parallax', 'tw-2');
+  assert.equal(next.tweens.length, 1);
+  assert.equal(next.tweens[0].id, 'tw-2');
+  assert.equal(next.tweens[0].from.y, '64px');
+  assert.equal(next.tweens[0].to.y, '-64px');
+  assert.equal(next.timeline.scrub, 1);
 });
 
 test('appear presets write an on-load tween and replace the previous one', () => {

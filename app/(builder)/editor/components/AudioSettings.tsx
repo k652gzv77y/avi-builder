@@ -28,6 +28,7 @@ import { useAssetsStore } from '@/stores/useAssetsStore';
 import { useComponentsStore } from '@/stores/useComponentsStore';
 import { ASSET_CATEGORIES, isAssetOfType } from '@/lib/asset-utils';
 import { AUDIO_FIELD_TYPES, filterFieldGroupsByType, flattenFieldGroups } from '@/lib/collection-field-utils';
+import { cmsItemsFromGroups, findCmsItem, selectCmsBinding } from '@/lib/cms-framer';
 import { toast } from 'sonner';
 import Icon from '@/components/ui/icon';
 import { Slider } from '@/components/ui/slider';
@@ -111,6 +112,11 @@ export default function AudioSettings(props: AudioSettingsProps) {
   const audioFields = useMemo(() => {
     return flattenFieldGroups(audioFieldGroups);
   }, [audioFieldGroups]);
+
+  const audioCmsItems = useMemo(
+    () => cmsItemsFromGroups(audioFieldGroups, AUDIO_FIELD_TYPES),
+    [audioFieldGroups],
+  );
 
   // Detect current field ID if using FieldVariable
   const currentFieldId = useMemo(() => {
@@ -377,7 +383,13 @@ export default function AudioSettings(props: AudioSettingsProps) {
               label="Source"
               isEditingComponent={!!editingComponentId}
               variables={audioComponentVariables}
-              linkedVariableId={linkedAudioVariableId}
+              linkedVariableId={linkedAudioVariableId ?? findCmsItem(audioCmsItems, currentFieldId)?.id}
+              linkedName={linkedAudioVariable ? undefined : findCmsItem(audioCmsItems, currentFieldId)?.name}
+              onUnlink={!linkedAudioVariable && currentFieldId ? () => handleTypeChange('upload') : undefined}
+              cmsItems={audioCmsItems}
+              onSelectCms={(id) => {
+                selectCmsBinding(id, handleFieldSelect);
+              }}
               onLinkVariable={handleLinkAudioVariable}
               onManageVariables={() => onOpenVariablesDialog?.()}
               onCreateVariable={editingComponentId ? async () => {

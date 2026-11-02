@@ -69,9 +69,8 @@ export default function ComponentVariableLabel({
   onUnlink,
   className,
 }: ComponentVariableLabelProps) {
-  const hasCms = (cmsItems?.length ?? 0) > 0 && !!onSelectCms;
-  const hasFetch = !!onCreateFetch || (fetchItems?.length ?? 0) > 0;
-  if (!isEditingComponent && !hasCms && !hasFetch) {
+  const offersBindings = isEditingComponent || !!onSelectCms || !!onSelectFetch || !!onCreateFetch;
+  if (!offersBindings) {
     return <Label variant="muted" className={className}>{label}</Label>;
   }
 

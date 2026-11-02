@@ -5,8 +5,8 @@
  * into a Variable from the + control. Many layers share one variable. Instances
  * override the value per breakpoint, using the Sprint 1 desktop-first cascade.
  *
- * CMS fields and Fetch reuse this source list. Pass items to enable them.
- * Without items they stay disabled, which is the Sprint 2 slot.
+ * Collection List, Detail, and Fetch reuse this source list. Pass items to
+ * enable them. Without items they stay disabled.
  */
 
 import type {
@@ -236,6 +236,7 @@ export interface BindingSourceItem {
  * a caller passes items and onSelect. Variables keep their Sprint 2 names.
  */
 export interface BindingSource {
+  id: string;
   kind: 'variable' | 'cms' | 'fetch';
   label: string;
   enabled: boolean;
@@ -243,6 +244,26 @@ export interface BindingSource {
   items?: BindingSourceItem[];
   onCreate?: () => void;
   onSelect?: (id: string) => void;
+}
+
+function cmsSourceOf(id: string): 'page' | 'collection' | 'global' | null {
+  const parts = id.split(':');
+  if (parts.length !== 4 || parts[0] !== 'cms') return null;
+  if (parts[1] === 'page' || parts[1] === 'collection' || parts[1] === 'global') return parts[1];
+  return null;
+}
+
+function splitCmsItems(items: BindingSourceItem[]) {
+  const collection: BindingSourceItem[] = [];
+  const detail: BindingSourceItem[] = [];
+  const globals: BindingSourceItem[] = [];
+  for (const item of items) {
+    const source = cmsSourceOf(item.id);
+    if (source === 'page') detail.push(item);
+    else if (source === 'global') globals.push(item);
+    else collection.push(item);
+  }
+  return { collection, detail, globals };
 }
 
 export function defaultBindingSources(
@@ -260,10 +281,31 @@ export function defaultBindingSources(
 ): BindingSource[] {
   const cmsItems = extras?.cms?.items ?? [];
   const fetchItems = extras?.fetch?.items ?? [];
-  const cmsEnabled = cmsItems.length > 0 && !!extras?.cms?.onSelect;
   const fetchEnabled = fetchItems.length > 0 || !!extras?.fetch?.onCreate;
-  return [
+  const split = splitCmsItems(cmsItems);
+  const cmsSelect = extras?.cms?.onSelect;
+
+  const cmsSource = (
+    id: string,
+    label: string,
+    items: BindingSourceItem[],
+    unavailableReason: string,
+  ): BindingSource => {
+    const enabled = items.length > 0 && !!cmsSelect;
+    return {
+      id,
+      kind: 'cms',
+      label,
+      enabled,
+      items: enabled ? items : undefined,
+      onSelect: enabled ? cmsSelect : undefined,
+      unavailableReason: enabled ? undefined : unavailableReason,
+    };
+  };
+
+  const sources: BindingSource[] = [
     {
+      id: 'variables',
       kind: 'variable',
       label: 'Variables',
       enabled: variable.enabled !== false,
@@ -274,22 +316,39 @@ export function defaultBindingSources(
       onCreate: variable.onCreate,
       onSelect: variable.onSelect,
     },
-    {
-      kind: 'cms',
-      label: 'CMS',
-      enabled: cmsEnabled,
-      items: cmsEnabled ? cmsItems : undefined,
-      onSelect: extras?.cms?.onSelect,
-      unavailableReason: 'Bind a Collection List or open a Detail Page to use collection fields.',
-    },
-    {
-      kind: 'fetch',
-      label: 'Fetch',
-      enabled: fetchEnabled,
-      items: fetchItems,
-      onSelect: extras?.fetch?.onSelect,
-      onCreate: extras?.fetch?.onCreate,
-      unavailableReason: 'Fetch a single collection value, with Loading and Error variants.',
-    },
+    cmsSource(
+      'collection-list',
+      'Collection List',
+      split.collection,
+      'Place this layer inside a Collection List to bind its fields.',
+    ),
+    cmsSource(
+      'detail',
+      'Detail',
+      split.detail,
+      'Open a Detail Page to bind its fields.',
+    ),
   ];
+
+  if (split.globals.length > 0) {
+    sources.push(cmsSource(
+      'globals',
+      'Globals',
+      split.globals,
+      'Globals are not available.',
+    ));
+  }
+
+  sources.push({
+    id: 'fetch',
+    kind: 'fetch',
+    label: 'Fetch',
+    enabled: fetchEnabled,
+    items: fetchItems,
+    onSelect: extras?.fetch?.onSelect,
+    onCreate: extras?.fetch?.onCreate,
+    unavailableReason: 'Fetch a single collection value, with Loading and Error variants.',
+  });
+
+  return sources;
 }

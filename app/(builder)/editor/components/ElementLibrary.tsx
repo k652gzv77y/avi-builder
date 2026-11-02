@@ -38,6 +38,13 @@ import { canHaveChildren, assignOrderClassToNewLayer, collectAllSettingsIds, gen
 import { placeChildInParent } from '@/lib/layout-model';
 import { checkCircularReference, isCircularComponentReference } from '@/lib/component-utils';
 import { insertComponentOnCanvas } from '@/lib/insert-component-on-canvas';
+import {
+  QUICK_INSERT,
+  buildInsertCatalog,
+  filterInsertEntries,
+  nextInsertIndex,
+  type InsertEntry,
+} from '@/lib/insert-menu';
 import { cn, generateId } from '@/lib/utils';
 import { toast } from 'sonner';
 import { componentsApi } from '@/lib/api';
@@ -157,7 +164,7 @@ interface ElementLibraryProps {
 
 // Category definitions
 const elementCategories: Record<string, string[]> = {
-  Structure: ['section', 'container', 'div', 'hr', 'columns', 'rows', 'grid', 'collection'],
+  Structure: ['frame', 'stack', 'section', 'container', 'div', 'hr', 'columns', 'rows', 'grid', 'collection'],
   Content: ['heading', 'text', 'richText'],
   Actions: ['button'],
   Media: ['image', 'icon', 'video', 'audio'],
@@ -327,6 +334,9 @@ export default function ElementLibrary({ isOpen, onClose, liveLayerUpdates }: El
     return 'elements';
   });
   const [componentSearch, setComponentSearch] = useState('');
+  const [insertQuery, setInsertQuery] = useState('');
+  const [insertHighlight, setInsertHighlight] = useState(0);
+  const insertSearchRef = useRef<HTMLInputElement>(null);
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [componentToRename, setComponentToRename] = useState<Component | null>(null);
   const tabRefs = React.useRef<Record<string, HTMLDivElement | null>>({});
@@ -380,6 +390,33 @@ export default function ElementLibrary({ isOpen, onClose, liveLayerUpdates }: El
     const allCategories = Object.keys(getLayoutsByCategory());
     return new Set(allCategories.filter(cat => cat !== 'Navigation' && cat !== 'Hero' && cat !== 'Blog header' && cat !== 'Blog posts'));
   });
+
+  const insertCatalog = useMemo(() => buildInsertCatalog(
+    Object.values(elementCategories).flat().map(template => ({
+      template,
+      label: getBlockName(template) || template,
+    })),
+    components.map(component => ({ id: component.id, name: component.name })),
+    getAllLayoutKeys(),
+  ), [components]);
+
+  const insertResults = useMemo(
+    () => filterInsertEntries(insertCatalog, insertQuery),
+    [insertCatalog, insertQuery],
+  );
+
+  React.useEffect(() => {
+    setInsertHighlight(0);
+  }, [insertQuery, isOpen]);
+
+  React.useEffect(() => {
+    if (!isOpen) {
+      setInsertQuery('');
+      return;
+    }
+    const timer = window.setTimeout(() => insertSearchRef.current?.focus(), 0);
+    return () => window.clearTimeout(timer);
+  }, [isOpen]);
 
   // Sync tab when explicitly requested (e.g., "Add layout" button)
   React.useEffect(() => {
@@ -1301,6 +1338,41 @@ export default function ElementLibrary({ isOpen, onClose, liveLayerUpdates }: El
 
   // Read-only translation mode: hide the library entirely so the user knows
   // they can't add or modify structural elements while in a non-default locale.
+  const insertFromEntry = (entry: InsertEntry) => {
+    if (entry.kind === 'component') {
+      handleAddComponent(entry.template);
+      return;
+    }
+    if (entry.kind === 'layout') {
+      void handleAddLayout(entry.template);
+      return;
+    }
+    handleAddElement(entry.template);
+  };
+
+  const handleInsertKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setInsertHighlight(current => nextInsertIndex(current, 1, insertResults.length));
+      return;
+    }
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setInsertHighlight(current => nextInsertIndex(current, -1, insertResults.length));
+      return;
+    }
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      const entry = insertResults[insertHighlight];
+      if (entry) insertFromEntry(entry);
+      return;
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      onClose();
+    }
+  };
+
   if (isLocalizing) {
     return (
       <div
@@ -1341,6 +1413,21 @@ export default function ElementLibrary({ isOpen, onClose, liveLayerUpdates }: El
           className="flex flex-col h-full overflow-hidden gap-0"
         >
           <div className="flex flex-col shrink-0 gap-2">
+            <div className="px-4 pt-4">
+              <div className="relative">
+                <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 size-3 text-muted-foreground pointer-events-none" />
+                <Input
+                  ref={insertSearchRef}
+                  value={insertQuery}
+                  onChange={(event) => setInsertQuery(event.target.value)}
+                  onKeyDown={handleInsertKeyDown}
+                  placeholder="Search to insert"
+                  aria-label="Insert"
+                  className="h-8 pl-8 text-xs"
+                />
+              </div>
+            </div>
+            {!insertQuery.trim() && (
             <div className="p-4 pb-0">
               <TabsList className="w-full">
                 <TabsTrigger value="elements">Elements</TabsTrigger>
@@ -1348,14 +1435,60 @@ export default function ElementLibrary({ isOpen, onClose, liveLayerUpdates }: El
                 <TabsTrigger value="components">Components</TabsTrigger>
               </TabsList>
             </div>
+            )}
 
             <hr className="mt-2 mb-0 mx-4 shrink-0" />
           </div>
+
+          {insertQuery.trim() ? (
+            <div className="flex flex-col gap-1 overflow-y-auto px-4 py-3 flex-1">
+              {insertResults.length === 0 ? (
+                <Empty>
+                  <EmptyTitle>No matches</EmptyTitle>
+                  <EmptyDescription>Try Frame, Stack, Text, Image, or a component name.</EmptyDescription>
+                </Empty>
+              ) : insertResults.map((entry, index) => (
+                <Button
+                  key={entry.id}
+                  type="button"
+                  size="sm"
+                  variant={index === insertHighlight ? 'secondary' : 'ghost'}
+                  className="justify-start"
+                  data-insert-active={index === insertHighlight ? 'true' : 'false'}
+                  onMouseEnter={() => setInsertHighlight(index)}
+                  onClick={() => insertFromEntry(entry)}
+                >
+                  <Icon name={entry.kind === 'component' ? 'component' : entry.kind === 'layout' ? 'layout' : getBlockIcon(entry.template)} />
+                  <span className="truncate">{entry.label}</span>
+                </Button>
+              ))}
+            </div>
+          ) : (
+          <>
 
           <TabsContent
             value="elements" forceMount
             ref={(el) => { tabRefs.current.elements = el; }} className="flex flex-col divide-y overflow-y-auto flex-1 px-4 pb-4 no-scrollbar"
           >
+            <div className="flex flex-col pb-5">
+              <header className="py-5">
+                <Label>Quick insert</Label>
+              </header>
+              <div className="grid grid-cols-2 gap-2">
+                {QUICK_INSERT.map((entry, index) => (
+                  <ElementButton
+                    key={entry.id}
+                    elementType={entry.template}
+                    source="elements"
+                    name={entry.label}
+                    icon={getBlockIcon(entry.template)}
+                    className={index === insertHighlight ? 'ring-1 ring-foreground/40' : undefined}
+                    onClick={() => insertFromEntry(entry)}
+                    onDragStart={handleElementDragStart}
+                  />
+                ))}
+              </div>
+            </div>
             {Object.entries(elementCategories).map(([categoryName, elements]) => (
               <div key={categoryName} className="flex flex-col pb-5">
                 <header className="py-5">
@@ -1568,6 +1701,8 @@ export default function ElementLibrary({ isOpen, onClose, liveLayerUpdates }: El
               </div>
             )}
           </TabsContent>
+          </>
+          )}
         </Tabs>
 
         <RenameComponentDialog

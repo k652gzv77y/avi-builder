@@ -65,6 +65,7 @@ import RichTextEditor from './RichTextEditor';
 import ComponentVariableLabel, { VARIABLE_TYPE_ICONS } from './ComponentVariableLabel';
 import InteractionsPanel from './InteractionsPanel';
 import { InteractionsSection } from './interactions-section';
+import OverlaySettings from './overlay-settings';
 import { InspectorSection, VariablesSection } from './inspector-section';
 import { BreakpointContextBar } from './BreakpointOverride';
 import LayoutControls from './LayoutControls';
@@ -102,7 +103,8 @@ import { classesToDesign, mergeDesign, removeConflictsForClass, removeRedundantS
 import { getStyleIds } from '@/lib/layer-style-utils';
 import { resolveLayerClasses, chipClasses } from '@/lib/layer-style-resolve';
 import { buildDesign } from '@/lib/import/design';
-import { cn } from '@/lib/utils';
+import { cn, generateId } from '@/lib/utils';
+import { applyOverlaySetup, createOverlayLayer, syncOverlaySettings } from '@/lib/overlay-setup';
 import { sanitizeHtmlId } from '@/lib/html-utils';
 import { isFieldVariable, getCollectionVariable, findParentCollectionLayer, findAllParentCollectionLayers, isTextEditable, isTextContentLayer, isRichTextLayer, isHeadingLayer, findLayerWithParent, resetBindingsOnCollectionSourceChange, isInputInsideFilter, resolveFilterInputId, getLayerIndexes, indexedFindLayerById, indexedFindLayerWithParent, indexedFindParentCollectionLayer } from '@/lib/layer-utils';
 import { detachSpecificLayerFromComponent } from '@/lib/component-utils';
@@ -128,7 +130,7 @@ import { useCmsBindingSources } from '@/hooks/use-cms-binding-sources';
 import { getInverseReferenceFields } from '@/lib/collection-utils';
 
 // 7. Types
-import type { Layer, FieldVariable, CollectionField, CollectionVariable, ComponentVariable, BackgroundsDesign } from '@/types';
+import type { Layer, FieldVariable, CollectionField, CollectionVariable, ComponentVariable, BackgroundsDesign, LayerOverlay, OverlayPlacement } from '@/types';
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import {
   DropdownMenu,
@@ -399,6 +401,32 @@ const RightSidebar = React.memo(function RightSidebar({
     if (!interactionOwnerLayerId) return null;
     return indexedFindLayerById(layerIndexes, interactionOwnerLayerId);
   }, [interactionOwnerLayerId, layerIndexes]);
+
+  const commitLayerTree = useCallback((next: Layer[]) => {
+    if (editingComponentId && activeComponentVariantId) {
+      useComponentsStore.getState().updateComponentDraft(editingComponentId, activeComponentVariantId, next);
+      return;
+    }
+    if (currentPageId) setDraftLayers(currentPageId, next);
+  }, [activeComponentVariantId, currentPageId, editingComponentId, setDraftLayers]);
+
+  const handleCreateOverlay = useCallback((placement: OverlayPlacement) => {
+    const source = interactionOwnerLayer ?? selectedLayer;
+    if (!source || source.id === 'body' || source.overlay) return;
+    const overlay = createOverlayLayer(generateId('lyr'), placement);
+    const next = applyOverlaySetup(allLayers, source.id, overlay, {
+      interactionId: generateId('int'),
+      actionId: generateId('act'),
+    });
+    if (!next) return;
+    commitLayerTree(next);
+    setSelectedLayerId(overlay.id);
+  }, [allLayers, commitLayerTree, interactionOwnerLayer, selectedLayer, setSelectedLayerId]);
+
+  const handleOverlayChange = useCallback((overlay: LayerOverlay) => {
+    if (!selectedLayer?.overlay) return;
+    commitLayerTree(syncOverlaySettings(allLayers, selectedLayer.id, overlay));
+  }, [allLayers, commitLayerTree, selectedLayer]);
 
   // Check if selected layer is at root level (has no parent) - used to disable pagination
   const isSelectedLayerAtRoot: boolean = useMemo(() => {
@@ -2057,6 +2085,18 @@ const RightSidebar = React.memo(function RightSidebar({
 
           <div className="overflow-y-auto no-scrollbar overflow-x-hidden">
 
+          {selectedLayer.overlay && (
+            <InspectorSection
+              title="Overlay"
+              hint={selectedLayer.overlay.placement === 'fixed' ? 'Fixed' : 'Relative'}
+            >
+              <OverlaySettings
+                overlay={selectedLayer.overlay}
+                onChange={handleOverlayChange}
+              />
+            </InspectorSection>
+          )}
+
           {!showTextStyleControls && (
             <InspectorSection
               title="Layout"
@@ -2180,6 +2220,7 @@ const RightSidebar = React.memo(function RightSidebar({
               <InteractionsSection
                 layer={selectedLayer}
                 onOpen={() => handleTabChange('interactions')}
+                onCreateOverlay={handleCreateOverlay}
               />
             </InspectorSection>
           )}
@@ -3409,6 +3450,8 @@ const RightSidebar = React.memo(function RightSidebar({
               activeBreakpoint={activeBreakpoint}
               onStateChange={handleInteractionStateChange}
               onSelectLayer={setSelectedLayerId}
+              onLayersChange={commitLayerTree}
+              onCreateOverlay={handleCreateOverlay}
             />
           ) : (
             <Empty>

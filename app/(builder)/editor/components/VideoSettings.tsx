@@ -31,6 +31,7 @@ import { useAssetsStore } from '@/stores/useAssetsStore';
 import { useComponentsStore } from '@/stores/useComponentsStore';
 import { ASSET_CATEGORIES, isAssetOfType, DEFAULT_ASSETS } from '@/lib/asset-utils';
 import { VIDEO_FIELD_TYPES, VIDEO_ID_FIELD_TYPES, filterFieldGroupsByType, flattenFieldGroups } from '@/lib/collection-field-utils';
+import { cmsItemsFromGroups, findCmsItem, selectCmsBinding } from '@/lib/cms-framer';
 import { toast } from 'sonner';
 import Icon from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
@@ -201,6 +202,11 @@ export default function VideoSettings(props: VideoSettingsProps) {
   const videoFields = useMemo(() => {
     return flattenFieldGroups(videoFieldGroups);
   }, [videoFieldGroups]);
+
+  const videoCmsItems = useMemo(
+    () => cmsItemsFromGroups(videoFieldGroups, VIDEO_FIELD_TYPES),
+    [videoFieldGroups],
+  );
 
   // Filter field groups to only show text fields (for YouTube Video ID)
   const textFieldGroups = useMemo(() => {
@@ -460,7 +466,13 @@ export default function VideoSettings(props: VideoSettingsProps) {
               label="Source"
               isEditingComponent={!!editingComponentId}
               variables={videoComponentVariables}
-              linkedVariableId={linkedVideoVariableId}
+              linkedVariableId={linkedVideoVariableId ?? findCmsItem(videoCmsItems, currentFieldId)?.id}
+              linkedName={linkedVideoVariable ? undefined : findCmsItem(videoCmsItems, currentFieldId)?.name}
+              onUnlink={!linkedVideoVariable && currentFieldId ? () => handleTypeChange('upload') : undefined}
+              cmsItems={videoCmsItems}
+              onSelectCms={(id) => {
+                selectCmsBinding(id, handleFieldSelect);
+              }}
               onLinkVariable={handleLinkVideoVariable}
               onManageVariables={() => onOpenVariablesDialog?.()}
               onCreateVariable={editingComponentId ? async () => {

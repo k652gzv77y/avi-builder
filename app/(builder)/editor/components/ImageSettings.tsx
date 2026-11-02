@@ -34,6 +34,7 @@ import { useAssetsStore } from '@/stores/useAssetsStore';
 import { useComponentsStore } from '@/stores/useComponentsStore';
 import { DEFAULT_ASSETS, ASSET_CATEGORIES, isAssetOfType } from '@/lib/asset-utils';
 import { IMAGE_FIELD_TYPES, SIMPLE_TEXT_FIELD_TYPES, filterFieldGroupsByType, flattenFieldGroups } from '@/lib/collection-field-utils';
+import { cmsItemsFromGroups, findCmsItem, selectCmsBinding } from '@/lib/cms-framer';
 import { toast } from 'sonner';
 import { Separator } from '@/components/ui/separator';
 
@@ -118,6 +119,11 @@ export default function ImageSettings(props: ImageSettingsProps) {
   const imageFields = useMemo(() => {
     return flattenFieldGroups(imageFieldGroups);
   }, [imageFieldGroups]);
+
+  const imageCmsItems = useMemo(
+    () => cmsItemsFromGroups(imageFieldGroups, IMAGE_FIELD_TYPES),
+    [imageFieldGroups],
+  );
 
   // Detect current field ID if using FieldVariable
   const currentFieldId = useMemo(() => {
@@ -362,7 +368,16 @@ export default function ImageSettings(props: ImageSettingsProps) {
               label="Source"
               isEditingComponent={!!editingComponentId}
               variables={imageComponentVariables}
-              linkedVariableId={linkedImageVariableId}
+              linkedVariableId={linkedImageVariableId ?? findCmsItem(imageCmsItems, currentFieldId)?.id}
+              linkedName={linkedImageVariable ? undefined : findCmsItem(imageCmsItems, currentFieldId)?.name}
+              onUnlink={!linkedImageVariable && currentFieldId ? () => {
+                updateImageSrc(createAssetVariable(''));
+                setSelectedField(null);
+              } : undefined}
+              cmsItems={imageCmsItems}
+              onSelectCms={(id) => {
+                selectCmsBinding(id, handleFieldSelect);
+              }}
               onLinkVariable={handleLinkImageVariable}
               onManageVariables={() => onOpenVariablesDialog?.()}
               onCreateVariable={editingComponentId ? async () => {

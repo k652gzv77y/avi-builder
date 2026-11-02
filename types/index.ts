@@ -388,8 +388,17 @@ export interface OverlayDismiss {
   restoreFocus: boolean;
 }
 
+/** Fixed covers the viewport. Relative sits under the trigger. */
+export interface LayerOverlay {
+  placement: OverlayPlacement;
+  dismiss: OverlayDismiss;
+}
+
 /** Appear animation presets. The matching tween is what GSAP plays. */
 export type AppearPresetId = 'fade' | 'slide-up' | 'slide-down' | 'scale';
+
+/** Scroll presets. The matching tween scrubs while the layer moves through the viewport. */
+export type ScrollPresetId = 'fade' | 'slide-up' | 'scale' | 'parallax';
 
 /**
  * One action on an interaction event.
@@ -438,6 +447,8 @@ export interface LayerInteraction {
   actions?: InteractionAction[];
   /** Appear preset last applied to this event. Absent when the tween is custom. */
   appearPreset?: AppearPresetId;
+  /** Scroll preset last applied to a Scroll event. Absent when the tween is custom. */
+  scrollPreset?: ScrollPresetId;
 }
 
 export interface InteractionTimeline {
@@ -605,6 +616,11 @@ export interface Layer {
 
   // Interactions / Animations (new structured approach)
   interactions?: LayerInteraction[];
+  /**
+   * This layer is an overlay. It stays hidden on the canvas until selected,
+   * and an interaction opens it as Fixed or Relative.
+   */
+  overlay?: LayerOverlay;
 
   // SSR-only property for resolved collection items
   _collectionItems?: CollectionItemWithValues[];

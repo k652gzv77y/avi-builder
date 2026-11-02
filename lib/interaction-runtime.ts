@@ -210,7 +210,8 @@ function collect(layers: Layer[]): Array<{ triggerLayerId: string; interaction: 
 export function prepareOverlayTargets(doc: Document, layers: Layer[]): void {
   for (const layerId of overlayOpenTargets(layers)) {
     const element = findLayer(doc, layerId);
-    if (!element || element.dataset.overlayPrepared === 'true') continue;
+    if (!element || element.dataset.overlayEditing === 'true') continue;
+    if (element.dataset.overlayPrepared === 'true') continue;
     element.dataset.overlayPrepared = 'true';
     element.style.display = 'none';
   }
