@@ -30,7 +30,7 @@ interface EffectControlsProps {
 
 /**
  * Visual effects only: opacity, shadow, layer blur, and background blur.
- * Event → action interactions live on the Interactions tab and are not edited here.
+ * Visual effects only. Event actions live in the Interactions section.
  */
 
 const EffectControls = memo(function EffectControls({ layer, onLayerUpdate, activeTextStyleKey }: EffectControlsProps) {
@@ -441,9 +441,9 @@ const EffectControls = memo(function EffectControls({ layer, onLayerUpdate, acti
   };
 
   return (
-    <div className="py-5" data-panel="effects">
+    <div className="py-3" data-panel="effects">
 
-      <header className="py-4 -mt-4 flex items-center justify-between">
+      <header className="py-2 -mt-2 flex items-center justify-between">
         <Label>Effects</Label>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

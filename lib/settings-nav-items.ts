@@ -15,7 +15,7 @@ export function getSettingsNavItems(slug = ''): SettingsNavItem[] {
   return [
     { id: 'general', label: 'General', path: `${root}/general` },
     { id: 'domains', label: 'Domains', path: `${root}/domains` },
-    { id: 'cms', label: 'CMS / Supabase', path: `${root}/cms` },
+    { id: 'cms', label: 'CMS', path: `${root}/cms` },
     { id: 'agent', label: 'Agent', path: `${root}/agent` },
     { id: 'users', label: 'Users', path: `${root}/users` },
     { id: 'redirects', label: 'Redirects', path: `${root}/redirects` },

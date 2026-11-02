@@ -61,8 +61,8 @@ const CursorControls = memo(function CursorControls({ layer, onLayerUpdate }: Cu
   }, [updateDesignProperty]);
 
   return (
-    <div className="py-5">
-      <header className="py-4 -mt-4">
+    <div className="py-3">
+      <header className="py-2 -mt-2">
         <Label>Cursor</Label>
       </header>
 

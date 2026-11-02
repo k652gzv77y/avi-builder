@@ -302,7 +302,7 @@ export default function LeftSidebarAssets({
           <Empty className="px-2 py-6">
             <EmptyTitle>No components yet</EmptyTitle>
             <EmptyDescription>
-              Right-click a layer and select &quot;Create component&quot; to make it reusable
+              Drag a component onto the canvas, or create one from a layer.
             </EmptyDescription>
           </Empty>
         )}

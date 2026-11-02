@@ -12,6 +12,37 @@
 
 import React, { useEffect, useRef, useCallback } from 'react';
 import { useEditorStore } from '@/stores/useEditorStore';
+import { usePagesStore } from '@/stores/usePagesStore';
+import { useComponentsStore } from '@/stores/useComponentsStore';
+import { findLayerById } from '@/lib/layer-utils';
+import { getLayerName } from '@/lib/layer-display-utils';
+function selectionLayerLabel(layerId: string | null): string {
+  if (!layerId) return '';
+  if (layerId === 'body') return 'Body';
+
+  const editor = useEditorStore.getState();
+  const layers = editor.editingComponentId && editor.editingComponentVariantId
+    ? useComponentsStore.getState().componentDrafts[editor.editingComponentId]?.[editor.editingComponentVariantId] || []
+    : editor.currentPageId
+      ? usePagesStore.getState().draftsByPageId[editor.currentPageId]?.layers || []
+      : [];
+  const layer = findLayerById(layers, layerId);
+  return layer ? getLayerName(layer) : '';
+}
+
+function placeSelectionLabel(container: HTMLDivElement | null, label: HTMLDivElement | null, text: string) {
+  if (!label) return;
+  const first = container?.firstElementChild as HTMLElement | null;
+  if (!text || !container || container.style.display === 'none' || !first || first.style.display === 'none') {
+    label.style.display = 'none';
+    return;
+  }
+  label.textContent = text;
+  label.style.display = 'block';
+  label.style.left = first.style.left;
+  label.style.top = `calc(${first.style.top} - 16px)`;
+}
+
 interface SelectionOverlayProps {
   /** Reference to the canvas iframe element */
   iframeElement: HTMLIFrameElement | null;
@@ -53,21 +84,22 @@ export function SelectionOverlay({
     ? 'outline outline-1 outline-[#22c1de] shadow-[0_0_0_1px_rgba(0,0,0,0.25)]'
     : isStateActive
       ? 'outline outline-1 outline-[#8dd92f]'
-      : 'outline outline-1 outline-blue-500';
+      : 'outline outline-1 outline-[#0099ff]';
   const HOVERED_OUTLINE_CLASS = isAiLayerPicking
     ? 'outline outline-1 outline-[#22c1de] shadow-[0_0_0_1px_rgba(0,0,0,0.25)]'
     : isStateActive
       ? 'outline outline-1 outline-[#8dd92f]/50'
-      : 'outline outline-1 outline-blue-400/50';
+      : 'outline outline-1 outline-[#0099ff]/45';
   const PARENT_OUTLINE_CLASS = isAiLayerPicking
     ? 'outline outline-1 outline-dashed outline-[#22c1de]'
     : isStateActive
       ? 'outline outline-1 outline-dashed outline-[#8dd92f]'
-      : 'outline outline-1 outline-dashed outline-blue-400';
+      : 'outline outline-1 outline-dashed outline-[#0099ff]/70';
   // Container refs for outline groups (supports multiple instances per layer ID)
   const selectedContainerRef = useRef<HTMLDivElement>(null);
   const hoveredContainerRef = useRef<HTMLDivElement>(null);
   const parentContainerRef = useRef<HTMLDivElement>(null);
+  const selectionLabelRef = useRef<HTMLDivElement>(null);
 
   // Track drag/animation/resize state for scroll/mutation handlers
   const isDraggingRef = useRef(false);
@@ -78,6 +110,7 @@ export function SelectionOverlay({
     if (selectedContainerRef.current) selectedContainerRef.current.style.display = 'none';
     if (hoveredContainerRef.current) hoveredContainerRef.current.style.display = 'none';
     if (parentContainerRef.current) parentContainerRef.current.style.display = 'none';
+    if (selectionLabelRef.current) selectionLabelRef.current.style.display = 'none';
   }, []);
 
   // Update outline(s) for all elements matching a layer ID
@@ -219,6 +252,7 @@ export function SelectionOverlay({
     if (isAiLayerPicking) {
       if (selectedContainerRef.current) selectedContainerRef.current.style.display = 'none';
       if (parentContainerRef.current) parentContainerRef.current.style.display = 'none';
+      if (selectionLabelRef.current) selectionLabelRef.current.style.display = 'none';
       updateOutline(hoveredContainerRef.current, hoveredLayerIdRef.current, ctx.iframeDoc, ctx.iframeElement, ctx.containerElement, ctx.scale, HOVERED_OUTLINE_CLASS);
       return;
     }
@@ -226,10 +260,13 @@ export function SelectionOverlay({
     // Update selected outline (skip during drag)
     if (!skipSolidBorders) {
       updateOutline(selectedContainerRef.current, selectedLayerId, ctx.iframeDoc, ctx.iframeElement, ctx.containerElement, ctx.scale, SELECTED_OUTLINE_CLASS, activeSublayerIndex, activeListItemIndex);
+      placeSelectionLabel(selectedContainerRef.current, selectionLabelRef.current, selectionLayerLabel(selectedLayerId));
 
       const hovered = hoveredLayerIdRef.current;
       const effectiveHoveredId = hovered !== selectedLayerId ? hovered : null;
       updateOutline(hoveredContainerRef.current, effectiveHoveredId, ctx.iframeDoc, ctx.iframeElement, ctx.containerElement, ctx.scale, HOVERED_OUTLINE_CLASS);
+    } else if (selectionLabelRef.current) {
+      selectionLabelRef.current.style.display = 'none';
     }
 
     // When a sublayer is active, show the parent richText layer with parent outline
@@ -465,6 +502,12 @@ export function SelectionOverlay({
 
       {/* Selection outline container - hidden during drag */}
       <div ref={selectedContainerRef} style={{ display: 'none' }} />
+
+      <div
+        ref={selectionLabelRef}
+        className="absolute rounded-sm bg-[#0099ff] px-1 py-px text-[10px] font-medium leading-none text-white"
+        style={{ display: 'none' }}
+      />
     </div>
   );
 }

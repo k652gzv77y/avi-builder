@@ -263,8 +263,8 @@ const LayoutControls = memo(function LayoutControls({ layer, onLayerUpdate }: La
 
   // Extract numeric value from design property
   return (
-    <div className="py-5">
-      <header className="py-4 -mt-4 flex items-center gap-1">
+    <div className="py-3">
+      <header className="py-2 -mt-2 flex items-center gap-1">
         <Label>Layout</Label>
         <OverrideReset
           isOverride={displayOverride}
@@ -377,7 +377,7 @@ const LayoutControls = memo(function LayoutControls({ layer, onLayerUpdate }: La
                   <div className="grid grid-cols-3">
                       {isStack
                         ? <StackPropertyLabel binding={bindingFor('distribute')} fallback="Distribute" />
-                        : <Label variant="muted">Justify</Label>}
+                        : <Label variant="muted">Distribute</Label>}
                       <div className="col-span-2 *:w-full">
                           <Select value={justifyContent} onValueChange={handleJustifyChange}>
                               <SelectTrigger>

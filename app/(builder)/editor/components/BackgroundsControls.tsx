@@ -506,9 +506,9 @@ const BackgroundsControls = memo(function BackgroundsControls({ layer, onLayerUp
   ), [imageFieldGroups, allFields, collections, bgImageVariable, handleFieldSelect]);
 
   return (
-    <div className="py-5">
-      <header className="py-4 -mt-4">
-        <Label>Backgrounds</Label>
+    <div className="py-3">
+      <header className="py-2 -mt-2">
+        <Label>Fill</Label>
       </header>
 
       <div className="flex flex-col gap-2">

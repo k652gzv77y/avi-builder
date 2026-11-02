@@ -325,7 +325,7 @@ const LeftSidebar = React.memo(function LeftSidebar({
         style={{ width: `${sidebarWidth}px` }}
       >
       <div
-        className="w-full h-full bg-background border-r flex overflow-hidden p-4 pb-0"
+        className="w-full h-full bg-background border-r flex overflow-hidden px-2 pt-2 pb-0"
       >
         {/* Tabs */}
         <div className="w-full">
@@ -365,7 +365,7 @@ const LeftSidebar = React.memo(function LeftSidebar({
               </TabsList>
             )}
 
-            <hr className="mt-4" />
+            <hr className="mt-2" />
 
             {/* Content - forceMount keeps all tabs mounted for instant switching */}
             <TabsContent
@@ -423,7 +423,7 @@ const LeftSidebar = React.memo(function LeftSidebar({
                   }}
                 />
               )}
-              <header className="py-5 flex justify-between shrink-0 z-20">
+              <header className="py-2 flex justify-between shrink-0 z-20">
                 <span className="font-medium">{editingComponentId && editingComponent ? editingComponent.name : 'Layers'}</span>
                 {!readOnly && (
                   <div className="-my-1">
@@ -442,14 +442,14 @@ const LeftSidebar = React.memo(function LeftSidebar({
                 style={{ '--tree-available-width': `${sidebarWidth - 33}px` } as React.CSSProperties}
               >
                 {!currentPageId && !editingComponentId ? (
-                  <Empty>
-                    <EmptyTitle>No page selected</EmptyTitle>
-                    <EmptyDescription>Select a page from the Pages tab to start building</EmptyDescription>
+                  <Empty className="px-2 py-6">
+                    <EmptyTitle>No page open</EmptyTitle>
+                    <EmptyDescription>Open a page from Pages to edit its layers.</EmptyDescription>
                   </Empty>
                 ) : layersForCurrentPage.length === 0 ? (
-                  <Empty>
+                  <Empty className="px-2 py-6">
                     <EmptyTitle>No layers yet</EmptyTitle>
-                    <EmptyDescription>Click the + button above to add your first block</EmptyDescription>
+                    <EmptyDescription>Insert a Frame or Stack. Drag a row to reorder.</EmptyDescription>
                   </Empty>
                 ) : (
                   <LayersTree

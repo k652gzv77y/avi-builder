@@ -293,7 +293,12 @@ export default function HeaderBar({
             <DropdownMenuSeparator />
             {canManageSettings && (
               <DropdownMenuItem onClick={() => router.push(projectsPath('/settings/general'))}>
-                Settings
+                Site settings
+              </DropdownMenuItem>
+            )}
+            {canManageSettings && (
+              <DropdownMenuItem onClick={() => router.push(projectsPath('/settings/domains'))}>
+                Domains
               </DropdownMenuItem>
             )}
             <DropdownMenuItem onClick={() => openFileManager()}>
@@ -350,7 +355,7 @@ export default function HeaderBar({
                 }}
               >
                 <Icon name="pencil" />
-                Content editor
+                Canvas
               </Button>
               <Button
                 variant={editorSidebarTab === 'pages' ? 'secondary' : 'ghost'}

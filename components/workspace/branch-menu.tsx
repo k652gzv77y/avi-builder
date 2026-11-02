@@ -105,7 +105,9 @@ export default function BranchMenu() {
           <Button
             size="sm" variant="secondary"
             aria-label="Switch branch"
+            className="gap-1.5"
           >
+            <span className="font-normal text-muted-foreground">Branch</span>
             {activeBranch?.name ?? 'Staging'}
           </Button>
         </DropdownMenuTrigger>

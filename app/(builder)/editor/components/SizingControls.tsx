@@ -419,7 +419,7 @@ const SizingControls = memo(function SizingControls({ layer, onLayerUpdate }: Si
 
   return (
     <SettingsPanel
-      title="Sizing" isOpen={isOpen}
+      title="Size" isOpen={isOpen}
       onToggle={() => setIsOpen(!isOpen)}
       action={
         <DropdownMenu>
@@ -532,7 +532,7 @@ const SizingControls = memo(function SizingControls({ layer, onLayerUpdate }: Si
                     <SelectGroup>
                       <SelectItem value="w-[100%]">Fill</SelectItem>
                       <SelectItem value="w-fit-content">Fit</SelectItem>
-                      <SelectItem value="w-[100vw]">Screen</SelectItem>
+                      <SelectItem value="w-[100vw]">Viewport</SelectItem>
                     </SelectGroup>
                   </SelectContent>
                 </Select>
@@ -566,7 +566,7 @@ const SizingControls = memo(function SizingControls({ layer, onLayerUpdate }: Si
                     <SelectGroup>
                       <SelectItem value="w-[100%]">Fill</SelectItem>
                       <SelectItem value="w-fit-content">Fit</SelectItem>
-                      <SelectItem value="w-[100vw]">Screen</SelectItem>
+                      <SelectItem value="w-[100vw]">Viewport</SelectItem>
                     </SelectGroup>
                   </SelectContent>
                 </Select>
@@ -615,7 +615,7 @@ const SizingControls = memo(function SizingControls({ layer, onLayerUpdate }: Si
                   <SelectContent>
                     <SelectGroup>
                       <SelectItem value="h-[100%]">Fill</SelectItem>
-                      <SelectItem value="h-[100svh]">Screen</SelectItem>
+                      <SelectItem value="h-[100svh]">Viewport</SelectItem>
                     </SelectGroup>
                   </SelectContent>
                 </Select>
@@ -648,7 +648,7 @@ const SizingControls = memo(function SizingControls({ layer, onLayerUpdate }: Si
                   <SelectContent>
                     <SelectGroup>
                       <SelectItem value="h-[100%]">Fill</SelectItem>
-                      <SelectItem value="h-[100svh]">Screen</SelectItem>
+                      <SelectItem value="h-[100svh]">Viewport</SelectItem>
                     </SelectGroup>
                   </SelectContent>
                 </Select>

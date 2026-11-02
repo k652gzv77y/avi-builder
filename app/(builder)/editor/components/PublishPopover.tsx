@@ -4,6 +4,7 @@ import { getCurrentProjectSlug, projectsPath } from '@/lib/project-url';
 import { ACTIVE_BRANCH_EVENT, readActiveBranch } from '@/lib/workspace';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -279,8 +280,17 @@ export default function PublishPopover({
             {publishedAt ? `Published ${formatRelativeTime(publishedAt, false)}` : 'Never published'}
           </span>
           <span className="mt-1 block text-[10px] text-muted-foreground">
-            Promotes {branchName} to production
+            Publishes the {branchName} branch
           </span>
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <span className="text-[10px] text-muted-foreground">Domains</span>
+            <Button
+              size="xs" variant="secondary"
+              asChild
+            >
+              <Link href={projectsPath('/settings/domains')}>Manage</Link>
+            </Button>
+          </div>
         </div>
 
         <hr className="my-3" />
