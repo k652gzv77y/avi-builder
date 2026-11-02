@@ -336,8 +336,8 @@ const TypographyControls = memo(function TypographyControls({ layer, onLayerUpda
   const hideBlockLevelProperties = isInlineTextStyle || (showTextStyleControls && !activeTextStyleKey);
 
   return (
-    <div className="py-5">
-      <header className="py-4 -mt-4 flex items-center justify-between">
+    <div className="py-3">
+      <header className="py-2 -mt-2 flex items-center justify-between">
         <Label>{isIcon ? 'Fill' : 'Typography'}</Label>
         {!isIcon && (
           <DropdownMenu>

@@ -64,6 +64,8 @@ import ExpandableRichTextEditor from './ExpandableRichTextEditor';
 import RichTextEditor from './RichTextEditor';
 import ComponentVariableLabel, { VARIABLE_TYPE_ICONS } from './ComponentVariableLabel';
 import InteractionsPanel from './InteractionsPanel';
+import { InteractionsSection } from './interactions-section';
+import { InspectorSection, VariablesSection } from './inspector-section';
 import { BreakpointContextBar } from './BreakpointOverride';
 import LayoutControls from './LayoutControls';
 import SelfLayoutControls from './SelfLayoutControls';
@@ -1988,7 +1990,7 @@ const RightSidebar = React.memo(function RightSidebar({
             : 'w-64 shrink-0 bg-background border-l h-screen',
         )}
       >
-        <span className="text-xs text-muted-foreground">Select layer</span>
+        <span className="text-xs text-muted-foreground">Select a layer</span>
       </div>
     );
   }
@@ -2042,14 +2044,62 @@ const RightSidebar = React.memo(function RightSidebar({
           </TabsList>
         </div>
 
-        <hr className="mt-4" />
+        <hr className="mt-2" />
 
-        {/* Design tab */}
-        <TabsContent value="design" className="flex-1 flex flex-col divide-y data-[state=inactive]:hidden mt-0 overflow-hidden">
+        {/* Design tab — Layout, Style, Effects, then Interactions. */}
+        <TabsContent value="design" className="flex-1 flex flex-col data-[state=inactive]:hidden mt-0 overflow-hidden">
 
-          <div className="flex flex-col divide-y">
+          {activeTab === 'design' && (
+            <div className="shrink-0 border-b py-2">
+              <UIStateSelector selectedLayer={selectedLayer} />
+            </div>
+          )}
 
-            {/* Layer Styles Panel - hide in text style mode except for richText sublayers */}
+          <div className="overflow-y-auto no-scrollbar overflow-x-hidden">
+
+          {!showTextStyleControls && (
+            <InspectorSection
+              title="Layout"
+              hint="Fill, Fit, Fixed, Relative, Viewport"
+            >
+              <BreakpointContextBar layer={controlLayer} onLayerUpdate={controlUpdate} />
+
+              {shouldShowControl('layout', selectedLayer) && (
+                <LayoutControls layer={controlLayer} onLayerUpdate={controlUpdate} />
+              )}
+
+              {shouldShowControl('sizing', selectedLayer) && (
+                <SizingControls layer={controlLayer} onLayerUpdate={controlUpdate} />
+              )}
+
+              {shouldShowControl('position', selectedLayer) && (
+                <PositionControls layer={controlLayer} onLayerUpdate={controlUpdate} />
+              )}
+
+              <SelfLayoutControls
+                layer={controlLayer} parentLayer={selectedLayerParent}
+                onLayerUpdate={controlUpdate}
+              />
+
+              {shouldShowControl('spacing', selectedLayer) && (
+                <SpacingControls
+                  layer={controlLayer}
+                  onLayerUpdate={controlUpdate}
+                  activeTextStyleKey={activeTextStyleKey}
+                />
+              )}
+            </InspectorSection>
+          )}
+
+          <InspectorSection title="Style">
+            {showTextStyleControls && shouldShowControl('spacing', selectedLayer) && (
+              <SpacingControls
+                layer={controlLayer}
+                onLayerUpdate={controlUpdate}
+                activeTextStyleKey={activeTextStyleKey}
+              />
+            )}
+
             {(!showTextStyleControls || (selectedLayer && isRichTextLayer(selectedLayer))) && (
               <LayerStylesPanel
                 layer={selectedLayer}
@@ -2061,102 +2111,89 @@ const RightSidebar = React.memo(function RightSidebar({
               />
             )}
 
-            {activeTab === 'design' && (
-              <UIStateSelector selectedLayer={selectedLayer} />
+            {shouldShowControl('typography', selectedLayer) && (
+              <TypographyControls
+                layer={controlLayer}
+                onLayerUpdate={controlUpdate}
+                activeTextStyleKey={activeTextStyleKey}
+                fieldGroups={fieldGroups}
+                allFields={fields}
+                collections={collections}
+              />
             )}
 
-          </div>
+            {shouldShowControl('backgrounds', selectedLayer) && (
+              <BackgroundsControls
+                layer={controlLayer}
+                onLayerUpdate={controlUpdate}
+                activeTextStyleKey={activeTextStyleKey}
+                fieldGroups={fieldGroups}
+                allFields={fields}
+                collections={collections}
+              />
+            )}
 
-          <div className="overflow-y-auto no-scrollbar overflow-x-hidden divide-y ">
+            {shouldShowControl('borders', selectedLayer) && (
+              <BorderControls
+                layer={controlLayer}
+                onLayerUpdate={controlUpdate}
+                activeTextStyleKey={activeTextStyleKey}
+                fieldGroups={fieldGroups}
+                allFields={fields}
+                collections={collections}
+              />
+            )}
+
+            {shouldShowControl('cursor', selectedLayer) && (
+              <CursorControls
+                layer={controlLayer}
+                onLayerUpdate={controlUpdate}
+              />
+            )}
+
+          </InspectorSection>
+
+          {(shouldShowControl('effects', selectedLayer)
+            || shouldShowControl('transforms', selectedLayer)
+            || shouldShowControl('transitions', selectedLayer)) && (
+            <InspectorSection title="Effects" hint="Opacity, shadow, blur">
+              {shouldShowControl('effects', selectedLayer) && (
+                <EffectControls
+                  layer={controlLayer}
+                  onLayerUpdate={controlUpdate}
+                  activeTextStyleKey={activeTextStyleKey}
+                />
+              )}
+
+              {shouldShowControl('transforms', selectedLayer) && (
+                <TransformControls layer={controlLayer} onLayerUpdate={controlUpdate} />
+              )}
+
+              {shouldShowControl('transitions', selectedLayer) && (
+                <TransitionControls layer={controlLayer} onLayerUpdate={controlUpdate} />
+              )}
+            </InspectorSection>
+          )}
 
           {!showTextStyleControls && (
-            <BreakpointContextBar layer={controlLayer} onLayerUpdate={controlUpdate} />
+            <InspectorSection title="Interactions" hint="Tap, hover, appear">
+              <InteractionsSection
+                layer={selectedLayer}
+                onOpen={() => handleTabChange('interactions')}
+              />
+            </InspectorSection>
           )}
 
-          {shouldShowControl('layout', selectedLayer) && !showTextStyleControls && (
-            <LayoutControls layer={controlLayer} onLayerUpdate={controlUpdate} />
+          {editingComponentId && (
+            <InspectorSection title="Variables">
+              <VariablesSection
+                names={(getComponentById(editingComponentId)?.variables ?? []).map((variable) => variable.name)}
+                onManage={() => openVariablesDialog()}
+              />
+            </InspectorSection>
           )}
 
-          {!showTextStyleControls && (
-            <SelfLayoutControls
-              layer={controlLayer} parentLayer={selectedLayerParent}
-              onLayerUpdate={controlUpdate}
-            />
-          )}
-
-          {shouldShowControl('spacing', selectedLayer) && (
-            <SpacingControls
-              layer={controlLayer}
-              onLayerUpdate={controlUpdate}
-              activeTextStyleKey={activeTextStyleKey}
-            />
-          )}
-
-          {shouldShowControl('sizing', selectedLayer) && !showTextStyleControls && (
-            <SizingControls layer={controlLayer} onLayerUpdate={controlUpdate} />
-          )}
-
-          {shouldShowControl('position', selectedLayer) && !showTextStyleControls && (
-            <PositionControls layer={controlLayer} onLayerUpdate={controlUpdate} />
-          )}
-
-          {shouldShowControl('typography', selectedLayer) && (
-            <TypographyControls
-              layer={controlLayer}
-              onLayerUpdate={controlUpdate}
-              activeTextStyleKey={activeTextStyleKey}
-              fieldGroups={fieldGroups}
-              allFields={fields}
-              collections={collections}
-            />
-          )}
-
-          {shouldShowControl('backgrounds', selectedLayer) && (
-            <BackgroundsControls
-              layer={controlLayer}
-              onLayerUpdate={controlUpdate}
-              activeTextStyleKey={activeTextStyleKey}
-              fieldGroups={fieldGroups}
-              allFields={fields}
-              collections={collections}
-            />
-          )}
-
-          {shouldShowControl('borders', selectedLayer) && (
-            <BorderControls
-              layer={controlLayer}
-              onLayerUpdate={controlUpdate}
-              activeTextStyleKey={activeTextStyleKey}
-              fieldGroups={fieldGroups}
-              allFields={fields}
-              collections={collections}
-            />
-          )}
-
-          {shouldShowControl('effects', selectedLayer) && (
-            <EffectControls
-              layer={controlLayer}
-              onLayerUpdate={controlUpdate}
-              activeTextStyleKey={activeTextStyleKey}
-            />
-          )}
-
-          {shouldShowControl('cursor', selectedLayer) && (
-            <CursorControls
-              layer={controlLayer}
-              onLayerUpdate={controlUpdate}
-            />
-          )}
-
-          {shouldShowControl('transforms', selectedLayer) && (
-            <TransformControls layer={controlLayer} onLayerUpdate={controlUpdate} />
-          )}
-
-          {shouldShowControl('transitions', selectedLayer) && (
-            <TransitionControls layer={controlLayer} onLayerUpdate={controlUpdate} />
-          )}
-
-          {/* Classes panel - shows classes for active text style or layer */}
+          {/* Tailwind classes stay at the bottom of the properties column. */}
           <SettingsPanel
             title="Classes"
             isOpen={classesOpen}
@@ -2733,7 +2770,7 @@ const RightSidebar = React.memo(function RightSidebar({
               >
                 <div className="flex flex-col gap-2">
                   <p className="text-xs text-muted-foreground">
-                    Design one item inside this list. It repeats for each row from Supabase.
+                    Collection List. Design one item. It repeats for each CMS row. A Detail page is the item route. Fetch reads one field.
                   </p>
                   {/* Collection Selector */}
                   <div className="grid grid-cols-3">
@@ -3359,6 +3396,9 @@ const RightSidebar = React.memo(function RightSidebar({
           data-panel="interactions"
           className="flex-1 overflow-y-auto no-scrollbar mt-0 data-[state=inactive]:hidden"
         >
+          <p className="px-0 pb-2 pt-3 text-[11px] leading-snug text-muted-foreground">
+            Interactions are events and actions. Opacity, shadow, and blur stay in Effects.
+          </p>
           {interactionOwnerLayer ? (
             <InteractionsPanel
               triggerLayer={interactionOwnerLayer}
@@ -3372,9 +3412,9 @@ const RightSidebar = React.memo(function RightSidebar({
             />
           ) : (
             <Empty>
-              <EmptyTitle>No Layer Selected</EmptyTitle>
+              <EmptyTitle>No layer selected</EmptyTitle>
               <EmptyDescription>
-                Select a layer to edit its interactions
+                Select a layer to add a tap, hover, or appear interaction.
               </EmptyDescription>
             </Empty>
           )}

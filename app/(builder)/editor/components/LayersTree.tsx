@@ -641,9 +641,10 @@ const LayerRow = React.memo(function LayerRow({
             {...(isRenaming ? {} : listeners)}
             data-drag-active={isDragActive}
             data-layer-id={node.id}
+            title={readOnly || isLocalizing || isRenaming ? undefined : 'Drag to reorder'}
             className={cn(
               'group relative flex items-center h-8 outline-none focus:outline-none',
-              isLockedByOther ? 'cursor-not-allowed opacity-60' : 'cursor-pointer',
+              isLockedByOther ? 'cursor-not-allowed opacity-60' : 'cursor-grab active:cursor-grabbing',
               isSelected && 'text-primary-foreground',
               isSelected && isStateActive && 'text-black',
               isSelected && usePurpleStyle && 'text-white',
@@ -661,6 +662,12 @@ const LayerRow = React.memo(function LayerRow({
               onSelect(node.id);
             }}
           >
+          {!readOnly && !isLocalizing && !isRenaming && (
+            <Icon
+              name="grip-vertical"
+              className="pointer-events-none absolute left-0.5 top-1/2 z-20 size-3 -translate-y-1/2 opacity-0 group-hover/row:opacity-60"
+            />
+          )}
           {/* Indent spacer */}
           <div style={{ width: `${node.depth * 14 + 8}px`, flex: 'none' }} />
 

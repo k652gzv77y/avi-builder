@@ -345,9 +345,9 @@ const BorderControls = memo(function BorderControls({ layer, onLayerUpdate, acti
   };
 
   return (
-    <div className="py-5">
-      <header className="py-4 -mt-4 flex items-center justify-between">
-        <Label>Borders</Label>
+    <div className="py-3">
+      <header className="py-2 -mt-2 flex items-center justify-between">
+        <Label>Border</Label>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="xs">

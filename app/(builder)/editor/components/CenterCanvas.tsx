@@ -29,7 +29,6 @@ import {
   EmptyContent,
   EmptyDescription,
   EmptyHeader,
-  EmptyMedia,
   EmptyTitle,
 } from '@/components/ui/empty';
 
@@ -55,6 +54,7 @@ import { useCanvasTextEditorStore } from '@/stores/useCanvasTextEditorStore';
 // 4b. Internal components
 import Canvas from './Canvas';
 import CanvasBuildSkeleton from './CanvasBuildSkeleton';
+import BreakpointBar from './breakpoint-bar';
 import BreakpointFrames from './BreakpointFrames';
 import { CollectionFieldSelector } from './CollectionFieldSelector';
 import AiActivityOverlay from '@/components/AiActivityOverlay';
@@ -2215,7 +2215,7 @@ const CenterCanvas = React.memo(function CenterCanvas({
   return (
     <div className="flex-1 min-w-0 flex flex-col relative">
       {/* Top Bar */}
-      <div className="grid grid-cols-3 items-center p-4 border-b bg-background">
+      <div className="grid h-11 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 border-b bg-background px-3">
         {/* Page Selector or Back to Page Button */}
         {editingComponentId ? (
           <Button
@@ -2268,19 +2268,31 @@ const CenterCanvas = React.memo(function CenterCanvas({
           </div>
         )}
 
-        {/* Viewport Controls */}
-        <ViewportZoomControls
-          zoom={zoom}
-          onZoomIn={zoomIn}
-          onZoomOut={zoomOut}
-          onResetZoom={resetZoom}
-          onZoomToFit={zoomToFit}
-          onAutofit={autofit}
-        />
+        <div className="flex min-w-0 justify-center">
+          {!isPreviewMode && (
+            <BreakpointBar
+              active={viewportMode}
+              activeFrameId={activeFrameId}
+              onSelect={(mode, frame) => {
+                setActiveFrameId(frame.id);
+                setActiveCanvasWidth(frame.width);
+                setViewportMode(mode);
+              }}
+            />
+          )}
+        </div>
 
         {/* Undo/Redo Buttons (hidden in preview mode) */}
         {!isPreviewMode && (
-          <div className="flex justify-end gap-0">
+          <div className="flex items-center justify-end gap-1">
+            <ViewportZoomControls
+              zoom={zoom}
+              onZoomIn={zoomIn}
+              onZoomOut={zoomOut}
+              onResetZoom={resetZoom}
+              onZoomToFit={zoomToFit}
+              onAutofit={autofit}
+            />
             <Button
               size="sm"
               variant="ghost"
@@ -2305,7 +2317,7 @@ const CenterCanvas = React.memo(function CenterCanvas({
 
       {/* Text Editor Toolbar - shown when editing text */}
       {isTextEditing && !isPreviewMode && (
-        <div className="absolute top-0 h-16.25 left-0 right-0 z-50 flex items-center justify-center gap-2 px-4 bg-background border-b">
+        <div className="absolute top-0 h-11 left-0 right-0 z-50 flex items-center justify-center gap-2 px-4 bg-background border-b">
           {/* Heading/Paragraph Dropdown - hidden for heading and text elements (they use the Tag selector in the sidebar) */}
           {selectedLayerName !== 'heading' && selectedLayerName !== 'text' && (
             <Select
@@ -2794,17 +2806,14 @@ const CenterCanvas = React.memo(function CenterCanvas({
                       {isCanvasEmpty && aiBuildingPageId !== currentPageId && (
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
                           <div className="pointer-events-auto">
-                            <Empty className="bg-transparent border-0 text-neutral-900">
+                            <Empty className="border border-dashed border-neutral-300 bg-transparent px-6 py-5 text-neutral-900">
                               <EmptyContent>
-                                <EmptyMedia variant="icon" className="size-9 mb-0 bg-neutral-900/5">
-                                  <Icon name="layout" className="size-3 text-neutral-900" />
-                                </EmptyMedia>
                                 <EmptyHeader>
-                                  <EmptyTitle className="text-sm">{canEditStructure ? 'Start building' : 'No content yet'}</EmptyTitle>
+                                  <EmptyTitle className="text-sm font-medium">{canEditStructure ? 'Empty canvas' : 'No content yet'}</EmptyTitle>
                                   <EmptyDescription>
                                     {canEditStructure
-                                      ? 'Add your first block to begin creating your page.'
-                                      : 'This page has no content to edit yet.'}
+                                      ? 'Insert a Frame, Stack, or text.'
+                                      : 'This page has nothing to edit yet.'}
                                   </EmptyDescription>
                                 </EmptyHeader>
                                 {canEditStructure && (
@@ -2820,7 +2829,7 @@ const CenterCanvas = React.memo(function CenterCanvas({
                                     className="bg-neutral-900/5 hover:bg-neutral-900/10 text-neutral-900"
                                   >
                                     <Icon name="plus" />
-                                    Add layout
+                                    Insert
                                   </Button>
                                 )}
                               </EmptyContent>
@@ -2830,35 +2839,33 @@ const CenterCanvas = React.memo(function CenterCanvas({
                       )}
                     </>
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center p-12">
-                      <div className="text-center max-w-md relative">
-                        <div className="w-20 h-20 bg-linear-to-br from-blue-100 to-blue-50 rounded-2xl mx-auto mb-6 flex items-center justify-center">
-                          <Icon name="layout" className="w-10 h-10 text-blue-500" />
-                        </div>
-                        <h2 className="text-2xl font-bold text-gray-900 mb-3">
-                          {canEditStructure ? 'Start building' : 'No content yet'}
+                    <div className="w-full h-full flex items-center justify-center p-8">
+                      <div className="relative max-w-xs rounded-md border border-dashed border-neutral-300 px-6 py-5 text-center">
+                        <h2 className="text-sm font-medium text-neutral-900">
+                          {canEditStructure ? 'Empty canvas' : 'No content yet'}
                         </h2>
-                        <p className="text-gray-600 mb-8">
+                        <p className="mt-1 text-xs text-neutral-500">
                           {canEditStructure
-                            ? 'Add your first block to begin creating your page.'
-                            : 'This page has no content to edit yet.'}
+                            ? 'Insert a Frame, Stack, or text.'
+                            : 'This page has nothing to edit yet.'}
                         </p>
-                        {canEditStructure && <div className="relative inline-block">
+                        {canEditStructure && <div className="relative mt-3 inline-block">
                           <Button
                             onClick={() => setShowAddBlockPanel(!showAddBlockPanel)}
-                            size="lg"
+                            size="sm"
+                            variant="secondary"
                             className="gap-2"
                             disabled={!!(selectedLocale && !selectedLocale.is_default)}
                           >
-                            <Icon name="plus" className="w-5 h-5" />
-                            Add Block
+                            <Icon name="plus" className="size-3" />
+                            Insert
                           </Button>
 
                           {/* Add Block Panel */}
                           {showAddBlockPanel && currentPageId && (
                             <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 z-50 bg-white border border-gray-200 rounded-lg shadow-2xl min-w-60">
                               <div className="p-2">
-                                <div className="text-xs text-gray-500 px-3 py-2 mb-1 font-medium">Choose a block</div>
+                                <div className="text-xs text-gray-500 px-3 py-2 mb-1 font-medium">Insert</div>
 
                                 <Button
                                   onClick={() => {
@@ -3081,16 +3088,13 @@ const CenterCanvas = React.memo(function CenterCanvas({
                   onLoad={handlePreviewLoad}
                 />
               ) : layers.length === 0 && isPreviewMode ? (
-                <div className="w-full h-full flex items-center justify-center p-12">
-                  <div className="text-center max-w-md">
-                    <div className="w-20 h-20 bg-linear-to-br from-blue-100 to-blue-50 rounded-2xl mx-auto mb-6 flex items-center justify-center">
-                      <Icon name="layout" className="w-10 h-10 text-blue-500" />
-                    </div>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-3">
-                      No content
+                    <div className="flex h-full w-full items-center justify-center p-8">
+                  <div className="max-w-xs rounded-md border border-dashed border-neutral-300 px-6 py-5 text-center">
+                    <h2 className="text-sm font-medium text-neutral-900">
+                      Nothing to preview
                     </h2>
-                    <p className="text-gray-600">
-                      This page has no content to preview.
+                    <p className="mt-1 text-xs text-neutral-500">
+                      This page has no layers yet.
                     </p>
                   </div>
                 </div>
@@ -3110,7 +3114,7 @@ const CenterCanvas = React.memo(function CenterCanvas({
               closeRichTextSheet();
             }
           }}
-          title="Content editor"
+          title="Edit text"
           description={richTextTranslationContext && selectedLocale
             ? `Translate to ${selectedLocale.label}`
             : 'Element content'}

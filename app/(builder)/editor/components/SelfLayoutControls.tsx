@@ -56,14 +56,14 @@ const SelfLayoutControls = memo(function SelfLayoutControls({ layer, parentLayer
   };
 
   return (
-    <div className="py-5">
-      <header className="py-4 -mt-4 flex items-center gap-1.5">
-        <Label>Self layout</Label>
-        <Label variant="muted">{isParentGrid ? 'Grid container' : 'Flex container'}</Label>
+    <div className="py-3">
+      <header className="py-2 -mt-2 flex items-center gap-1.5">
+        <Label>In stack</Label>
+        <Label variant="muted">{isParentGrid ? 'Grid' : 'Stack'}</Label>
       </header>
 
       <div className="grid grid-cols-3">
-          <Label variant="muted">Self align</Label>
+          <Label variant="muted">Align</Label>
           <div className="col-span-2">
               <Tabs
                 value={alignSelf}

@@ -186,8 +186,10 @@ const PageRow = React.memo(function PageRow({
         {...(!isDragDropDisabled && listeners)}
         data-drag-active={isDragActive}
         data-node-id={node.id}
+        title={isDragDropDisabled ? undefined : 'Drag to reorder'}
         className={cn(
-          'group relative flex items-center h-8 outline-none focus:outline-none rounded-lg cursor-pointer select-none',
+          'group relative flex items-center h-8 outline-none focus:outline-none rounded-lg select-none',
+          isDragDropDisabled ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing',
           !isDragActive && !isDragging && 'hover:bg-secondary/50',
           isSelected && 'bg-primary text-primary-foreground hover:bg-primary',
           !isSelected && 'text-secondary-foreground/80 dark:text-muted-foreground'
@@ -201,6 +203,12 @@ const PageRow = React.memo(function PageRow({
         }}
         onContextMenu={() => onSelect(node.id, node.type)}
       >
+        {!isDragDropDisabled && (
+          <Icon
+            name="grip-vertical"
+            className="pointer-events-none absolute left-0.5 top-1/2 size-3 -translate-y-1/2 opacity-0 group-hover:opacity-60"
+          />
+        )}
         {/* Expand/Collapse Button */}
         {hasChildren ? (
           <div

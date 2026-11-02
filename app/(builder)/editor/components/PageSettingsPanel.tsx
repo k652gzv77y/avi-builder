@@ -430,7 +430,7 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
     );
 
     return hasSibling
-      ? 'Multiple CMS pages are present in this folder, this could cause URL conflicts if CMS items are using the same slugs or ids.'
+      ? 'Multiple Detail pages are in this folder. Matching slugs can collide.'
       : null;
   }, [currentPage, pageFolderId, pages, isDynamicPage]);
 
@@ -1081,7 +1081,7 @@ const PageSettingsPanel = React.forwardRef<PageSettingsPanelHandle, PageSettings
       // Note: We allow saving even if parent folder is set, backend should handle this
     } else if (isDynamicPage && isIndex) {
       // Dynamic pages cannot be set as index
-      setError(`CMS pages cannot be set as ${isOnRootFolder ? 'homepage' : 'index page'}`);
+      setError(`Detail pages cannot be set as ${isOnRootFolder ? 'homepage' : 'index page'}`);
       return;
     } else if (isIndex) {
       // Index page rules

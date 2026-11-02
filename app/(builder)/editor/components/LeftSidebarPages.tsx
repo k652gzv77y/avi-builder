@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useImperativeHandle, startTransition, Suspense, lazy } from 'react';
 import { Button } from '@/components/ui/button';
+import { Empty, EmptyDescription, EmptyTitle } from '@/components/ui/empty';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import Icon from '@/components/ui/icon';
 import PagesTree from './PagesTree';
@@ -792,7 +793,7 @@ const LeftSidebarPages = React.forwardRef<LeftSidebarPagesHandle, LeftSidebarPag
 
   return (
     <>
-      <header className="py-5 flex justify-between shrink-0 sticky top-0 bg-linear-to-b from-background to-transparent z-20">
+      <header className="py-2 flex justify-between shrink-0 sticky top-0 bg-background z-20">
         <span className="font-medium">Pages</span>
         {!readOnly && (
           <div className="-my-1">
@@ -844,7 +845,13 @@ const LeftSidebarPages = React.forwardRef<LeftSidebarPagesHandle, LeftSidebarPag
         )}
       </header>
 
-      <div className="flex flex-col gap-3">
+      <div className="flex flex-col gap-2">
+        {regularPages.length === 0 && (
+          <Empty className="px-1 py-4">
+            <EmptyTitle>No pages yet</EmptyTitle>
+            <EmptyDescription>Add a page, or a Detail page for a collection.</EmptyDescription>
+          </Empty>
+        )}
         <PagesTree
           pages={regularPages}
           folders={folders}

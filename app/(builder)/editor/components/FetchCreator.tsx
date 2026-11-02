@@ -114,9 +114,9 @@ export default function FetchCreator() {
     <Dialog open={open} onOpenChange={(next) => { if (!next) close(); }}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>New fetch</DialogTitle>
+          <DialogTitle>Fetch</DialogTitle>
           <DialogDescription>
-            Read one field from a Supabase collection. Design Loading and Error on the layer after it is bound.
+            Fetch reads one CMS field. Collection List repeats rows. Detail page is the item route.
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-3">

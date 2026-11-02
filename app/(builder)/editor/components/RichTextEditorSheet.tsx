@@ -38,7 +38,7 @@ interface RichTextEditorSheetProps {
 export default function RichTextEditorSheet({
   open,
   onOpenChange,
-  title = 'Content editor',
+  title = 'Edit text',
   description,
   value,
   onChange,

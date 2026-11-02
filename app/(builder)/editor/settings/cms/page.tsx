@@ -67,7 +67,7 @@ export default function CmsSettingsPage() {
 
   return (
     <div className="max-w-xl">
-      <h1 className="text-lg font-medium">CMS / Supabase</h1>
+      <h1 className="text-lg font-medium">CMS</h1>
       <p className="mt-2 text-sm text-muted-foreground">
         Collections load from the project database. Reconnect attaches a different Supabase project via OAuth.
       </p>
@@ -87,7 +87,10 @@ export default function CmsSettingsPage() {
           <p className="text-muted-foreground">No collections returned yet. Use Reconnect Supabase if this project has no database.</p>
         )}
       </div>
-      <Button className="mt-5" variant="outline" onClick={connectSupabase} disabled={busy}>
+      <Button
+        className="mt-5" variant="outline"
+        onClick={connectSupabase} disabled={busy}
+      >
         {busy ? 'Opening Supabase…' : 'Reconnect Supabase'}
       </Button>
       {message && <p className="mt-3 text-sm text-amber-500">{message}</p>}

@@ -31,11 +31,11 @@ export default function SettingsPanel({
   collapsible = false,
 }: SettingsPanelProps) {
   return (
-    <div className={cn('pt-5', className)}>
+    <div className={cn('pt-3', className)}>
       {title && (
         <header
           className={cn(
-            'w-full py-5 -mt-5 flex items-center justify-between',
+            'w-full py-2 -mt-3 flex items-center justify-between',
             collapsible && 'cursor-pointer'
           )}
           onClick={collapsible ? onToggle : undefined}
@@ -59,7 +59,7 @@ export default function SettingsPanel({
       )}
 
       {isOpen && children && (
-        <div className="flex flex-col gap-2 pb-5">
+        <div className="flex flex-col gap-2 pb-3">
           {children}
         </div>
       )}
