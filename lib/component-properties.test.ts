@@ -9,11 +9,13 @@ import {
   applyControlValueToBoundLayers,
   applyStructuredLayers,
   clearPropertyOverride,
+  colorValueToCss,
   isObjectPropertyValue,
   isPropertyOverridden,
   isTextPropertyValue,
   propertyValuesEqual,
   readPropertyValue,
+  resolveEditorInstanceLayers,
   stripControlBinding,
 } from '@/lib/component-properties';
 
@@ -380,4 +382,180 @@ test('slot fallback stays until an instance replaces it, and reset restores it',
     [component],
   )[0];
   assert.equal(textOf(restored.children?.[0].children?.[0]), 'Fallback');
+});
+
+const COLOR_VAR = '89befc96-1111-2222-3333-444444444444';
+const OVERRIDE_VAR = 'abcdef12-1111-2222-3333-444444444444';
+
+test('editor instance resolution paints merged overrides on the root and nested text', () => {
+  const frame = layer({
+    id: 'frame',
+    classes: `flex bg-[color:var(--${COLOR_VAR})]`,
+    design: {
+      backgrounds: { isActive: true, backgroundColor: `color:var(--${COLOR_VAR})` },
+      effects: { isActive: true, opacity: '100' },
+    },
+    controlBindings: { visible: 'show', fill: 'fill', opacity: 'fade' },
+    children: [
+      layer({
+        id: 'label',
+        name: 'text',
+        controlBindings: { text: 'tone' },
+        variables: { text: { type: 'dynamic_text', data: { content: '' } } },
+      }),
+    ],
+  });
+
+  const painted = resolveEditorInstanceLayers(
+    [frame],
+    {
+      boolean: { show: { type: 'boolean', value: false } },
+      color: { fill: { type: 'color', value: `color:var(--${OVERRIDE_VAR})` } },
+      number: { fade: { type: 'number', value: 40 } },
+      enum: { tone: { type: 'enum', value: 'bold' } },
+    },
+    variables,
+  )[0];
+
+  assert.equal(painted.settings?.hidden, true);
+  assert.equal(painted._dynamicStyles?.display, 'none');
+  assert.equal(painted._dynamicStyles?.backgroundColor, `var(--${OVERRIDE_VAR})`);
+  assert.equal(painted._dynamicStyles?.opacity, '0.4');
+  assert.match(String(painted.classes), new RegExp(`bg-\\[color:var\\(--${OVERRIDE_VAR}\\)\\]`));
+  assert.match(String(painted.classes), /opacity-\[40%\]/);
+  assert.doesNotMatch(String(painted.classes), new RegExp(COLOR_VAR));
+  assert.equal(textOf(painted.children?.[0]), 'Bold');
+});
+
+test('preview resolution turns a color-variable override into paintable CSS', () => {
+  const frame = layer({
+    id: 'frame',
+    name: 'text',
+    classes: `flex bg-[color:var(--${COLOR_VAR})] opacity-[100%]`,
+    design: {
+      backgrounds: { isActive: true, backgroundColor: `color:var(--${COLOR_VAR})` },
+      effects: { isActive: true, opacity: '100' },
+    },
+    controlBindings: { fill: 'fill', opacity: 'fade', text: 'fade' },
+    variables: { text: { type: 'dynamic_text', data: { content: '100' } } },
+  });
+  const resolved = applyComponentOverrides(
+    [frame],
+    {
+      color: { fill: { type: 'color', value: `color:var(--${OVERRIDE_VAR})` } },
+      number: { fade: { type: 'number', value: 15 } },
+    },
+    variables,
+  )[0];
+  assert.equal(resolved._dynamicStyles?.backgroundColor, `var(--${OVERRIDE_VAR})`);
+  assert.equal(resolved._dynamicStyles?.opacity, '0.15');
+  assert.match(String(resolved.classes), new RegExp(`bg-\\[color:var\\(--${OVERRIDE_VAR}\\)\\]`));
+  assert.match(String(resolved.classes), /opacity-\[15%\]/);
+  assert.doesNotMatch(String(resolved.classes), new RegExp(COLOR_VAR));
+  assert.equal(textOf(resolved), '15');
+});
+
+test('a hex default replaces a baked color-variable fill on the instance', () => {
+  const frame = layer({
+    id: 'frame',
+    classes: `flex bg-[color:var(--${COLOR_VAR})]`,
+    design: {
+      backgrounds: { isActive: true, backgroundColor: `color:var(--${COLOR_VAR})` },
+      effects: { isActive: true, opacity: '100' },
+    },
+    controlBindings: { fill: 'fill' },
+  });
+  const withHex = variables.map((variable) => (
+    variable.id === 'fill'
+      ? { ...variable, default_value: { type: 'color' as const, value: '#123456' } }
+      : variable
+  ));
+
+  const painted = resolveEditorInstanceLayers([frame], undefined, withHex)[0];
+  assert.match(String(painted.classes), /bg-\[#123456\]/);
+  assert.doesNotMatch(String(painted.classes), new RegExp(COLOR_VAR));
+  assert.equal(painted._dynamicStyles?.backgroundColor, '#123456');
+
+  const faded = resolveEditorInstanceLayers(
+    [frame],
+    { color: { fill: { type: 'color', value: '#00ff00/40' } } },
+    withHex,
+  )[0];
+  assert.match(String(faded.classes), /bg-\[#00ff00\]\/40/);
+  assert.equal(faded._dynamicStyles?.backgroundColor, 'rgba(0,255,0,0.4)');
+  assert.equal(colorValueToCss(`color:var(--${COLOR_VAR})`), `var(--${COLOR_VAR})`);
+  assert.equal(colorValueToCss('#abc/50'), 'rgba(170,187,204,0.5)');
+});
+
+test('clearing overrides restores the primary control values on the instance', () => {
+  const frame = layer({
+    id: 'frame',
+    classes: 'flex bg-[#000000]',
+    design: {
+      backgrounds: { isActive: true, backgroundColor: '#000000' },
+      effects: { isActive: true, opacity: '100' },
+    },
+    controlBindings: { fill: 'fill', visible: 'show' },
+  });
+  const overrides = {
+    color: { fill: { type: 'color' as const, value: '#ff0000' } },
+    boolean: { show: { type: 'boolean' as const, value: false } },
+  };
+  const overridden = resolveEditorInstanceLayers([frame], overrides, variables)[0];
+  assert.match(String(overridden.classes), /bg-\[#ff0000\]/);
+  assert.equal(overridden.settings?.hidden, true);
+
+  const reset = resolveEditorInstanceLayers(
+    [frame],
+    clearPropertyOverride(clearPropertyOverride(overrides, variables[0]), variables[1]),
+    variables,
+  )[0];
+  assert.equal(reset.settings?.hidden, undefined);
+  assert.match(String(reset.classes), /bg-\[#ffffff\]/);
+  assert.doesNotMatch(String(reset.classes), /bg-\[#ff0000\]/);
+  assert.doesNotMatch(String(reset.classes), /bg-\[#000000\]/);
+});
+
+test('canvas serialization paints fill and text overrides on the component root', () => {
+  const root = layer({
+    id: 'frame',
+    classes: `flex bg-[color:var(--${COLOR_VAR})]`,
+    design: {
+      backgrounds: { isActive: true, backgroundColor: `color:var(--${COLOR_VAR})` },
+      effects: { isActive: true, opacity: '100' },
+    },
+    controlBindings: { fill: 'fill' },
+    children: [
+      layer({
+        id: 'label',
+        name: 'text',
+        controlBindings: { text: 'tone' },
+        variables: { text: { type: 'dynamic_text', data: { content: '' } } },
+      }),
+    ],
+  });
+  const component = componentFixture(root, variables);
+  const serialized = serializeLayers(
+    [layer({
+      id: 'inst',
+      componentId: component.id,
+      componentOverrides: {
+        color: { fill: { type: 'color', value: '#ff00aa' } },
+        enum: { tone: { type: 'enum', value: 'bold' } },
+      },
+    })],
+    [component],
+  ).layers[0];
+  assert.match(String(serialized?.classes), /bg-\[#ff00aa\]/);
+  assert.doesNotMatch(String(serialized?.classes), new RegExp(COLOR_VAR));
+  assert.equal(serialized?._dynamicStyles?.backgroundColor, '#ff00aa');
+  assert.equal(textOf(serialized?.children?.[0]), 'Bold');
+
+  const editing = serializeLayers([root], [], variables.map((variable) => (
+    variable.id === 'fill'
+      ? { ...variable, default_value: { type: 'color' as const, value: '#123456' } }
+      : variable
+  ))).layers[0];
+  assert.match(String(editing?.classes), /bg-\[#123456\]/);
+  assert.equal(editing?._dynamicStyles?.backgroundColor, '#123456');
 });

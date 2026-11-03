@@ -28,6 +28,7 @@ import type {
   TextPropertyValue,
   ComponentPropertyType,
 } from '@/types';
+import { applyStackBindingsToTree } from '@/lib/component-bindings';
 import { remapInteractionTargets } from '@/lib/interactions-framer';
 import { applyBreakpointDesign } from '@/lib/layout-model';
 import { generateId } from '@/lib/utils';
@@ -363,10 +364,36 @@ function applyVisibility(layer: Layer, visible: boolean, ephemeral: boolean): La
   return withDynamicStyle(next, 'display', visible ? null : 'none');
 }
 
+/**
+ * Stored fills use Tailwind tokens (`#rrggbb/40`, `color:var(--id)`).
+ * Inline styles need a real CSS color or the browser drops the declaration
+ * and the previous utility class keeps painting.
+ */
+export function colorValueToCss(value: string): string {
+  const trimmed = value.trim();
+  const variable = trimmed.match(/^(?:color:)?var\(--([^)]+)\)$/);
+  if (variable) return `var(--${variable[1]})`;
+
+  const withOpacity = trimmed.match(/^(#[0-9a-fA-F]{6}|#[0-9a-fA-F]{3})\/(\d{1,3})$/);
+  if (!withOpacity) return trimmed;
+
+  const hexBody = withOpacity[1].slice(1);
+  const full = hexBody.length === 3
+    ? hexBody.split('').map((channel) => channel + channel).join('')
+    : hexBody;
+  const alpha = Math.max(0, Math.min(100, parseInt(withOpacity[2], 10))) / 100;
+  const red = parseInt(full.slice(0, 2), 16);
+  const green = parseInt(full.slice(2, 4), 16);
+  const blue = parseInt(full.slice(4, 6), 16);
+  if ([red, green, blue].some((channel) => Number.isNaN(channel))) return trimmed;
+  return `rgba(${red},${green},${blue},${alpha})`;
+}
+
 function applyFill(layer: Layer, color: string, ephemeral: boolean): Layer {
+  const paint = colorValueToCss(color);
   const current = layer.design?.backgrounds?.backgroundColor;
   const inline = layer._dynamicStyles?.backgroundColor;
-  if (current === color && (!ephemeral || inline === color)) return layer;
+  if (current === color && (!ephemeral || inline === paint)) return layer;
 
   const styled = applyBreakpointDesign(
     layer,
@@ -375,7 +402,7 @@ function applyFill(layer: Layer, color: string, ephemeral: boolean): Layer {
   );
   const next: Layer = { ...layer, ...styled };
   if (!ephemeral) return next;
-  return withDynamicStyle(next, 'backgroundColor', color);
+  return withDynamicStyle(next, 'backgroundColor', paint);
 }
 
 function applyOpacity(layer: Layer, value: number, ephemeral: boolean): Layer {
@@ -468,6 +495,53 @@ export function applyControlBindings(
     next = { ...next, controlBindings: bindings };
   }
   return next;
+}
+
+/**
+ * Apply property-control bindings through a layer tree.
+ * Returns the same array when nothing is bound.
+ */
+export function applyControlBindingsToTree(
+  layers: Layer[],
+  overrides: Layer['componentOverrides'] | undefined,
+  variables: ComponentVariable[] | undefined,
+  options?: ApplyControlOptions,
+): Layer[] {
+  let changed = false;
+  const next = layers.map((layer) => {
+    let child = applyControlBindings(layer, overrides, variables, options);
+    if (child !== layer) changed = true;
+    if (layer.children?.length) {
+      const children = applyControlBindingsToTree(layer.children, overrides, variables, options);
+      if (children !== layer.children) {
+        child = { ...child, children };
+        changed = true;
+      }
+    }
+    return child;
+  });
+  return changed ? next : layers;
+}
+
+/**
+ * Paint one component instance for the editor canvas.
+ *
+ * Edit mode rebuilds the instance from the primary and previously applied
+ * only stack bindings, so Visible / Fill / Opacity / Content overrides stayed
+ * in the inspector. Override when set, otherwise the control default. Inline
+ * styles are included so a hex or color variable paints when its Tailwind
+ * utility is missing from the page stylesheet.
+ */
+export function resolveEditorInstanceLayers(
+  layers: Layer[],
+  overrides: Layer['componentOverrides'] | undefined,
+  variables: ComponentVariable[] | undefined,
+): Layer[] {
+  return applyControlBindingsToTree(
+    applyStackBindingsToTree(layers, overrides, variables),
+    overrides,
+    variables,
+  );
 }
 
 /**

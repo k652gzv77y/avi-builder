@@ -9,7 +9,7 @@ import { resolveInlineVariablesFromData } from '@/lib/inline-variables';
 import { DEFAULT_TEXT_STYLES } from '@/lib/text-format-utils';
 import { getCmsFieldBinding } from '@/lib/tiptap-utils';
 import { applyStackBindings } from '@/lib/component-bindings';
-import { applyStructuredLayers } from '@/lib/component-properties';
+import { applyControlBindings, applyStructuredLayers } from '@/lib/component-properties';
 import { applyComponentOverrides } from '@/lib/resolve-components';
 import { getComponentVariantLayers } from '@/lib/component-variant-utils';
 import { mergeLayerInteractions, remapActionTarget, remapInteractionTargets } from '@/lib/interactions-framer';
@@ -2703,7 +2703,7 @@ function resolveComponentsInLayers(
         // _originalLayerId is the component's root template ID — translations on the
         // root wrapper itself are stored under that ID, while the runtime ID is the
         // page-instance ID.
-        const resolved = applyStackBindings({
+        const merged = applyStackBindings({
           ...layer,
           ...componentContent, // Merge the component's properties (classes, design, etc.)
           id: layer.id, // Keep the instance's ID
@@ -2715,7 +2715,10 @@ function resolveComponentsInLayers(
           _originalLayerId: componentContent.id,
         }, layer.componentOverrides, component.variables);
 
-        return resolved;
+        // Children already ran through applyComponentOverrides. The root frame
+        // only had stack bindings, so Fill / Opacity / Visible / Content on
+        // the component root never reached canvas serialization.
+        return applyControlBindings(merged, layer.componentOverrides, component.variables);
       }
     }
 

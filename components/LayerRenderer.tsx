@@ -42,7 +42,7 @@ import LayerContextMenu from '@/app/(builder)/editor/components/LayerContextMenu
 import CanvasTextEditor from '@/app/(builder)/editor/components/CanvasTextEditor';
 import { useComponentsStore } from '@/stores/useComponentsStore';
 import { getComponentVariantLayers, resolvePointerVariantId } from '@/lib/component-variant-utils';
-import { applyStackBindingsToTree } from '@/lib/component-bindings';
+import { resolveEditorInstanceLayers } from '@/lib/component-properties';
 import { applyDataBindings, presentFetchText } from '@/lib/cms-framer';
 import { useFetchRuntimeStore } from '@/stores/useFetchRuntimeStore';
 import { useInteractionPreviewStore } from '@/stores/useInteractionPreviewStore';
@@ -1414,7 +1414,9 @@ const LayerItemImpl: React.FC<{
     const overrides = layer.componentOverrides?.variableLinks
       ? resolveVariableLinks(layer.componentOverrides, parentComponentOverrides, parentComponentVariables)
       : layer.componentOverrides;
-    const withBindings = applyStackBindingsToTree(transformed, overrides, component.variables);
+    // Stack bindings plus Visible / Fill / Opacity / Content. Edit mode does
+    // not paint the serialized tree, so overrides are merged onto the primary here.
+    const withBindings = resolveEditorInstanceLayers(transformed, overrides, component.variables);
     if (!currentLocale || currentLocale.is_default || !translations) {
       return withBindings;
     }
