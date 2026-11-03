@@ -8,6 +8,7 @@ import {
   applyControlBindings,
   applyControlValueToBoundLayers,
   applyStructuredLayers,
+  assignVariantPropertyDefault,
   clearPropertyOverride,
   colorValueToCss,
   isObjectPropertyValue,
@@ -17,6 +18,7 @@ import {
   readPropertyValue,
   resolveEditorInstanceLayers,
   stripControlBinding,
+  variablesForVariant,
 } from '@/lib/component-properties';
 
 function layer(partial: Partial<Layer> & Pick<Layer, 'id'>): Layer {
@@ -558,4 +560,188 @@ test('canvas serialization paints fill and text overrides on the component root'
   ))).layers[0];
   assert.match(String(editing?.classes), /bg-\[#123456\]/);
   assert.equal(editing?._dynamicStyles?.backgroundColor, '#123456');
+});
+
+test('variant property defaults replace the primary default and overrides still win', () => {
+  const root = layer({
+    id: 'frame',
+    classes: 'flex gap-[8px] bg-[#ffffff]',
+    design: {
+      layout: { isActive: true, display: 'flex', gap: '8' },
+      backgrounds: { isActive: true, backgroundColor: '#ffffff' },
+    },
+    controlBindings: { fill: 'fill', text: 'tone' },
+    stackBindings: { gap: 'gap' },
+    children: [
+      layer({
+        id: 'label',
+        name: 'text',
+        variables: { text: { type: 'dynamic_text', id: 'title', data: { content: '' } } },
+      }),
+    ],
+  });
+  const matrixVariables: ComponentVariable[] = [
+    ...variables,
+    {
+      id: 'title',
+      name: 'Title',
+      type: 'text',
+      default_value: { type: 'dynamic_text', data: { content: 'Primary title' } },
+    },
+    {
+      id: 'gap',
+      name: 'Gap',
+      type: 'stack',
+      stack_key: 'gap',
+      default_value: { value: '8' },
+    },
+  ];
+  const openLayers = JSON.parse(JSON.stringify([root])) as Layer[];
+  const component: Component = {
+    ...componentFixture(root, matrixVariables),
+    layers: [root],
+    variants: [
+      { id: 'primary', name: 'Default', layers: [root] },
+      {
+        id: 'open',
+        name: 'Open',
+        layers: openLayers,
+        propertyDefaults: {
+          fill: { type: 'color', value: '#111111' },
+          tone: { type: 'enum', value: 'bold' },
+          title: { type: 'dynamic_text', data: { content: 'Open title' } },
+          gap: { value: '4', breakpoints: { tablet: '12' } },
+        },
+      },
+      {
+        id: 'hover',
+        name: 'Hover',
+        state: 'hover',
+        layers: [],
+        replicaOf: 'primary',
+        propertyDefaults: {
+          fill: { type: 'color', value: '#00aa00' },
+        },
+      },
+    ],
+  };
+
+  assert.equal(variablesForVariant(matrixVariables, component, 'primary'), matrixVariables);
+  assert.equal(variablesForVariant(matrixVariables, component, 'missing'), matrixVariables);
+  const openVariables = variablesForVariant(matrixVariables, component, 'open');
+  assert.equal(
+    openVariables?.find((item) => item.id === 'fill')?.default_value && 'value' in (openVariables.find((item) => item.id === 'fill')!.default_value as { value: string })
+      ? (openVariables.find((item) => item.id === 'fill')!.default_value as { value: string }).value
+      : undefined,
+    '#111111',
+  );
+  assert.equal(
+    matrixVariables.find((item) => item.id === 'fill')?.default_value && 'value' in (matrixVariables[1].default_value as { value: string })
+      ? (matrixVariables[1].default_value as { value: string }).value
+      : undefined,
+    '#ffffff',
+  );
+
+  const primaryInstance = resolveComponents(
+    [layer({ id: 'inst', componentId: 'cmp' })],
+    [component],
+  )[0];
+  assert.match(String(primaryInstance.classes), /bg-\[#ffffff\]/);
+  assert.equal(textOf(primaryInstance.children?.[0]), 'Primary title');
+  assert.match(String(primaryInstance.classes), /gap-\[8px\]/);
+  assert.doesNotMatch(String(primaryInstance.classes), /max-lg:gap-/);
+
+  const openInstance = resolveComponents(
+    [layer({ id: 'inst', componentId: 'cmp', componentVariantId: 'open' })],
+    [component],
+  )[0];
+  assert.match(String(openInstance.classes), /bg-\[#111111\]/);
+  assert.doesNotMatch(String(openInstance.classes), /bg-\[#ffffff\]/);
+  assert.equal(textOf(openInstance.children?.[0]), 'Open title');
+  assert.match(String(openInstance.classes), /gap-\[4px\]/);
+  assert.match(String(openInstance.classes), /max-lg:gap-\[12px\]/);
+
+  const overridden = resolveComponents(
+    [layer({
+      id: 'inst',
+      componentId: 'cmp',
+      componentVariantId: 'open',
+      componentOverrides: {
+        color: { fill: { type: 'color', value: '#ff0000' } },
+      },
+    })],
+    [component],
+  )[0];
+  assert.match(String(overridden.classes), /bg-\[#ff0000\]/);
+  assert.equal(textOf(overridden.children?.[0]), 'Open title');
+  assert.match(String(overridden.classes), /gap-\[4px\]/);
+
+  const reset = resolveComponents(
+    [layer({
+      id: 'inst',
+      componentId: 'cmp',
+      componentVariantId: 'open',
+      componentOverrides: clearPropertyOverride(
+        { color: { fill: { type: 'color', value: '#ff0000' } } },
+        matrixVariables[1],
+      ),
+    })],
+    [component],
+  )[0];
+  assert.match(String(reset.classes), /bg-\[#111111\]/);
+  assert.doesNotMatch(String(reset.classes), /bg-\[#ff0000\]/);
+
+  const canvas = serializeLayers(
+    [layer({ id: 'inst', componentId: 'cmp', componentVariantId: 'open' })],
+    [component],
+  ).layers[0];
+  assert.match(String(canvas?.classes), /bg-\[#111111\]/);
+  assert.equal(textOf(canvas?.children?.[0]), 'Open title');
+  assert.match(String(canvas?.classes), /max-lg:gap-\[12px\]/);
+
+  const canvasOverride = serializeLayers(
+    [layer({
+      id: 'inst',
+      componentId: 'cmp',
+      componentVariantId: 'open',
+      componentOverrides: { color: { fill: { type: 'color', value: '#ff00aa' } } },
+    })],
+    [component],
+  ).layers[0];
+  assert.match(String(canvasOverride?.classes), /bg-\[#ff00aa\]/);
+  assert.equal(textOf(canvasOverride?.children?.[0]), 'Open title');
+
+  const hover = resolveEditorInstanceLayers(
+    [root],
+    undefined,
+    variablesForVariant(matrixVariables, component, 'hover'),
+  )[0];
+  assert.match(String(hover.classes), /bg-\[#00aa00\]/);
+
+  const cleared = assignVariantPropertyDefault(
+    component.variants!,
+    'open',
+    'fill',
+    { type: 'color', value: '#ffffff' },
+    { type: 'color', value: '#ffffff' },
+  );
+  assert.equal(cleared[1].propertyDefaults?.fill, undefined);
+  assert.equal(cleared[1].propertyDefaults?.title && 'data' in (cleared[1].propertyDefaults.title as { data?: { content: string } })
+    ? (cleared[1].propertyDefaults.title as { data: { content: string } }).data.content
+    : undefined, 'Open title');
+
+  const custom = assignVariantPropertyDefault(
+    cleared,
+    'open',
+    'fill',
+    { type: 'color', value: '#222222' },
+    { type: 'color', value: '#ffffff' },
+  );
+  assert.equal(
+    custom[1].propertyDefaults?.fill && 'value' in (custom[1].propertyDefaults.fill as { value: string })
+      ? (custom[1].propertyDefaults.fill as { value: string }).value
+      : undefined,
+    '#222222',
+  );
+  assert.equal(assignVariantPropertyDefault(custom, 'primary', 'fill', { type: 'color', value: '#000000' }, { type: 'color', value: '#ffffff' }), custom);
 });

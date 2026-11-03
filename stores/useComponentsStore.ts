@@ -18,7 +18,13 @@ import { detachStyleFromLayers, updateLayersWithStyle } from '@/lib/layer-style-
 import { scheduleIdle } from '@/lib/schedule-idle';
 import { generateId } from '@/lib/utils';
 import { applyStackValueToBoundLayers, uniqueName } from '@/lib/component-bindings';
-import { applyControlValueToBoundLayers, stripControlBinding } from '@/lib/component-properties';
+import {
+  assignVariantPropertyDefault,
+  omitPropertyDefault,
+  paintVariableDefault,
+  stripControlBinding,
+  variableValuesEqual,
+} from '@/lib/component-properties';
 import {
   applyReplicaOverrides,
   isReplicaVariant,
@@ -63,6 +69,40 @@ function buildVariantsFromDrafts(
 const variableSaveVersion = new Map<string, number>();
 
 /** Pick the first variant id of a component, used as the safe default. */
+/**
+ * Paint one variable default onto variant drafts.
+ * Variants that store their own matrix cell are left alone unless `onlyVariantId`
+ * targets them. Replica drafts are left alone — style reconciliation must not
+ * absorb a property-default paint.
+ */
+function paintDraftDefaults(
+  component: Component,
+  drafts: Record<string, Layer[]> | undefined,
+  variable: ComponentVariable,
+  value: ComponentVariableValue,
+  variables: ComponentVariable[],
+  onlyVariantId?: string,
+): { drafts: Record<string, Layer[]> | undefined; changedId?: string } {
+  if (!drafts) return { drafts };
+  const primaryId = component.variants?.[0]?.id;
+  let next = drafts;
+  let changedId: string | undefined;
+  for (const [variantId, layers] of Object.entries(drafts)) {
+    if (onlyVariantId && variantId !== onlyVariantId) continue;
+    const variant = component.variants?.find((item) => item.id === variantId);
+    if (isReplicaVariant(variant)) continue;
+    if (!onlyVariantId && primaryId && variantId !== primaryId && variant?.propertyDefaults && variable.id in variant.propertyDefaults) {
+      continue;
+    }
+    const painted = paintVariableDefault(layers, variable, value, variables);
+    if (painted === layers) continue;
+    if (next === drafts) next = { ...drafts };
+    next[variantId] = painted;
+    changedId = changedId ?? variantId;
+  }
+  return { drafts: next, changedId };
+}
+
 function getPrimaryVariantId(component: Component | undefined): string | null {
   if (!component) return null;
   const variants = component.variants;
@@ -265,6 +305,17 @@ interface ComponentsActions {
     componentId: string,
     variableId: string,
     updates: Partial<Pick<ComponentVariable, 'name' | 'placeholder' | 'default_value' | 'options' | 'fields' | 'min' | 'max' | 'step'>>,
+  ) => Promise<void>;
+  /**
+   * Set one cell of the variant property matrix.
+   * The primary variant writes `default_value`. Pass null on any other variant
+   * to inherit the primary default again.
+   */
+  setVariantPropertyDefault: (
+    componentId: string,
+    variantId: string,
+    variableId: string,
+    value: ComponentVariableValue | null,
   ) => Promise<void>;
   reorderVariables: (componentId: string, orderedIds: string[]) => Promise<void>;
   deleteTextVariable: (componentId: string, variableId: string) => Promise<void>;
@@ -1475,23 +1526,19 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
       variableSaveVersion.set(saveKey, version);
 
       const previousDrafts = get().componentDrafts[componentId];
+      const editedVariable = updatedVariables.find((item) => item.id === variableId);
       let nextDrafts = previousDrafts;
-      if (updates.default_value !== undefined && previousDrafts) {
-        const draftCopy = { ...previousDrafts };
-        let draftChanged = false;
-        for (const [variantId, layers] of Object.entries(previousDrafts)) {
-          const nextLayers = applyControlValueToBoundLayers(
-            layers,
-            variableId,
-            updates.default_value,
-            updatedVariables,
-          );
-          if (nextLayers !== layers) {
-            draftCopy[variantId] = nextLayers;
-            draftChanged = true;
-          }
-        }
-        if (draftChanged) nextDrafts = draftCopy;
+      let paintedVariantId: string | undefined;
+      if (updates.default_value !== undefined && editedVariable && previousDrafts) {
+        const painted = paintDraftDefaults(
+          component,
+          previousDrafts,
+          editedVariable,
+          updates.default_value,
+          updatedVariables,
+        );
+        nextDrafts = painted.drafts ?? previousDrafts;
+        paintedVariantId = painted.changedId;
       }
 
       set((state) => ({
@@ -1502,6 +1549,14 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
           ? { ...state.componentDrafts, [componentId]: nextDrafts }
           : state.componentDrafts,
       }));
+
+      if (
+        editedVariable?.type === 'stack'
+        && paintedVariantId
+        && nextDrafts?.[paintedVariantId]
+      ) {
+        get().updateComponentDraft(componentId, paintedVariantId, nextDrafts[paintedVariantId]);
+      }
 
       try {
         const response = await fetch(projectsPath(`/api/components/${componentId}`), {
@@ -1530,6 +1585,91 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
           components: state.components.map((c) =>
             c.id === componentId ? { ...c, variables: previous } : c
           ),
+          componentDrafts: previousDrafts
+            ? { ...state.componentDrafts, [componentId]: previousDrafts }
+            : state.componentDrafts,
+        }));
+      }
+    },
+
+    setVariantPropertyDefault: async (componentId, variantId, variableId, value) => {
+      const component = get().getComponentById(componentId);
+      if (!component) return;
+      const variable = (component.variables || []).find((item) => item.id === variableId);
+      if (!variable) return;
+
+      const variants = component.variants && component.variants.length > 0
+        ? component.variants
+        : [{ id: getPrimaryVariantId(component) || generateId('cmpvar'), name: 'Default', layers: component.layers ?? [] }];
+      const index = variants.findIndex((item) => item.id === variantId);
+      if (index === -1) return;
+      if (index === 0) {
+        await get().updateTextVariable(componentId, variableId, { default_value: value ?? undefined });
+        return;
+      }
+
+      const updatedVariants = assignVariantPropertyDefault(
+        variants,
+        variantId,
+        variableId,
+        value,
+        variable.default_value,
+      );
+      const previousVariants = component.variants;
+      const previousDrafts = get().componentDrafts[componentId];
+      const updatedComponent: Component = { ...component, variants: updatedVariants };
+      const inherits = value == null
+        ? variable.default_value == null
+        : variableValuesEqual(value, variable.default_value);
+      const paintValue = inherits ? variable.default_value : value ?? undefined;
+
+      set((state) => ({
+        components: state.components.map((item) => (item.id === componentId ? updatedComponent : item)),
+      }));
+
+      const target = updatedVariants[index];
+      if (!isReplicaVariant(target) && previousDrafts?.[variantId] && paintValue !== undefined) {
+        const painted = paintVariableDefault(
+          previousDrafts[variantId],
+          variable,
+          paintValue,
+          component.variables || [],
+        );
+        if (painted !== previousDrafts[variantId]) {
+          get().updateComponentDraft(componentId, variantId, painted);
+          return;
+        }
+      }
+
+      const variantsToSave = buildVariantsFromDrafts(updatedComponent, get().componentDrafts[componentId]);
+      try {
+        const response = await fetch(projectsPath(`/api/components/${componentId}`), {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ variants: variantsToSave }),
+        });
+        const result = await response.json();
+        if (result.error) {
+          console.error('Failed to update variant default:', result.error);
+          set((state) => ({
+            components: state.components.map((item) => (
+              item.id === componentId ? { ...item, variants: previousVariants } : item
+            )),
+            componentDrafts: previousDrafts
+              ? { ...state.componentDrafts, [componentId]: previousDrafts }
+              : state.componentDrafts,
+          }));
+          return;
+        }
+        set((state) => ({
+          components: state.components.map((item) => (item.id === componentId ? result.data : item)),
+        }));
+      } catch (error) {
+        console.error('Failed to update variant default:', error);
+        set((state) => ({
+          components: state.components.map((item) => (
+            item.id === componentId ? { ...item, variants: previousVariants } : item
+          )),
           componentDrafts: previousDrafts
             ? { ...state.componentDrafts, [componentId]: previousDrafts }
             : state.componentDrafts,
@@ -1645,10 +1785,11 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
       const baselineVariants: ComponentVariant[] = component.variants && component.variants.length > 0
         ? component.variants
         : [{ id: generateId('cmpvar'), name: 'Default', layers: component.layers ?? [] }];
-      const updatedVariants = baselineVariants.map(v => ({
+      const unlinkedVariants = baselineVariants.map(v => ({
         ...v,
         layers: unlinkLayersFromVariable(v.layers ?? []),
       }));
+      const updatedVariants = omitPropertyDefault(unlinkedVariants, variableId) ?? unlinkedVariants;
       const updatedLayers = updatedVariants[0]?.layers ?? [];
 
       try {
@@ -1808,6 +1949,9 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
           layers: [],
           replicaOf: sourceId,
           overrides,
+          ...(!options?.state && fromVariant.propertyDefaults
+            ? { propertyDefaults: JSON.parse(JSON.stringify(fromVariant.propertyDefaults)) }
+            : {}),
           ...(options?.state ? { state: options.state } : {}),
         };
         const sourceLayers = get().componentDrafts[componentId]?.[sourceId]
@@ -1827,6 +1971,9 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
           id: generateId('cmpvar'),
           name: proposedName,
           layers: seedLayers,
+          ...(!options?.state && fromVariant.propertyDefaults
+            ? { propertyDefaults: JSON.parse(JSON.stringify(fromVariant.propertyDefaults)) }
+            : {}),
           ...(options?.state ? { state: options.state } : {}),
         };
       }

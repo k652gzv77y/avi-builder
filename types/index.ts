@@ -1035,6 +1035,13 @@ export interface ComponentVariant {
    */
   replicaOf?: string;
   overrides?: Record<string, VariantStyleOverride>;
+  /**
+   * Property defaults for this variant, keyed by component variable id.
+   * The primary variant keeps its defaults on each variable's `default_value`.
+   * Every other variant inherits that default until a key is set here.
+   * Stack values may include tablet and phone breakpoints.
+   */
+  propertyDefaults?: Record<string, ComponentVariableValue | null>;
 }
 
 // Component Types (Reusable Layer Trees)
@@ -1051,7 +1058,8 @@ export interface Component {
   // after the variants migration runs. Treat this as the source of truth.
   variants?: ComponentVariant[];
 
-  // Component variables - exposed properties for overrides (shared across variants)
+  // Component variables — shared across variants. Each variant can override
+  // a variable's default via `ComponentVariant.propertyDefaults`.
   variables?: ComponentVariable[];
 
   // Versioning fields

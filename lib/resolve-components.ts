@@ -6,7 +6,7 @@
 
 import type { Layer, Component, ComponentVariable, ComponentVariableValue, LayerVariables, VariantSettingsValue } from '@/types';
 import { applyStackBindings } from '@/lib/component-bindings';
-import { applyControlBindings, applyStructuredLayers } from '@/lib/component-properties';
+import { applyControlBindings, applyStructuredLayers, variablesForVariant } from '@/lib/component-properties';
 import { prepareVariantLayersForPublish } from './component-variant-utils';
 import { mergeLayerInteractions, remapComponentRootInteraction, remapInteractionTargets } from '@/lib/interactions-framer';
 import { normalizeComponentVariableValue } from './variable-utils';
@@ -651,20 +651,27 @@ export function resolveComponents(
         const innerVisited = new Set(visited);
         innerVisited.add(layer.componentId);
 
+        // Variant defaults replace the shared default. Instance overrides still win.
+        const instanceVariables = variablesForVariant(
+          component.variables,
+          component,
+          layer.componentVariantId,
+        );
+
         // The variant's first layer is the actual content (Section, etc.)
         const componentContent = variantLayers[0];
 
         // Recursively resolve nested components, passing current component's
         // variables and this instance's overrides so nested variableLinks resolve correctly
         const nestedResolved = componentContent.children
-          ? resolveComponents(componentContent.children, components, component.variables, layer.componentOverrides, innerVisited)
+          ? resolveComponents(componentContent.children, components, instanceVariables, layer.componentOverrides, innerVisited)
           : [];
 
         // Apply component variable overrides (or defaults) before tagging
         const overriddenChildren = applyComponentOverrides(
           nestedResolved,
           layer.componentOverrides,
-          component.variables
+          instanceVariables
         );
 
         // Also apply overrides to the root layer itself (for root-level link/text/image variables)
@@ -672,7 +679,7 @@ export function resolveComponents(
         const [overriddenRoot] = applyComponentOverrides(
           [{ ...componentContent, children: undefined }],
           layer.componentOverrides,
-          component.variables
+          instanceVariables
         );
 
         // Slot replacement and array repeat run on the instance, after defaults
@@ -680,8 +687,8 @@ export function resolveComponents(
         const [structuredRoot] = applyStructuredLayers(
           [{ ...overriddenRoot, children: overriddenChildren }],
           layer.componentOverrides,
-          component.variables,
-          (nested) => resolveComponents(nested, components, component.variables, layer.componentOverrides, innerVisited),
+          instanceVariables,
+          (nested) => resolveComponents(nested, components, instanceVariables, layer.componentOverrides, innerVisited),
         );
         const structuredChildren = structuredRoot.children ?? [];
 

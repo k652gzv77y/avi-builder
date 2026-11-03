@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
@@ -34,7 +34,7 @@ import { useComponentsStore } from '@/stores/useComponentsStore';
 import { usePagesStore } from '@/stores/usePagesStore';
 import { useEditComponent } from '@/hooks/use-edit-component';
 import { detachSpecificLayerFromComponent } from '@/lib/component-utils';
-import { findSlotFallback } from '@/lib/component-properties';
+import { findSlotFallback, variablesForVariant } from '@/lib/component-properties';
 import { collectVariantVariableOptions, countReplicaOverrides, getComponentVariantLayers, isReplicaVariant } from '@/lib/component-variant-utils';
 import { useInteractionPreviewStore } from '@/stores/useInteractionPreviewStore';
 import { cn } from '@/lib/utils';
@@ -159,7 +159,14 @@ export default function ComponentInstanceSidebar({
     setVariablesDialogOpen(true);
   }, []);
 
-  const allVariables = component.variables || [];
+  const allVariables = useMemo(
+    () => variablesForVariant(
+      component.variables,
+      component,
+      previewVariantId || selectedLayer.componentVariantId,
+    ) || [],
+    [component, previewVariantId, selectedLayer.componentVariantId],
+  );
   const overrides = selectedLayer.componentOverrides;
   const hasOverrides = hasOverrideValues(overrides);
 

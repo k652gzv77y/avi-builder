@@ -9,7 +9,7 @@ import { resolveInlineVariablesFromData } from '@/lib/inline-variables';
 import { DEFAULT_TEXT_STYLES } from '@/lib/text-format-utils';
 import { getCmsFieldBinding } from '@/lib/tiptap-utils';
 import { applyStackBindings } from '@/lib/component-bindings';
-import { applyControlBindings, applyStructuredLayers } from '@/lib/component-properties';
+import { applyControlBindings, applyStructuredLayers, variablesForVariant } from '@/lib/component-properties';
 import { applyComponentOverrides } from '@/lib/resolve-components';
 import { getComponentVariantLayers } from '@/lib/component-variant-utils';
 import { mergeLayerInteractions, remapActionTarget, remapInteractionTargets } from '@/lib/interactions-framer';
@@ -2628,6 +2628,13 @@ function resolveComponentsInLayers(
         const innerVisited = new Set(visited);
         innerVisited.add(layer.componentId);
 
+        // Variant defaults replace the shared default. Instance overrides still win.
+        const instanceVariables = variablesForVariant(
+          component.variables,
+          component,
+          layer.componentVariantId,
+        );
+
         // The variant's first layer is the actual content (Section, etc.)
         const componentContent = variantLayers[0];
 
@@ -2640,7 +2647,7 @@ function resolveComponentsInLayers(
         // Recursively resolve any nested components within the transformed children
         // Pass current component's variables and this instance's overrides
         const resolvedChildren = resolveComponentsInLayers(
-          transformedChildren, components, component.variables, layer.componentOverrides, innerVisited,
+          transformedChildren, components, instanceVariables, layer.componentOverrides, innerVisited,
         );
 
         // Build ID map for remapping root layer interactions
@@ -2671,7 +2678,7 @@ function resolveComponentsInLayers(
         const overriddenChildren = applyComponentOverrides(
           resolvedChildren,
           layer.componentOverrides,
-          component.variables,
+          instanceVariables,
         );
 
         // Slot replacement and array repeat. Children are already instance-scoped,
@@ -2679,11 +2686,11 @@ function resolveComponentsInLayers(
         const [structuredRoot] = applyStructuredLayers(
           [{ ...componentContent, id: layer.id, children: overriddenChildren }],
           layer.componentOverrides,
-          component.variables,
+          instanceVariables,
           (nested) => resolveComponentsInLayers(
             nested,
             components,
-            component.variables,
+            instanceVariables,
             layer.componentOverrides,
             innerVisited,
           ),
@@ -2713,12 +2720,12 @@ function resolveComponentsInLayers(
           children: taggedChildren,
           _masterComponentId: component.id,
           _originalLayerId: componentContent.id,
-        }, layer.componentOverrides, component.variables);
+        }, layer.componentOverrides, instanceVariables);
 
         // Children already ran through applyComponentOverrides. The root frame
         // only had stack bindings, so Fill / Opacity / Visible / Content on
         // the component root never reached canvas serialization.
-        return applyControlBindings(merged, layer.componentOverrides, component.variables);
+        return applyControlBindings(merged, layer.componentOverrides, instanceVariables);
       }
     }
 

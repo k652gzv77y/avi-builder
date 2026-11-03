@@ -13,8 +13,10 @@ import type {
   ArrayPropertyValue,
   BooleanPropertyValue,
   ColorPropertyValue,
+  Component,
   ComponentVariable,
   ComponentVariableValue,
+  ComponentVariant,
   ControlBindingKey,
   EnumOption,
   EnumPropertyValue,
@@ -28,7 +30,7 @@ import type {
   TextPropertyValue,
   ComponentPropertyType,
 } from '@/types';
-import { applyStackBindingsToTree } from '@/lib/component-bindings';
+import { applyStackBindingsToTree, applyStackValueToBoundLayers, isStackVariableValue, stackValuesEqual } from '@/lib/component-bindings';
 import { remapInteractionTargets } from '@/lib/interactions-framer';
 import { applyBreakpointDesign } from '@/lib/layout-model';
 import { generateId } from '@/lib/utils';
@@ -250,6 +252,113 @@ export function readPropertyValue(
   overrides: Layer['componentOverrides'] | undefined,
 ): ComponentVariableValue | undefined {
   return propertyOverride(variable, overrides) ?? variable.default_value;
+}
+
+/**
+ * Compare any stored variable value, including stack breakpoint maps and
+ * the scalar property controls.
+ */
+export function variableValuesEqual(
+  a: ComponentVariableValue | undefined,
+  b: ComponentVariableValue | undefined,
+): boolean {
+  if (a === b) return true;
+  if (a === undefined || b === undefined) return false;
+  if (propertyValuesEqual(a, b)) return true;
+  if (isStackVariableValue(a) && isStackVariableValue(b)) return stackValuesEqual(a, b);
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+/**
+ * Default for one variable on one variant.
+ * The primary variant, a missing variant, and a variant with no entry for
+ * this variable all use `variable.default_value`.
+ */
+export function variantPropertyDefault(
+  variable: ComponentVariable,
+  component: Pick<Component, 'variants'> | undefined,
+  variantId?: string | null,
+): ComponentVariableValue | undefined {
+  const variants = component?.variants;
+  if (!variants?.length || !variantId || variants[0]?.id === variantId) return variable.default_value;
+  const variant = variants.find((item) => item.id === variantId);
+  if (!variant?.propertyDefaults || !(variable.id in variant.propertyDefaults)) {
+    return variable.default_value;
+  }
+  return variant.propertyDefaults[variable.id] ?? undefined;
+}
+
+/**
+ * Copy of the variable list whose `default_value` is the selected variant's
+ * default. Callers keep the existing override-then-default merge.
+ * Returns the same array when the primary variant is selected or nothing differs.
+ */
+export function variablesForVariant(
+  variables: ComponentVariable[] | undefined,
+  component: Pick<Component, 'variants'> | undefined,
+  variantId?: string | null,
+): ComponentVariable[] | undefined {
+  if (!variables?.length) return variables;
+  const variants = component?.variants;
+  if (!variants?.length || !variantId || variants[0]?.id === variantId) return variables;
+  const variant = variants.find((item) => item.id === variantId);
+  const defaults = variant?.propertyDefaults;
+  if (!defaults) return variables;
+  let changed = false;
+  const next = variables.map((variable) => {
+    if (!(variable.id in defaults)) return variable;
+    changed = true;
+    return { ...variable, default_value: defaults[variable.id] ?? undefined };
+  });
+  return changed ? next : variables;
+}
+
+/**
+ * Write one cell of the variant property matrix.
+ * The primary variant is unchanged here — its default lives on the variable.
+ * A value equal to the primary default removes the cell so the variant inherits.
+ */
+export function assignVariantPropertyDefault(
+  variants: ComponentVariant[],
+  variantId: string,
+  variableId: string,
+  value: ComponentVariableValue | null,
+  primaryDefault: ComponentVariableValue | undefined,
+): ComponentVariant[] {
+  const index = variants.findIndex((variant) => variant.id === variantId);
+  if (index <= 0) return variants;
+  return variants.map((variant, variantIndex) => {
+    if (variantIndex !== index) return variant;
+    const next = { ...(variant.propertyDefaults ?? {}) };
+    const inherits = value == null
+      ? primaryDefault == null
+      : variableValuesEqual(value, primaryDefault);
+    if (inherits) delete next[variableId];
+    else next[variableId] = value;
+    const propertyDefaults = Object.keys(next).length > 0 ? next : undefined;
+    if (propertyDefaults === undefined && variant.propertyDefaults === undefined) return variant;
+    return { ...variant, propertyDefaults };
+  });
+}
+
+/** Drop one variable from every variant's property matrix. */
+export function omitPropertyDefault(
+  variants: ComponentVariant[] | undefined,
+  variableId: string,
+): ComponentVariant[] | undefined {
+  if (!variants) return variants;
+  let changed = false;
+  const next = variants.map((variant) => {
+    if (!variant.propertyDefaults || !(variableId in variant.propertyDefaults)) return variant;
+    changed = true;
+    const rest = { ...variant.propertyDefaults };
+    delete rest[variableId];
+    return {
+      ...variant,
+      propertyDefaults: Object.keys(rest).length > 0 ? rest : undefined,
+    };
+  });
+  return changed ? next : variants;
 }
 
 export function clearPropertyOverride(
@@ -597,6 +706,24 @@ export function applyControlValueToBoundLayers(
 
   const nextLayers = layers.map(visit);
   return changed ? nextLayers : layers;
+}
+
+/**
+ * Push a variable default onto bound layers.
+ * Stack values keep their tablet and phone breakpoints. Other controls use
+ * the property-binding path. Returns the original array when nothing matched.
+ */
+export function paintVariableDefault(
+  layers: Layer[],
+  variable: ComponentVariable | undefined,
+  value: ComponentVariableValue,
+  variables: ComponentVariable[],
+): Layer[] {
+  if (!variable) return layers;
+  if (variable.type === 'stack' && variable.stack_key && isStackVariableValue(value)) {
+    return applyStackValueToBoundLayers(layers, variable.id, variable.stack_key, value);
+  }
+  return applyControlValueToBoundLayers(layers, variable.id, value, variables);
 }
 
 function bindingTargetsVariable(bindingId: string | undefined, variableId: string): boolean {
