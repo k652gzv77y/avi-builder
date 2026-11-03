@@ -563,13 +563,20 @@ const RightSidebar = React.memo(function RightSidebar({
     const collectInteractions = (layers: Layer[]) => {
       layers.forEach(layer => {
         const interactions = layer.interactions || [];
-        const hasTweens = interactions.some(i => (i.tweens || []).length > 0);
+        const hasEvents = interactions.some(interaction => (
+          (interaction.tweens || []).length > 0 || (interaction.actions || []).length > 0
+        ));
 
-        if (hasTweens) {
+        if (hasEvents) {
           triggerIds.add(layer.id);
           interactions.forEach(interaction => {
             (interaction.tweens || []).forEach(tween => {
               targetIds.add(tween.layer_id);
+            });
+            (interaction.actions || []).forEach(action => {
+              if (action.type !== 'navigate' && action.targetLayerId && action.targetLayerId !== 'body') {
+                targetIds.add(action.targetLayerId);
+              }
             });
           });
         }

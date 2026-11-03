@@ -3,9 +3,12 @@ import assert from 'node:assert/strict';
 import type { InteractionAction, Layer, LayerInteraction } from '@/types';
 import {
   EVENT_LABELS,
+  actionEffects,
   actionsForRun,
   actionsOnHoverLeave,
+  authorLayerInteraction,
   createAppearTween,
+  createLayerInteraction,
   createNavigateAction,
   createOverlayAction,
   createScrollVariantAction,
@@ -19,12 +22,16 @@ import {
   nextScrollStop,
   overlayOpenTargets,
   overlayPlacementStyle,
+  parseLayerInteractions,
   remapActionTarget,
   remapComponentRootInteraction,
   removeInteractionAction,
+  removeLayerInteraction,
   resolveNavigateHref,
   scrollProgressThroughViewport,
+  serializeLayerInteractions,
   upsertInteractionAction,
+  upsertLayerInteraction,
   variantForScrollProgress,
   variantTargets,
   withAppearPreset,
@@ -262,4 +269,86 @@ test('overlay targets and variant choices come from the layer tree', () => {
   assert.equal(targets.length, 1);
   assert.equal(targets[0].layerId, 'card');
   assert.deepEqual(targets[0].variants.map(variant => variant.name), ['Default', 'Open']);
+});
+
+test('tap navigate serializes on the layer and resolves the href', () => {
+  const layer: Layer = { id: 'btn', name: 'button', classes: '' };
+  const action: InteractionAction = {
+    id: 'act-1',
+    type: 'navigate',
+    destination: 'page',
+    pageId: 'page-2',
+    href: '/about',
+  };
+  const next = authorLayerInteraction(layer, {
+    interactionId: 'int-1',
+    trigger: 'click',
+    action,
+  });
+
+  assert.equal(layer.interactions, undefined);
+  assert.equal(interactionSummary(next.interactions![0]), 'Tap → Navigate');
+  assert.deepEqual(next.interactions![0].timeline.breakpoints, ['mobile', 'tablet', 'desktop']);
+
+  const stored = parseLayerInteractions(serializeLayerInteractions(next.interactions));
+  assert.equal(stored[0].trigger, 'click');
+  assert.deepEqual(actionEffects(stored[0]), [{ type: 'navigate', href: '/about' }]);
+  assert.equal(resolveNavigateHref(action), '/about');
+
+  const edited = authorLayerInteraction(next, {
+    interactionId: 'int-1',
+    trigger: 'click',
+    action: {
+      id: 'act-1',
+      type: 'navigate',
+      destination: 'url',
+      href: 'https://example.com',
+    },
+  });
+  assert.equal(edited.interactions?.length, 1);
+  assert.deepEqual(actionEffects(edited.interactions![0]), [{ type: 'navigate', href: 'https://example.com' }]);
+
+  const cleared = upsertLayerInteraction(
+    edited,
+    removeInteractionAction(edited.interactions![0], 'act-1'),
+  );
+  assert.equal(cleared.interactions?.[0].actions?.length, 0);
+  assert.deepEqual(actionEffects(cleared.interactions![0]), []);
+
+  const removed = removeLayerInteraction(edited, 'int-1');
+  assert.deepEqual(removed.interactions, []);
+  assert.equal(edited.interactions?.length, 1);
+});
+
+test('hover set-variant and open-overlay round-trip, and hover leave closes the overlay', () => {
+  const layer: Layer = { id: 'card', name: 'div', classes: '' };
+  const withVariant = authorLayerInteraction(layer, {
+    interactionId: 'int-hover',
+    trigger: 'hover',
+    action: createSetVariantAction('act-var', 'card', 'open'),
+  });
+  const withOverlay = authorLayerInteraction(withVariant, {
+    interactionId: 'int-hover',
+    trigger: 'hover',
+    action: createOverlayAction('act-over', 'open', 'sheet', 'fixed'),
+  });
+
+  const stored = parseLayerInteractions(serializeLayerInteractions(withOverlay.interactions));
+  assert.equal(stored.length, 1);
+  assert.equal(interactionSummary(stored[0]), 'Hover → Set Variant');
+  assert.deepEqual(actionEffects(stored[0]), [
+    { type: 'set-variant', targetLayerId: 'card', variantId: 'open' },
+    { type: 'overlay', operation: 'open', targetLayerId: 'sheet' },
+  ]);
+
+  const leave = actionEffects({
+    ...stored[0],
+    actions: actionsOnHoverLeave(stored[0].actions),
+  });
+  assert.deepEqual(leave, [{ type: 'overlay', operation: 'close', targetLayerId: 'sheet' }]);
+
+  const empty = createLayerInteraction('int-empty', 'click');
+  assert.equal(empty.actions, undefined);
+  assert.deepEqual(actionEffects(empty), []);
+  assert.throws(() => parseLayerInteractions('{"trigger":"click"}'), /array/);
 });

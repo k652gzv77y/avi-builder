@@ -10,6 +10,7 @@
  * attribute. They do not add events, actions, or effects.
  */
 
+import { BREAKPOINT_VALUES } from '@/lib/breakpoint-utils';
 import type {
   AppearPresetId,
   InteractionAction,
@@ -99,6 +100,185 @@ export const APPEAR_PRESETS: readonly AppearPreset[] = [
 
 export function eventLabel(trigger: InteractionEvent): string {
   return EVENT_LABELS[trigger];
+}
+
+const ACTION_TYPES = new Set<InteractionAction['type']>([
+  'set-variant',
+  'overlay',
+  'navigate',
+  'scroll-variant',
+]);
+
+export type AuthorableActionKind =
+  | 'navigate'
+  | 'set-variant'
+  | 'open-overlay'
+  | 'close-overlay'
+  | 'scroll-variant';
+
+/** Empty event document. Appear and scroll presets are applied by the caller. */
+export function createLayerInteraction(
+  id: string,
+  trigger: InteractionEvent,
+): LayerInteraction {
+  return {
+    id,
+    trigger,
+    timeline: {
+      breakpoints: [...BREAKPOINT_VALUES],
+      repeat: 0,
+      yoyo: false,
+      ...(trigger === 'scroll-into-view' ? {
+        scrollStart: 'top 80%',
+        toggleActions: 'play none none none',
+      } : {}),
+      ...(trigger === 'while-scrolling' ? {
+        scrollStart: 'top bottom',
+        scrollEnd: 'bottom top',
+        scrub: 1,
+      } : {}),
+    },
+    tweens: [],
+  };
+}
+
+export function createEventAction(id: string, kind: AuthorableActionKind): InteractionAction {
+  switch (kind) {
+    case 'navigate':
+      return createNavigateAction(id);
+    case 'set-variant':
+      return createSetVariantAction(id);
+    case 'open-overlay':
+      return createOverlayAction(id, 'open');
+    case 'close-overlay':
+      return createOverlayAction(id, 'close');
+    case 'scroll-variant':
+      return createScrollVariantAction(id);
+    default:
+      return createNavigateAction(id);
+  }
+}
+
+/** Replace one interaction on a layer, or append it. Does not mutate the layer. */
+export function upsertLayerInteraction(
+  layer: Layer,
+  interaction: LayerInteraction,
+): Layer {
+  const interactions = layer.interactions ?? [];
+  const exists = interactions.some(item => item.id === interaction.id);
+  return {
+    ...layer,
+    interactions: exists
+      ? interactions.map(item => (item.id === interaction.id ? interaction : item))
+      : [...interactions, interaction],
+  };
+}
+
+export function removeLayerInteraction(layer: Layer, interactionId: string): Layer {
+  return {
+    ...layer,
+    interactions: (layer.interactions ?? []).filter(item => item.id !== interactionId),
+  };
+}
+
+/**
+ * Write one event and one action onto the layer document.
+ * An existing interaction with the same id keeps its tweens.
+ */
+export function authorLayerInteraction(
+  layer: Layer,
+  spec: {
+    interactionId: string;
+    trigger: InteractionEvent;
+    action: InteractionAction;
+  },
+): Layer {
+  const existing = (layer.interactions ?? []).find(item => item.id === spec.interactionId);
+  const base = existing
+    ? { ...existing, trigger: spec.trigger }
+    : createLayerInteraction(spec.interactionId, spec.trigger);
+  return upsertLayerInteraction(layer, upsertInteractionAction(base, spec.action));
+}
+
+export function serializeLayerInteractions(
+  interactions: LayerInteraction[] | undefined,
+): string {
+  return JSON.stringify(interactions ?? []);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function readInteraction(value: unknown): LayerInteraction {
+  if (!isRecord(value) || typeof value.id !== 'string') {
+    throw new Error('Interaction is missing an id');
+  }
+  if (!INTERACTION_EVENTS.includes(value.trigger as InteractionEvent)) {
+    throw new Error('Interaction trigger is not supported');
+  }
+  if (!isRecord(value.timeline) || !Array.isArray(value.timeline.breakpoints)) {
+    throw new Error('Interaction timeline is missing');
+  }
+  if (!Array.isArray(value.tweens)) {
+    throw new Error('Interaction tweens must be an array');
+  }
+  const actions = value.actions;
+  if (actions !== undefined) {
+    if (!Array.isArray(actions)) throw new Error('Interaction actions must be an array');
+    for (const action of actions) {
+      if (!isRecord(action) || typeof action.id !== 'string' || !ACTION_TYPES.has(action.type as InteractionAction['type'])) {
+        throw new Error('Interaction action is not supported');
+      }
+    }
+  }
+  return value as unknown as LayerInteraction;
+}
+
+/** Read a stored interactions array. Throws when the document is not the event model. */
+export function parseLayerInteractions(serialized: string): LayerInteraction[] {
+  const parsed: unknown = JSON.parse(serialized);
+  if (!Array.isArray(parsed)) throw new Error('Interactions must be an array');
+  return parsed.map(readInteraction);
+}
+
+export type ActionEffect =
+  | { type: 'navigate'; href: string | null }
+  | { type: 'set-variant'; targetLayerId: string; variantId: string }
+  | { type: 'overlay'; operation: 'open' | 'close'; targetLayerId: string }
+  | { type: 'scroll-variant'; targetLayerId: string; variantId: string };
+
+/** What a saved event will do when preview runs it. No DOM. */
+export function actionEffects(
+  interaction: LayerInteraction,
+  mode: 'event' | 'scroll' = 'event',
+): ActionEffect[] {
+  return actionsForRun(interaction.actions, mode).map((action) => {
+    switch (action.type) {
+      case 'navigate':
+        return { type: 'navigate', href: resolveNavigateHref(action) };
+      case 'set-variant':
+        return {
+          type: 'set-variant',
+          targetLayerId: action.targetLayerId,
+          variantId: action.variantId,
+        };
+      case 'overlay':
+        return {
+          type: 'overlay',
+          operation: action.operation,
+          targetLayerId: action.targetLayerId,
+        };
+      case 'scroll-variant':
+        return {
+          type: 'scroll-variant',
+          targetLayerId: action.targetLayerId,
+          variantId: variantForScrollProgress(action.stops, 1) ?? '',
+        };
+      default:
+        return { type: 'navigate', href: null };
+    }
+  });
 }
 
 export function appearPresetById(id: AppearPresetId): AppearPreset {

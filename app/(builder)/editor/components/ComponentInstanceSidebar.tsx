@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import Icon from '@/components/ui/icon';
 import AlignControls from './AlignControls';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import InteractionsPanel from './InteractionsPanel';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -147,6 +148,8 @@ export default function ComponentInstanceSidebar({
 
   const [variablesOpen, setVariablesOpen] = useState(true);
   const [variablesDialogOpen, setVariablesDialogOpen] = useState(false);
+  const [sidebarTab, setSidebarTab] = useState<'design' | 'interactions'>('design');
+  const activeBreakpoint = useEditorStore(state => state.activeBreakpoint);
   const [variablesDialogInitialId, setVariablesDialogInitialId] = useState<string | null>(null);
 
   const openVariablesDialog = useCallback((variableId?: string) => {
@@ -287,20 +290,27 @@ export default function ComponentInstanceSidebar({
       )}
     >
       <Tabs
-        value=""
-        className="flex flex-col min-h-0 gap-0!"
+        value={sidebarTab}
+        onValueChange={(value) => {
+          if (value === 'design' || value === 'interactions') setSidebarTab(value);
+        }}
+        className="flex flex-col flex-1 min-h-0 gap-0!"
       >
         <div>
           <TabsList className="w-full">
-            <TabsTrigger value="design" disabled>Design</TabsTrigger>
+            <TabsTrigger value="design">Design</TabsTrigger>
             <TabsTrigger value="settings" disabled>Settings</TabsTrigger>
-            <TabsTrigger value="interactions" disabled>Interactions</TabsTrigger>
+            <TabsTrigger value="interactions">Interactions</TabsTrigger>
           </TabsList>
         </div>
 
         <hr className="mt-4" />
 
-        <div className="flex flex-col divide-y divide-border overflow-y-auto no-scrollbar">
+        <TabsContent
+          value="design"
+          className="flex-1 overflow-y-auto no-scrollbar mt-0 data-[state=inactive]:hidden"
+        >
+        <div className="flex flex-col divide-y divide-border">
           <AlignControls layers={allLayers} />
           <SettingsPanel
             title="Component instance"
@@ -534,6 +544,26 @@ export default function ComponentInstanceSidebar({
             )}
           </SettingsPanel>
         </div>
+        </TabsContent>
+
+        <TabsContent
+          value="interactions"
+          className="flex-1 overflow-y-auto no-scrollbar mt-0 data-[state=inactive]:hidden"
+        >
+          <p className="px-0 pb-2 pt-3 text-[11px] leading-snug text-muted-foreground">
+            Events on this instance are saved with the layer and play in preview.
+          </p>
+          <InteractionsPanel
+            triggerLayer={selectedLayer}
+            allLayers={allLayers}
+            onLayerUpdate={onLayerUpdate}
+            selectedLayerId={selectedLayerId}
+            activeBreakpoint={activeBreakpoint}
+            onSelectLayer={(layerId) => {
+              useEditorStore.getState().setSelectedLayerId(layerId);
+            }}
+          />
+        </TabsContent>
       </Tabs>
 
       <ComponentVariablesDialog
