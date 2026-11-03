@@ -143,6 +143,43 @@ export function collectSnapLines(
   return { x, y };
 }
 
+interface AxisSnap {
+  delta: number;
+  ats: number[];
+}
+
+/**
+ * Closest line within the threshold wins. Other lines that need the same
+ * correction (left edge on the parent and right edge on a sibling) stay
+ * visible. An opposite correction at the same distance is ignored so the
+ * box is never pulled both ways.
+ */
+function snapAxis(edges: number[], lines: number[], threshold: number): AxisSnap | null {
+  let best: AxisSnap | null = null;
+  for (const line of lines) {
+    if (!Number.isFinite(line)) continue;
+    for (const edge of edges) {
+      const delta = line - edge;
+      const distance = Math.abs(delta);
+      if (distance > threshold) continue;
+      if (!best || distance < Math.abs(best.delta) - 0.001) {
+        best = { delta, ats: [line] };
+        continue;
+      }
+      const sameCorrection = Math.abs(distance - Math.abs(best.delta)) <= 0.001 && delta * best.delta >= 0;
+      if (sameCorrection && !best.ats.some((at) => Math.abs(at - line) < 0.01)) {
+        best.ats.push(line);
+      }
+    }
+  }
+  return best;
+}
+
+function guidesFor(axis: 'x' | 'y', snap: AxisSnap | null): SnapGuide[] {
+  if (!snap) return [];
+  return snap.ats.map((at) => ({ axis, at }));
+}
+
 export function snapTranslation(
   box: FreeformBox,
   dx: number,
@@ -157,35 +194,96 @@ export function snapTranslation(
   const centerX = left + box.width / 2;
   const centerY = top + box.height / 2;
 
-  let bestX: { delta: number; at: number } | null = null;
-  for (const line of targets.x) {
-    if (!Number.isFinite(line)) continue;
-    for (const edge of [left, centerX, right]) {
-      const delta = line - edge;
-      if (Math.abs(delta) <= threshold && (!bestX || Math.abs(delta) < Math.abs(bestX.delta))) {
-        bestX = { delta, at: line };
-      }
-    }
-  }
-
-  let bestY: { delta: number; at: number } | null = null;
-  for (const line of targets.y) {
-    if (!Number.isFinite(line)) continue;
-    for (const edge of [top, centerY, bottom]) {
-      const delta = line - edge;
-      if (Math.abs(delta) <= threshold && (!bestY || Math.abs(delta) < Math.abs(bestY.delta))) {
-        bestY = { delta, at: line };
-      }
-    }
-  }
-
-  const guides: SnapGuide[] = [];
-  if (bestX) guides.push({ axis: 'x', at: bestX.at });
-  if (bestY) guides.push({ axis: 'y', at: bestY.at });
+  const bestX = snapAxis([left, centerX, right], targets.x, threshold);
+  const bestY = snapAxis([top, centerY, bottom], targets.y, threshold);
 
   return {
     dx: dx + (bestX?.delta ?? 0),
     dy: dy + (bestY?.delta ?? 0),
+    guides: [...guidesFor('x', bestX), ...guidesFor('y', bestY)],
+  };
+}
+
+/**
+ * Shift locks one axis to zero. A snap on that axis would drag the layer
+ * off the locked line, so drop it and its guide. A snap of zero (already
+ * aligned) stays.
+ */
+export function respectShiftLock(
+  snapped: { dx: number; dy: number; guides: SnapGuide[] },
+  locked: { dx: number; dy: number },
+  shiftKey: boolean,
+): { dx: number; dy: number; guides: SnapGuide[] } {
+  if (!shiftKey) return snapped;
+  let { dx, dy } = snapped;
+  let guides = snapped.guides;
+  if (locked.dx === 0 && dx !== 0) {
+    dx = 0;
+    guides = guides.filter((guide) => guide.axis !== 'x');
+  }
+  if (locked.dy === 0 && dy !== 0) {
+    dy = 0;
+    guides = guides.filter((guide) => guide.axis !== 'y');
+  }
+  return { dx, dy, guides };
+}
+
+/**
+ * Snap only the edges the handle is moving. The anchored edge stays put,
+ * and a correction that would collapse the box is ignored.
+ */
+export function snapResizedBox(
+  box: FreeformBox,
+  handle: ResizeHandle,
+  dx: number,
+  dy: number,
+  targets: SnapTargets,
+  threshold = FREEFORM_SNAP_THRESHOLD,
+): { box: FreeformBox; guides: SnapGuide[] } {
+  const resized = resizedBox(box, handle, dx, dy);
+  let { left, top, width, height } = resized;
+  const guides: SnapGuide[] = [];
+
+  if (handle.includes('e') || handle.includes('w')) {
+    const moveStart = handle.includes('w');
+    const edge = moveStart ? left : left + width;
+    const hit = snapAxis([edge], targets.x, threshold);
+    if (hit) {
+      if (moveStart) {
+        const nextWidth = width - hit.delta;
+        if (nextWidth >= MIN_SIZE) {
+          left += hit.delta;
+          width = nextWidth;
+          guides.push(...guidesFor('x', hit));
+        }
+      } else if (width + hit.delta >= MIN_SIZE) {
+        width += hit.delta;
+        guides.push(...guidesFor('x', hit));
+      }
+    }
+  }
+
+  if (handle.includes('n') || handle.includes('s')) {
+    const moveStart = handle.includes('n');
+    const edge = moveStart ? top : top + height;
+    const hit = snapAxis([edge], targets.y, threshold);
+    if (hit) {
+      if (moveStart) {
+        const nextHeight = height - hit.delta;
+        if (nextHeight >= MIN_SIZE) {
+          top += hit.delta;
+          height = nextHeight;
+          guides.push(...guidesFor('y', hit));
+        }
+      } else if (height + hit.delta >= MIN_SIZE) {
+        height += hit.delta;
+        guides.push(...guidesFor('y', hit));
+      }
+    }
+  }
+
+  return {
+    box: { ...resized, left, top, width, height },
     guides,
   };
 }

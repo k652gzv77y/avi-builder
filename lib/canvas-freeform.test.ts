@@ -9,8 +9,10 @@ import {
   movedBox,
   nudgeFreeformLayer,
   pointerToWindowPoint,
+  respectShiftLock,
   resizedBox,
   screenDeltaToCanvas,
+  snapResizedBox,
   snapTranslation,
   type FreeformBox,
 } from '@/lib/canvas-freeform';
@@ -276,6 +278,76 @@ test('drag snaps to the parent edge and shift locks the smaller axis', () => {
 
   assert.deepEqual(constrainAxis(12, 4, true), { dx: 12, dy: 0 });
   assert.deepEqual(constrainAxis(3, 9, false), { dx: 3, dy: 9 });
+
+  const locked = { dx: 12, dy: 0 };
+  const pulled = snapTranslation(box({ top: 3 }), locked.dx, locked.dy, collectSnapLines([], 400, 300));
+  assert.equal(pulled.dy, -3);
+  const kept = respectShiftLock(pulled, locked, true);
+  assert.equal(kept.dx, 12);
+  assert.equal(kept.dy, 0);
+  assert.equal(kept.guides.some((guide) => guide.axis === 'y'), false);
+});
+
+test('move snaps to parent center, sibling edges, and sibling centers within 5px', () => {
+  const targets = collectSnapLines([{ left: 200, top: 80, width: 40, height: 20 }], 400, 300);
+  const wide = collectSnapLines([{ left: 100, top: 0, width: 200, height: 20 }], 900, 300);
+
+  const toSiblingEdge = snapTranslation(box({ left: 10, width: 100 }), 186, 0, targets);
+  assert.equal(toSiblingEdge.dx, 190);
+  assert.equal(toSiblingEdge.guides.some((guide) => guide.axis === 'x' && guide.at === 200), true);
+
+  const toSiblingCenter = snapTranslation(box({ left: 10, top: 80, width: 30 }), 171, 0, wide);
+  assert.equal(toSiblingCenter.dx, 175);
+  assert.deepEqual(toSiblingCenter.guides, [{ axis: 'x', at: 200 }]);
+
+  const toParentCenter = snapTranslation(box({ top: 128, height: 40 }), 0, 0, targets);
+  assert.equal(toParentCenter.dy, 2);
+  assert.equal(toParentCenter.guides.some((guide) => guide.axis === 'y' && guide.at === 150), true);
+
+  const onThreshold = snapTranslation(box(), -5, 0, collectSnapLines([], 400, 300));
+  assert.equal(onThreshold.dx, -10);
+  const pastThreshold = snapTranslation(box(), -4, 0, collectSnapLines([], 400, 300));
+  assert.equal(pastThreshold.dx, -4);
+  assert.equal(pastThreshold.guides.length, 0);
+});
+
+test('a shared correction draws every aligned guide and an opposite tie does not', () => {
+  const bothEdges = snapTranslation(
+    box({ left: 8, width: 100, parentWidth: 100 }),
+    -6,
+    0,
+    collectSnapLines([], 100, 300),
+  );
+  assert.equal(bothEdges.dx, -8);
+  assert.deepEqual(bothEdges.guides.map((guide) => guide.at).sort((a, b) => a - b), [0, 50, 100]);
+
+  const tie = snapTranslation(box({ left: 10, width: 20 }), -5, 0, {
+    x: [0, 30],
+    y: [],
+  });
+  assert.equal(tie.dx, -10);
+  assert.deepEqual(tie.guides, [{ axis: 'x', at: 0 }]);
+});
+
+test('resize snaps the moving edge and refuses a snap that would collapse it', () => {
+  const targets = collectSnapLines([{ left: 150, top: 70, width: 10, height: 10 }], 400, 300);
+  const east = snapResizedBox(box({ left: 40, top: 30, width: 80, height: 50 }), 'e', 28, 0, targets);
+  assert.equal(east.box.left, 40);
+  assert.equal(east.box.width, 110);
+  assert.equal(east.guides.some((guide) => guide.axis === 'x' && guide.at === 150), true);
+
+  const west = snapResizedBox(box({ left: 12, width: 40 }), 'w', -8, 0, collectSnapLines([], 400, 300));
+  assert.equal(west.box.left, 0);
+  assert.equal(west.box.width, 52);
+
+  const north = snapResizedBox(box({ top: 18, height: 40 }), 'n', 0, -14, collectSnapLines([], 400, 300));
+  assert.equal(north.box.top, 0);
+  assert.equal(north.box.height, 58);
+  assert.equal(north.guides.some((guide) => guide.axis === 'y' && guide.at === 0), true);
+
+  const collapsed = snapResizedBox(box({ left: 0, width: 30 }), 'e', -28, 0, collectSnapLines([], 400, 300));
+  assert.equal(collapsed.box.width, 2);
+  assert.equal(collapsed.guides.length, 0);
 });
 
 test('arrow nudge uses the measured box and falls back to stored px pins', () => {

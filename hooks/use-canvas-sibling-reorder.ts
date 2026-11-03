@@ -32,6 +32,7 @@ import {
   constrainAxis,
   isFreeformDraggable,
   movedBox,
+  respectShiftLock,
   snapTranslation,
 } from '@/lib/canvas-freeform';
 import {
@@ -166,7 +167,11 @@ function updateFreeformSession(
     ? clientY - session.startIframeY
     : (clientY - session.startWindowY) / session.scale;
   const locked = constrainAxis(rawDx, rawDy, shiftKey);
-  const snapped = snapTranslation(session.box, locked.dx, locked.dy, session.targets);
+  const snapped = respectShiftLock(
+    snapTranslation(session.box, locked.dx, locked.dy, session.targets),
+    locked,
+    shiftKey,
+  );
   session.dx = snapped.dx;
   session.dy = snapped.dy;
   translateFreeform(session.element, snapped.dx, snapped.dy);

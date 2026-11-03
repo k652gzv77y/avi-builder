@@ -4,6 +4,10 @@
  * Measurements stay in the iframe's CSS pixels. Callers divide screen deltas
  * by `getIframeScale` before passing them to the pure geometry helpers, which
  * keeps zoom and Safari's transformed iframe in the same space as offsetLeft.
+ *
+ * Alignment guides are `position: fixed` on the iframe document element.
+ * A line inside the positioned parent is clipped by overflow and removed
+ * the next time React reconciles that parent.
  */
 
 import type { Layer } from '@/types';
@@ -58,19 +62,99 @@ export function measureCanvasLayer(layerId: string): FreeformBox | null {
   return readFreeformBox(el);
 }
 
+function usesViewportSpace(el: HTMLElement): boolean {
+  const view = el.ownerDocument.defaultView;
+  const position = view?.getComputedStyle(el).position;
+  return position === 'fixed' || !el.offsetParent;
+}
+
+function paddingOrigin(space: HTMLElement): { x: number; y: number } {
+  const rect = space.getBoundingClientRect();
+  const style = space.ownerDocument.defaultView?.getComputedStyle(space);
+  const borderLeft = Number.parseFloat(style?.borderLeftWidth || '0') || 0;
+  const borderTop = Number.parseFloat(style?.borderTopWidth || '0') || 0;
+  return { x: rect.left + borderLeft, y: rect.top + borderTop };
+}
+
+type SnapBox = Pick<FreeformBox, 'left' | 'top' | 'width' | 'height'>;
+
+/**
+ * `offsetLeft` only matches between elements that share an offsetParent.
+ * Relative siblings of an absolute layer do not, so fall back to the
+ * visual rect translated into the dragged layer's snap space.
+ */
+function measureInSnapSpace(candidate: HTMLElement, dragged: HTMLElement): SnapBox | null {
+  if (usesViewportSpace(dragged)) {
+    const rect = candidate.getBoundingClientRect();
+    if (rect.width < 1 && rect.height < 1) return null;
+    return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+  }
+
+  const space = dragged.offsetParent as HTMLElement;
+  if (candidate.offsetParent === space) {
+    if (candidate.offsetWidth < 1 && candidate.offsetHeight < 1) return null;
+    return {
+      left: candidate.offsetLeft,
+      top: candidate.offsetTop,
+      width: candidate.offsetWidth,
+      height: candidate.offsetHeight,
+    };
+  }
+
+  const origin = paddingOrigin(space);
+  const rect = candidate.getBoundingClientRect();
+  if (rect.width < 1 && rect.height < 1) return null;
+  return {
+    left: rect.left - origin.x,
+    top: rect.top - origin.y,
+    width: rect.width,
+    height: rect.height,
+  };
+}
+
+function layerParentElement(el: HTMLElement): HTMLElement | null {
+  const parent = el.parentElement?.closest('[data-layer-id]');
+  if (!parent || parent === el) return null;
+  return parent as HTMLElement;
+}
+
+function directLayerSiblings(el: HTMLElement): HTMLElement[] {
+  const parentLayer = layerParentElement(el);
+  const root: ParentNode = parentLayer ?? el.ownerDocument.body;
+  const siblings: HTMLElement[] = [];
+  root.querySelectorAll('[data-layer-id]').forEach((node) => {
+    const candidate = node as HTMLElement;
+    if (candidate === el || candidate.contains(el) || el.contains(candidate)) return;
+    const owner = candidate.parentElement?.closest('[data-layer-id]') ?? null;
+    if (owner !== parentLayer) return;
+    siblings.push(candidate);
+  });
+  return siblings;
+}
+
 export function siblingSnapTargets(el: HTMLElement): SnapTargets {
   const box = readFreeformBox(el);
-  const parent = (el.offsetParent as HTMLElement | null) ?? el.ownerDocument.body;
-  const siblings: Array<Pick<FreeformBox, 'left' | 'top' | 'width' | 'height'>> = [];
-  const nodes = parent.querySelectorAll('[data-layer-id]');
-  nodes.forEach((node) => {
-    const candidate = node as HTMLElement;
-    if (candidate === el || el.contains(candidate) || candidate.contains(el)) return;
-    if (candidate.offsetParent !== el.offsetParent) return;
-    const measured = readFreeformBox(candidate);
-    siblings.push(measured);
-  });
-  return collectSnapLines(siblings, box.parentWidth, box.parentHeight);
+  const space = usesViewportSpace(el) ? null : (el.offsetParent as HTMLElement | null);
+  const samples: SnapBox[] = [];
+  for (const sibling of directLayerSiblings(el)) {
+    const measured = measureInSnapSpace(sibling, el);
+    if (measured) samples.push(measured);
+  }
+
+  // The containing block's edges are added by collectSnapLines. When the
+  // layer parent is a different box (a static stack inside a positioned
+  // ancestor, or a fixed layer's card), snap to that box too.
+  const parentLayer = layerParentElement(el);
+  if (
+    parentLayer
+    && parentLayer !== space
+    && parentLayer.getAttribute('data-layer-id') !== 'body'
+  ) {
+    const measured = measureInSnapSpace(parentLayer, el);
+    if (measured) samples.push(measured);
+  }
+
+  return collectSnapLines(samples, box.parentWidth, box.parentHeight);
 }
 
 export function translateFreeform(el: HTMLElement, dx: number, dy: number) {
@@ -123,6 +207,7 @@ export function cancelFreeformPreview(el: HTMLElement) {
 
 /** Drop the inline preview after React has painted the committed classes. */
 export function scheduleFreeformRelease(el: HTMLElement) {
+  clearSnapGuides(el);
   delete el.dataset.freeformGesture;
   const token = (releaseTokens.get(el) ?? 0) + 1;
   releaseTokens.set(el, token);
@@ -135,33 +220,54 @@ export function scheduleFreeformRelease(el: HTMLElement) {
   });
 }
 
+const GUIDE_COLOR = '#ff2bd6';
+
+function guideStyle(el: HTMLElement, guide: SnapGuide): string {
+  const root = el.ownerDocument.documentElement;
+  if (usesViewportSpace(el)) {
+    return guide.axis === 'x'
+      ? `position:fixed;left:${guide.at}px;top:0;width:1px;height:${root.clientHeight}px;background:${GUIDE_COLOR};pointer-events:none;`
+      : `position:fixed;top:${guide.at}px;left:0;height:1px;width:${root.clientWidth}px;background:${GUIDE_COLOR};pointer-events:none;`;
+  }
+
+  const space = el.offsetParent as HTMLElement;
+  const origin = paddingOrigin(space);
+  if (guide.axis === 'x') {
+    return `position:fixed;left:${origin.x + guide.at}px;top:${origin.y}px;width:1px;height:${space.clientHeight}px;background:${GUIDE_COLOR};pointer-events:none;`;
+  }
+  return `position:fixed;top:${origin.y + guide.at}px;left:${origin.x}px;height:1px;width:${space.clientWidth}px;background:${GUIDE_COLOR};pointer-events:none;`;
+}
+
 export function paintSnapGuides(el: HTMLElement, guides: SnapGuide[]) {
+  const doc = el.ownerDocument;
   if (guides.length === 0) {
     clearSnapGuides(el);
     return;
   }
-  const parent = (el.offsetParent as HTMLElement | null) ?? el.ownerDocument.body;
-  let host = parent.querySelector(`:scope > [${GUIDE_ATTR}]`) as HTMLElement | null;
+  let host = doc.documentElement.querySelector(`:scope > [${GUIDE_ATTR}]`) as HTMLElement | null;
   if (!host) {
-    host = el.ownerDocument.createElement('div');
+    host = doc.createElement('div');
     host.setAttribute(GUIDE_ATTR, 'true');
-    host.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:2147483646;';
-    parent.appendChild(host);
+    host.setAttribute('aria-hidden', 'true');
+    host.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:2147483646;overflow:visible;';
+    doc.documentElement.appendChild(host);
   }
   const lines = guides.map((guide) => {
-    const line = el.ownerDocument.createElement('div');
-    line.style.cssText = guide.axis === 'x'
-      ? `position:absolute;top:0;bottom:0;width:1px;background:#ff2bd6;left:${guide.at}px;pointer-events:none;`
-      : `position:absolute;left:0;right:0;height:1px;background:#ff2bd6;top:${guide.at}px;pointer-events:none;`;
+    const line = doc.createElement('div');
+    line.style.cssText = guideStyle(el, guide);
     return line;
   });
   host.replaceChildren(...lines);
 }
 
 export function clearSnapGuides(el: HTMLElement | null) {
+  const doc = el?.ownerDocument;
+  if (doc) {
+    doc.documentElement.querySelector(`:scope > [${GUIDE_ATTR}]`)?.remove();
+  }
   if (!el) return;
   const parent = (el.offsetParent as HTMLElement | null) ?? el.ownerDocument.body;
-  parent.querySelector(`:scope > [${GUIDE_ATTR}]`)?.remove();
+  parent?.querySelector?.(`:scope > [${GUIDE_ATTR}]`)?.remove();
 }
 
 function toCss(value: string): string {
