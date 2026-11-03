@@ -110,14 +110,28 @@ export function useControlBindings({ layer, onLayerUpdate }: UseControlBindingsA
     const variable = useComponentsStore.getState().getComponentById(editingComponentId)
       ?.variables?.find((item) => item.id === parsed.variableId);
     if (!variable) return;
+    const variantId = useEditorStore.getState().editingComponentVariantId;
+    const primaryId = useComponentsStore.getState().getComponentById(editingComponentId)?.variants?.[0]?.id;
+    const writeDefault = (next: ComponentVariableValue) => {
+      if (variantId && primaryId && variantId !== primaryId) {
+        void useComponentsStore.getState().setVariantPropertyDefault(
+          editingComponentId,
+          variantId,
+          parsed.variableId,
+          next,
+        );
+        return;
+      }
+      void updateTextVariable(editingComponentId, parsed.variableId, { default_value: next });
+    };
     if (!parsed.fieldId) {
-      void updateTextVariable(editingComponentId, parsed.variableId, { default_value: value });
+      writeDefault(value);
       return;
     }
     if (!isScalarPropertyValue(value)) return;
     const next = withFieldValue(variable, parsed.fieldId, value);
     if (!next) return;
-    void updateTextVariable(editingComponentId, parsed.variableId, { default_value: next });
+    writeDefault(next);
   }, [editingComponentId, layer, updateTextVariable]);
 
   const bindingFor = useCallback((key: ControlBindingKey): {

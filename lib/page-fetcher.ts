@@ -15,6 +15,7 @@ import { getCollectionVariable, resolveFieldValue, evaluateVisibility, evaluateC
 import { isFieldVariable, isAssetVariable, createDynamicTextVariable, createDynamicRichTextVariable, createAssetVariable, getDynamicTextContent, getVariableStringValue, getAssetId, resolveDesignStyles } from '@/lib/variable-utils';
 import { buildImageSizes, generateImageSrcset, getOptimizedImageUrl, getAssetProxyUrl, DEFAULT_ASSETS, collectLayerAssetIds, buildSvgDataUrl, parseImageDimension, getSvgAspectRatioStyle } from '@/lib/asset-utils';
 import { resolveComponents, applyComponentOverrides } from '@/lib/resolve-components';
+import { variablesForVariant } from '@/lib/component-properties';
 import { getComponentVariantLayers } from '@/lib/component-variant-utils';
 import { isTiptapDoc, hasBlockElementsWithResolver } from '@/lib/tiptap-utils';
 import { castValue, parseMultiReferenceValue, remapLayerIdsForCollectionItem } from '@/lib/collection-utils';
@@ -1869,8 +1870,9 @@ async function resolveTiptapComponentCollections(
         childAncestors.add(componentId);
 
         const overrides = node.attrs.componentOverrides ?? undefined;
-        const withOverrides = applyComponentOverrides(compVariantLayers, overrides, comp.variables);
-        const withComponents = resolveComponents(withOverrides, components, comp.variables, overrides);
+        const variantVariables = variablesForVariant(comp.variables, comp, node.attrs.componentVariantId);
+        const withOverrides = applyComponentOverrides(compVariantLayers, overrides, variantVariables);
+        const withComponents = resolveComponents(withOverrides, components, variantVariables, overrides);
         const withCollections = await resolveCollectionLayers(withComponents, isPublished, undefined, undefined, translations);
 
         // Recursively resolve rich text components inside the resolved layers

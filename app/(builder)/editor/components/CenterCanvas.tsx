@@ -71,6 +71,7 @@ import { buildPreviewAuthRevision, buildLocalizedSlugPath, buildLocalizedDynamic
 import { getTranslationValue, applyCmsTranslations, extractLayerTranslatableItemsShallow } from '@/lib/localisation-utils';
 import { cn } from '@/lib/utils';
 import { asLayerArray, getCollectionVariable, canDeleteLayer, findLayerById, findParentCollectionLayer, canLayerHaveLink, updateLayerProps, removeRichTextSublayer, isRichTextLayer, getLayerCmsFieldBinding } from '@/lib/layer-utils';
+import { variablesForVariant } from '@/lib/component-properties';
 import { insertComponentOnCanvas } from '@/lib/insert-component-on-canvas';
 import { CANVAS_BORDER, CANVAS_PADDING, updateViewportOverrides } from '@/lib/canvas-utils';
 import { BREAKPOINTS, DEFAULT_CANVAS_BREAKPOINT_FRAMES } from '@/lib/breakpoint-utils';
@@ -792,8 +793,8 @@ const CenterCanvas = React.memo(function CenterCanvas({
   const editingComponentVariables = useMemo(() => {
     if (!editingComponentId) return undefined;
     const component = components.find(c => c.id === editingComponentId);
-    return component?.variables;
-  }, [editingComponentId, components]);
+    return variablesForVariant(component?.variables, component, activeComponentVariantId);
+  }, [editingComponentId, components, activeComponentVariantId]);
 
   // Undo/Redo hook - tracks versions for the current entity (page or component)
   const undoRedoEntityType = editingComponentId ? 'component' : 'page_layers';

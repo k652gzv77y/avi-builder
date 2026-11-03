@@ -5,6 +5,7 @@ import { formatFieldValue, resolveFieldFromSources } from '@/lib/cms-variables-u
 import { generateLinkHref, type LinkResolutionContext } from '@/lib/link-utils';
 import { contentHasBlockElements, hasBlockElementsWithResolver } from '@/lib/tiptap-utils';
 import { applyComponentOverrides, resolveComponents } from '@/lib/resolve-components';
+import { variablesForVariant } from '@/lib/component-properties';
 import type { GlobalFieldMeta } from '@/lib/collection-field-utils';
 import { getDefaultFormatId, isFormatValidForFieldType } from '@/lib/variable-format-utils';
 import { getLinkSettingsFromMark } from '@/lib/tiptap-extensions/rich-text-link';
@@ -829,15 +830,17 @@ function renderRichTextComponentBlock(
     return React.createElement('span', { key, className: 'text-xs text-muted-foreground' }, '[missing component]');
   }
 
+  const variantId = block.attrs.componentVariantId as string | undefined;
+  const variantVariables = variablesForVariant(component.variables, component, variantId);
   const withOverrides = applyComponentOverrides(
     component.layers,
     overrides,
-    component.variables,
+    variantVariables,
   );
 
   // Resolve nested component instances so they render in non-edit mode
   const resolvedLayers = components?.length
-    ? resolveComponents(withOverrides, components, component.variables, overrides)
+    ? resolveComponents(withOverrides, components, variantVariables, overrides)
     : withOverrides;
 
   return renderComponentBlock(component, resolvedLayers, overrides, key, updatedAncestors);

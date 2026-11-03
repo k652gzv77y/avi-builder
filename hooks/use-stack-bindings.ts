@@ -55,16 +55,19 @@ export function useStackBindings({ layer, onLayerUpdate }: UseStackBindingsArgs)
       ? variable.default_value
       : { value: masterStackValue(layer, key) };
     const next = writeStackBreakpoint(current, activeBreakpoint, raw);
-    void updateTextVariable(editingComponentId, variableId, { default_value: next });
-
-    const { componentDrafts, updateComponentDraft } = useComponentsStore.getState();
-    const drafts = componentDrafts[editingComponentId];
-    if (!drafts) return;
-    for (const [variantId, layers] of Object.entries(drafts)) {
-      const nextLayers = applyStackValueToBoundLayers(layers, variableId, key, next);
-      if (nextLayers !== layers) updateComponentDraft(editingComponentId, variantId, nextLayers);
+    const variantId = useEditorStore.getState().editingComponentVariantId;
+    const primaryId = component?.variants?.[0]?.id;
+    if (variantId && primaryId && variantId !== primaryId) {
+      void useComponentsStore.getState().setVariantPropertyDefault(
+        editingComponentId,
+        variantId,
+        variableId,
+        next,
+      );
+      return;
     }
-  }, [activeBreakpoint, activeUIState, component?.variables, editingComponentId, layer, updateTextVariable]);
+    void updateTextVariable(editingComponentId, variableId, { default_value: next });
+  }, [activeBreakpoint, activeUIState, component?.variants, component?.variables, editingComponentId, layer, updateTextVariable]);
 
   const linkVariable = useCallback((key: StackVariableKey, variableId: string) => {
     if (!layer) return;
@@ -79,11 +82,15 @@ export function useStackBindings({ layer, onLayerUpdate }: UseStackBindingsArgs)
     const { componentDrafts, updateComponentDraft } = useComponentsStore.getState();
     const drafts = componentDrafts[editingComponentId];
     if (!drafts) return;
+    const primaryId = component?.variants?.[0]?.id;
     for (const [variantId, layers] of Object.entries(drafts)) {
+      if (primaryId && variantId !== primaryId && component?.variants?.find((item) => item.id === variantId)?.propertyDefaults?.[variableId]) {
+        continue;
+      }
       const nextLayers = applyStackValueToBoundLayers(layers, variableId, key, variable.default_value);
       if (nextLayers !== layers) updateComponentDraft(editingComponentId, variantId, nextLayers);
     }
-  }, [component?.variables, editingComponentId, layer, onLayerUpdate]);
+  }, [component?.variants, component?.variables, editingComponentId, layer, onLayerUpdate]);
 
   const createVariable = useCallback(async (key: StackVariableKey, visibleValue: string) => {
     if (!layer || !editingComponentId) return;

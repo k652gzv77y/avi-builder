@@ -29,7 +29,7 @@ import {
   replaceLayerWithComponentInstance,
 } from '@/lib/layer-utils';
 import { EMPTY_OVERRIDES, createTextComponentVariableValue } from '@/lib/variable-utils';
-import { stripControlBinding } from '@/lib/component-properties';
+import { assignVariantPropertyDefault, stripControlBinding } from '@/lib/component-properties';
 import { stringToTiptapContent } from '@/lib/text-format-utils';
 import { collectFontFamiliesFromDesign, ensureFontsInstalled, fontWarnings } from '@/lib/mcp/font-install';
 import { getCachedLayers as getPageLayers, saveCachedLayers } from '@/lib/mcp/page-layers';
@@ -667,6 +667,7 @@ EXAMPLE: A "Card" component with a title variable:
         name: v.name,
         layer_count: countLayers(v.layers),
         is_primary: v === variants[0],
+        ...(v.propertyDefaults ? { property_defaults: v.propertyDefaults } : {}),
       }));
       return { content: [{ type: 'text' as const, text: JSON.stringify(summary) }] };
     },
@@ -695,6 +696,7 @@ EXAMPLE: A "Card" component with a title variable:
         : [{ id: generateId(), name: 'Default', layers: component.layers || [] }];
 
       let layers: Layer[];
+      let propertyDefaults: ComponentVariant['propertyDefaults'] | undefined;
       if (source_variant_id) {
         const source = existing.find((v) => v.id === source_variant_id);
         if (!source) {
@@ -704,6 +706,9 @@ EXAMPLE: A "Card" component with a title variable:
           };
         }
         layers = source.layers.map(cloneLayerWithNewIds);
+        if (source.propertyDefaults) {
+          propertyDefaults = JSON.parse(JSON.stringify(source.propertyDefaults));
+        }
       } else {
         layers = [{
           id: generateId(),
@@ -714,7 +719,12 @@ EXAMPLE: A "Card" component with a title variable:
         }];
       }
 
-      const newVariant: ComponentVariant = { id: generateId(), name, layers };
+      const newVariant: ComponentVariant = {
+        id: generateId(),
+        name,
+        layers,
+        ...(propertyDefaults ? { propertyDefaults } : {}),
+      };
       const updatedVariants = [...existing, newVariant];
 
       await updateComponent(component_id, { variants: updatedVariants });
@@ -764,6 +774,82 @@ EXAMPLE: A "Card" component with a title variable:
       broadcastComponentUpdated(component_id, { variants: updatedVariants }).catch(() => {});
 
       return { content: [{ type: 'text' as const, text: `Variant "${variant_id}" renamed to "${name}"` }] };
+    },
+  );
+
+  server.tool(
+    'set_variant_property_default',
+    `Set one cell of a component's variant property matrix.
+
+The primary variant stores its default on the variable. Every other variant inherits
+that default until a cell is set. Pass null to inherit again. An instance override
+still wins over the variant default. Stack values may include tablet and phone
+breakpoints: { "value": "8", "breakpoints": { "tablet": "12" } }.`,
+    {
+      component_id: z.string().describe('The component ID'),
+      variant_id: z.string().describe('Variant whose default to set'),
+      variable_id: z.string().describe('Component variable ID'),
+      value: z.unknown().nullable()
+        .describe('Default for this variant, or null to inherit the primary default.'),
+    },
+    async ({ component_id, variant_id, variable_id, value }) => {
+      const component = await getComponentById(component_id);
+      if (!component) {
+        return { content: [{ type: 'text' as const, text: `Error: Component "${component_id}" not found.` }], isError: true };
+      }
+      const variable = (component.variables || []).find((item) => item.id === variable_id);
+      if (!variable) {
+        return { content: [{ type: 'text' as const, text: `Error: Variable "${variable_id}" not found.` }], isError: true };
+      }
+      const variants = component.variants && component.variants.length > 0
+        ? component.variants
+        : [{ id: generateId(), name: 'Default', layers: component.layers || [] }];
+      const index = variants.findIndex((item) => item.id === variant_id);
+      if (index === -1) {
+        return { content: [{ type: 'text' as const, text: `Error: Variant "${variant_id}" not found.` }], isError: true };
+      }
+
+      const normalized = value == null
+        ? null
+        : normalizeDefaultValue(
+          value,
+          (variable.type && variable.type !== 'stack' ? variable.type : 'text') as z.infer<typeof variableTypeEnum>,
+        );
+
+      if (index === 0) {
+        const variables = (component.variables || []).map((item) => (
+          item.id === variable_id
+            ? { ...item, ...(normalized == null ? { default_value: undefined } : { default_value: normalized }) }
+            : item
+        ));
+        await updateComponent(component_id, { variables });
+        broadcastComponentUpdated(component_id, { variables }).catch(() => {});
+        return {
+          content: [{
+            type: 'text' as const,
+            text: `Primary default for "${variable.name}" updated`,
+          }],
+        };
+      }
+
+      const updatedVariants = assignVariantPropertyDefault(
+        variants,
+        variant_id,
+        variable_id,
+        normalized,
+        variable.default_value,
+      );
+      await updateComponent(component_id, { variants: updatedVariants });
+      broadcastComponentUpdated(component_id, { variants: updatedVariants }).catch(() => {});
+      const owns = updatedVariants[index]?.propertyDefaults?.[variable_id] !== undefined;
+      return {
+        content: [{
+          type: 'text' as const,
+          text: owns
+            ? `Variant "${updatedVariants[index]?.name}" now has its own default for "${variable.name}"`
+            : `Variant "${updatedVariants[index]?.name}" inherits the primary default for "${variable.name}"`,
+        }],
+      };
     },
   );
 

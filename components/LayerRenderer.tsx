@@ -42,7 +42,7 @@ import LayerContextMenu from '@/app/(builder)/editor/components/LayerContextMenu
 import CanvasTextEditor from '@/app/(builder)/editor/components/CanvasTextEditor';
 import { useComponentsStore } from '@/stores/useComponentsStore';
 import { getComponentVariantLayers, resolvePointerVariantId } from '@/lib/component-variant-utils';
-import { resolveEditorInstanceLayers } from '@/lib/component-properties';
+import { resolveEditorInstanceLayers, variablesForVariant } from '@/lib/component-properties';
 import { applyDataBindings, presentFetchText } from '@/lib/cms-framer';
 import { useFetchRuntimeStore } from '@/stores/useFetchRuntimeStore';
 import { useInteractionPreviewStore } from '@/stores/useInteractionPreviewStore';
@@ -1416,7 +1416,8 @@ const LayerItemImpl: React.FC<{
       : layer.componentOverrides;
     // Stack bindings plus Visible / Fill / Opacity / Content. Edit mode does
     // not paint the serialized tree, so overrides are merged onto the primary here.
-    const withBindings = resolveEditorInstanceLayers(transformed, overrides, component.variables);
+    const instanceVariables = variablesForVariant(component.variables, component, previewVariantId);
+    const withBindings = resolveEditorInstanceLayers(transformed, overrides, instanceVariables);
     if (!currentLocale || currentLocale.is_default || !translations) {
       return withBindings;
     }
@@ -2129,7 +2130,7 @@ const LayerItemImpl: React.FC<{
           parentComponentLayerId={layer.id}
           parentComponentId={layer.componentId}
           parentComponentOverrides={effectiveOverrides}
-          parentComponentVariables={component?.variables}
+          parentComponentVariables={variablesForVariant(component?.variables, component ?? undefined, previewVariantId)}
           ancestorComponentIds={effectiveAncestorIds}
           componentRootContextMenu={needsRootContextMenu || undefined}
         />

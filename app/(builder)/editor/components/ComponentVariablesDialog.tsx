@@ -43,16 +43,18 @@ import {
 } from '@/components/ui/select';
 
 import { useComponentsStore } from '@/stores/useComponentsStore';
+import { useEditorStore } from '@/stores/useEditorStore';
 import { useCollectionsStore } from '@/stores/useCollectionsStore';
 import { createTextComponentVariableValue, extractTiptapFromComponentVariable } from '@/lib/variable-utils';
 import { collectVariantVariableOptions } from '@/lib/component-variant-utils';
-import { applyStackValueToBoundLayers, isStackVariableValue } from '@/lib/component-bindings';
-import { defaultArrayValue, defaultObjectValue, emptySlotValue, isEnumPropertyValue } from '@/lib/component-properties';
+import { isStackVariableValue } from '@/lib/component-bindings';
+import { defaultArrayValue, defaultObjectValue, emptySlotValue, isEnumPropertyValue, variantPropertyDefault } from '@/lib/component-properties';
 import { cn, generateId } from '@/lib/utils';
 import { VARIABLE_TYPE_ICONS } from './ComponentVariableLabel';
 import StackVariableControl from './StackVariableControl';
 import PropertyControlInput from './PropertyControlInput';
 import StructuredPropertyEditor from './structured-property-editor';
+import VariantPropertyMatrix from './variant-property-matrix';
 import { Separator } from '@/components/ui/separator';
 import type { ComponentPropertyType, ComponentVariable, ComponentVariableValue, EnumOption, StructuredField, VariantSettingsValue } from '@/types';
 
@@ -205,6 +207,8 @@ export default function ComponentVariablesDialog({
   const addVariantVariable = useComponentsStore((state) => state.addVariantVariable);
   const addPropertyVariable = useComponentsStore((state) => state.addPropertyVariable);
   const updateTextVariable = useComponentsStore((state) => state.updateTextVariable);
+  const setVariantPropertyDefault = useComponentsStore((state) => state.setVariantPropertyDefault);
+  const editingVariantId = useEditorStore((state) => state.editingComponentVariantId);
   const reorderVariables = useComponentsStore((state) => state.reorderVariables);
   const deleteTextVariable = useComponentsStore((state) => state.deleteTextVariable);
   const allComponents = useComponentsStore((state) => state.components);
@@ -219,6 +223,7 @@ export default function ComponentVariablesDialog({
   const [editingName, setEditingName] = useState('');
   const [editingPlaceholder, setEditingPlaceholder] = useState('');
   const [editingDefaultValue, setEditingDefaultValue] = useState<any>(null);
+  const [defaultsVariantId, setDefaultsVariantId] = useState<string | null>(null);
 
   // Get component and its variables
   const component = componentId ? getComponentById(componentId) : undefined;
@@ -226,6 +231,44 @@ export default function ComponentVariablesDialog({
 
   // Get the currently selected variable
   const selectedVariable = textVariables.find((v) => v.id === selectedVariableId);
+  const variants = component?.variants ?? [];
+  const primaryVariantId = variants[0]?.id ?? null;
+  const activeDefaultsVariantId = defaultsVariantId && variants.some((variant) => variant.id === defaultsVariantId)
+    ? defaultsVariantId
+    : (editingVariantId && variants.some((variant) => variant.id === editingVariantId)
+      ? editingVariantId
+      : primaryVariantId);
+  const shownDefault = selectedVariable
+    ? variantPropertyDefault(selectedVariable, component, activeDefaultsVariantId)
+    : undefined;
+  const showVariantMatrix = variants.length > 1 && !!selectedVariable && (
+    selectedVariable.type === 'number'
+    || selectedVariable.type === 'boolean'
+    || selectedVariable.type === 'enum'
+    || selectedVariable.type === 'color'
+    || selectedVariable.type === 'stack'
+  );
+  const activeVariantOwnsDefault = !!selectedVariable
+    && !!activeDefaultsVariantId
+    && activeDefaultsVariantId !== primaryVariantId
+    && variants.some((variant) => (
+      variant.id === activeDefaultsVariantId
+      && !!variant.propertyDefaults
+      && selectedVariable.id in variant.propertyDefaults
+    ));
+
+  const commitVariableDefault = (
+    variableId: string,
+    variantId: string | null | undefined,
+    value: ComponentVariableValue | null,
+  ) => {
+    if (!componentId) return;
+    if (!variantId || !primaryVariantId || variantId === primaryVariantId) {
+      void updateTextVariable(componentId, variableId, { default_value: value ?? undefined });
+      return;
+    }
+    void setVariantPropertyDefault(componentId, variantId, variableId, value);
+  };
 
   // Helper to get empty Tiptap doc
   const getEmptyTiptapDoc = () => ({ type: 'doc', content: [{ type: 'paragraph' }] });
@@ -233,6 +276,10 @@ export default function ComponentVariablesDialog({
   // Reset state when dialog opens
   useEffect(() => {
     if (open) {
+      setDefaultsVariantId(null);
+      const variantForOpen = editingVariantId && component?.variants?.some((variant) => variant.id === editingVariantId)
+        ? editingVariantId
+        : component?.variants?.[0]?.id;
       const target = initialVariableId
         ? textVariables.find((v) => v.id === initialVariableId)
         : null;
@@ -241,12 +288,16 @@ export default function ComponentVariablesDialog({
         setSelectedVariableId(target.id);
         setEditingName(target.name);
         setEditingPlaceholder(target.placeholder || '');
-        setEditingDefaultValue(extractTiptapFromComponentVariable(target.default_value));
+        setEditingDefaultValue(extractTiptapFromComponentVariable(
+          variantPropertyDefault(target, component, variantForOpen),
+        ));
       } else if (textVariables.length > 0) {
         setSelectedVariableId(textVariables[0].id);
         setEditingName(textVariables[0].name);
         setEditingPlaceholder(textVariables[0].placeholder || '');
-        setEditingDefaultValue(extractTiptapFromComponentVariable(textVariables[0].default_value));
+        setEditingDefaultValue(extractTiptapFromComponentVariable(
+          variantPropertyDefault(textVariables[0], component, variantForOpen),
+        ));
       } else {
         setSelectedVariableId(null);
         setEditingName('');
@@ -262,10 +313,12 @@ export default function ComponentVariablesDialog({
     if (selectedVariable) {
       setEditingName(selectedVariable.name);
       setEditingPlaceholder(selectedVariable.placeholder || '');
-      setEditingDefaultValue(extractTiptapFromComponentVariable(selectedVariable.default_value));
+      setEditingDefaultValue(extractTiptapFromComponentVariable(
+        variantPropertyDefault(selectedVariable, component, activeDefaultsVariantId),
+      ));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedVariableId]);
+  }, [selectedVariableId, activeDefaultsVariantId]);
 
   const handleAddTextVariable = async () => {
     if (!componentId) return;
@@ -411,8 +464,8 @@ export default function ComponentVariablesDialog({
   };
 
   const handlePropertyDefaultChange = (value: ComponentVariableValue) => {
-    if (!componentId || !selectedVariableId) return;
-    void updateTextVariable(componentId, selectedVariableId, { default_value: value });
+    if (!selectedVariableId) return;
+    commitVariableDefault(selectedVariableId, activeDefaultsVariantId, value);
   };
 
   const handleEnumOptionsChange = (options: EnumOption[]) => {
@@ -430,36 +483,36 @@ export default function ComponentVariablesDialog({
   };
 
   const handleVariantDefaultValueChange = (variantId: string) => {
-    if (!componentId || !selectedVariableId) return;
+    if (!selectedVariableId) return;
     const value: VariantSettingsValue = { variant_id: variantId };
-    updateTextVariable(componentId, selectedVariableId, { default_value: value });
+    commitVariableDefault(selectedVariableId, activeDefaultsVariantId, value);
   };
 
   // Handle image default value change (via ImageSettings standalone mode)
   const handleImageDefaultValueChange = (value: ImageSettingsValue) => {
-    if (!componentId || !selectedVariableId) return;
-    updateTextVariable(componentId, selectedVariableId, { default_value: value });
+    if (!selectedVariableId) return;
+    commitVariableDefault(selectedVariableId, activeDefaultsVariantId, value);
   };
 
   // Handle link default value change (via LinkSettings standalone mode)
   const handleLinkDefaultValueChange = (value: LinkSettingsValue | null) => {
-    if (!componentId || !selectedVariableId) return;
-    updateTextVariable(componentId, selectedVariableId, { default_value: value ?? undefined });
+    if (!selectedVariableId) return;
+    commitVariableDefault(selectedVariableId, activeDefaultsVariantId, value);
   };
 
   const handleAudioDefaultValueChange = (value: AudioSettingsValue) => {
-    if (!componentId || !selectedVariableId) return;
-    updateTextVariable(componentId, selectedVariableId, { default_value: value });
+    if (!selectedVariableId) return;
+    commitVariableDefault(selectedVariableId, activeDefaultsVariantId, value);
   };
 
   const handleVideoDefaultValueChange = (value: VideoSettingsValue) => {
-    if (!componentId || !selectedVariableId) return;
-    updateTextVariable(componentId, selectedVariableId, { default_value: value });
+    if (!selectedVariableId) return;
+    commitVariableDefault(selectedVariableId, activeDefaultsVariantId, value);
   };
 
   const handleIconDefaultValueChange = (value: IconSettingsValue) => {
-    if (!componentId || !selectedVariableId) return;
-    updateTextVariable(componentId, selectedVariableId, { default_value: value });
+    if (!selectedVariableId) return;
+    commitVariableDefault(selectedVariableId, activeDefaultsVariantId, value);
   };
 
   // Handle updating variable name (debounced)
@@ -494,8 +547,7 @@ export default function ComponentVariablesDialog({
     if (!componentId || !selectedVariableId) return;
 
     // Check if value has changed
-    const currentValue = selectedVariable?.default_value;
-    const currentTiptap = extractTiptapFromComponentVariable(currentValue);
+    const currentTiptap = extractTiptapFromComponentVariable(shownDefault);
 
     // Simple comparison - stringify and compare
     if (JSON.stringify(currentTiptap) === JSON.stringify(tiptapContent)) {
@@ -504,7 +556,7 @@ export default function ComponentVariablesDialog({
 
     // Wrap Tiptap content in proper ComponentVariableValue structure (text variable)
     const variableValue = createTextComponentVariableValue(tiptapContent);
-    await updateTextVariable(componentId, selectedVariableId, { default_value: variableValue });
+    commitVariableDefault(selectedVariableId, activeDefaultsVariantId, variableValue);
   };
 
   // Handle deleting a variable
@@ -687,13 +739,50 @@ export default function ComponentVariablesDialog({
 
                 <Separator className="my-0.5" />
 
+                {variants.length > 1 && !showVariantMatrix && activeDefaultsVariantId && (
+                  <div className="grid grid-cols-3 items-center">
+                    <Label variant="muted">Variant</Label>
+                    <div className="col-span-2 flex items-center gap-2">
+                      <Select
+                        value={activeDefaultsVariantId}
+                        onValueChange={setDefaultsVariantId}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {variants.map((variant) => {
+                            const inherited = variant.id !== primaryVariantId
+                              && !(variant.propertyDefaults && selectedVariable.id in variant.propertyDefaults);
+                            return (
+                              <SelectItem key={variant.id} value={variant.id}>
+                                {inherited ? `${variant.name} · Inherited` : variant.name}
+                              </SelectItem>
+                            );
+                          })}
+                        </SelectContent>
+                      </Select>
+                      {activeVariantOwnsDefault && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="xs"
+                          onClick={() => commitVariableDefault(selectedVariable.id, activeDefaultsVariantId, null)}
+                        >
+                          Reset
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-3 items-start">
-                  <Label variant="muted" className="pt-2">Default</Label>
+                  <Label variant="muted" className="pt-2">{showVariantMatrix ? 'Defaults' : 'Default'}</Label>
                   <div className="col-span-2 *:w-full">
                     {selectedVariable.type === 'link' ? (
                       <LinkSettings
                         mode="standalone"
-                        value={selectedVariable.default_value as LinkSettingsValue}
+                        value={shownDefault as LinkSettingsValue}
                         onChange={handleLinkDefaultValueChange}
                         allFields={fields}
                         collections={collections}
@@ -701,7 +790,7 @@ export default function ComponentVariablesDialog({
                     ) : selectedVariable.type === 'image' ? (
                       <ImageSettings
                         mode="standalone"
-                        value={selectedVariable.default_value as ImageSettingsValue}
+                        value={shownDefault as ImageSettingsValue}
                         onChange={handleImageDefaultValueChange}
                         allFields={fields}
                         collections={collections}
@@ -709,7 +798,7 @@ export default function ComponentVariablesDialog({
                     ) : selectedVariable.type === 'audio' ? (
                       <AudioSettings
                         mode="standalone"
-                        value={selectedVariable.default_value as AudioSettingsValue}
+                        value={shownDefault as AudioSettingsValue}
                         onChange={handleAudioDefaultValueChange}
                         allFields={fields}
                         collections={collections}
@@ -717,7 +806,7 @@ export default function ComponentVariablesDialog({
                     ) : selectedVariable.type === 'video' ? (
                       <VideoSettings
                         mode="standalone"
-                        value={selectedVariable.default_value as VideoSettingsValue}
+                        value={shownDefault as VideoSettingsValue}
                         onChange={handleVideoDefaultValueChange}
                         allFields={fields}
                         collections={collections}
@@ -725,12 +814,12 @@ export default function ComponentVariablesDialog({
                     ) : selectedVariable.type === 'icon' ? (
                       <IconSettings
                         mode="standalone"
-                        value={selectedVariable.default_value as IconSettingsValue}
+                        value={shownDefault as IconSettingsValue}
                         onChange={handleIconDefaultValueChange}
                       />
                     ) : selectedVariable.type === 'variant' ? (() => {
                       const options = collectVariantVariableOptions(component, allComponents, selectedVariable.id);
-                      const currentDefault = (selectedVariable.default_value as VariantSettingsValue | undefined)?.variant_id;
+                      const currentDefault = (shownDefault as VariantSettingsValue | undefined)?.variant_id;
                       // Group options by component for clearer labelling when
                       // the variable is generic and links across multiple
                       // nested components.
@@ -764,31 +853,29 @@ export default function ComponentVariablesDialog({
                           </SelectContent>
                         </Select>
                       );
-                    })() : selectedVariable.type === 'stack' && selectedVariable.stack_key ? (
+                    })() : showVariantMatrix && component ? (
+                      <div className="flex flex-col gap-3">
+                        {selectedVariable.type === 'enum' && (
+                          <EnumOptionsEditor
+                            options={selectedVariable.options ?? []}
+                            onChange={handleEnumOptionsChange}
+                          />
+                        )}
+                        <VariantPropertyMatrix
+                          component={component}
+                          variable={selectedVariable}
+                          onCommit={(variantId, value) => commitVariableDefault(selectedVariable.id, variantId, value)}
+                        />
+                        <p className="text-[11px] leading-snug text-muted-foreground">
+                          Each variant inherits the primary default until you change it. Reset a row to inherit again.
+                          {selectedVariable.type === 'stack' && ' Tablet and phone values stay on that variant.'}
+                        </p>
+                      </div>
+                    ) : selectedVariable.type === 'stack' && selectedVariable.stack_key ? (
                       <StackVariableControl
                         stackKey={selectedVariable.stack_key}
-                        value={isStackVariableValue(selectedVariable.default_value)
-                          ? selectedVariable.default_value
-                          : { value: '' }}
-                        onChange={(next) => {
-                          if (!componentId) return;
-                          void updateTextVariable(componentId, selectedVariable.id, { default_value: next });
-                          const { componentDrafts, updateComponentDraft } = useComponentsStore.getState();
-                          const drafts = componentDrafts[componentId];
-                          const stackKey = selectedVariable.stack_key;
-                          if (!drafts || !stackKey) return;
-                          for (const [variantId, layers] of Object.entries(drafts)) {
-                            const nextLayers = applyStackValueToBoundLayers(
-                              layers,
-                              selectedVariable.id,
-                              stackKey,
-                              next,
-                            );
-                            if (nextLayers !== layers) {
-                              updateComponentDraft(componentId, variantId, nextLayers);
-                            }
-                          }
-                        }}
+                        value={isStackVariableValue(shownDefault) ? shownDefault : { value: '' }}
+                        onChange={(next) => commitVariableDefault(selectedVariable.id, activeDefaultsVariantId, next)}
                       />
                     ) : selectedVariable.type === 'number' || selectedVariable.type === 'boolean' || selectedVariable.type === 'enum' || selectedVariable.type === 'color' ? (
                       <div className="flex flex-col gap-3">
@@ -800,7 +887,7 @@ export default function ComponentVariablesDialog({
                         )}
                         <PropertyControlInput
                           variable={selectedVariable}
-                          value={selectedVariable.default_value}
+                          value={shownDefault}
                           onChange={handlePropertyDefaultChange}
                         />
                         <p className="text-[11px] leading-snug text-muted-foreground">
@@ -814,15 +901,20 @@ export default function ComponentVariablesDialog({
                       <div className="flex flex-col gap-3">
                         <StructuredPropertyEditor
                           variable={selectedVariable}
-                          value={selectedVariable.default_value}
+                          value={shownDefault}
                           editableSchema
                           onValueChange={handlePropertyDefaultChange}
                           onFieldsChange={(fields, next) => {
                             if (!componentId) return;
-                            void updateTextVariable(componentId, selectedVariable.id, {
-                              fields,
-                              default_value: next,
-                            });
+                            if (!activeDefaultsVariantId || activeDefaultsVariantId === primaryVariantId) {
+                              void updateTextVariable(componentId, selectedVariable.id, {
+                                fields,
+                                default_value: next,
+                              });
+                              return;
+                            }
+                            void updateTextVariable(componentId, selectedVariable.id, { fields });
+                            commitVariableDefault(selectedVariable.id, activeDefaultsVariantId, next);
                           }}
                         />
                         <p className="text-[11px] leading-snug text-muted-foreground">

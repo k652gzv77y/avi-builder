@@ -64,7 +64,7 @@ or materially below Framer's workflow.
 - [x] Component-related MCP controls and component rendering
 - [x] Component property controls on the primary: text, rich text, number, boolean, enum, color, image, link, audio, video, icon, array, object, and slot
 - [x] Framer-style component property controls: text, number, boolean, enum, color, image, link, array, object, and slot
-- [ ] Variant property matrix with combinations, defaults, and responsive values
+- [x] Variant property matrix: each variant can store property defaults. Instances use that variant's defaults, then their own overrides. Stack defaults keep tablet and phone values. Canvas, preview, and published pages share that order
 - [x] Instance-level overrides with a visible reset-to-component control (one property, or all overrides)
 - [x] Slots for child content and fallback. A frame's children are the fallback. An instance can replace that content and reset it. Canvas, preview, and published pages render the override or the fallback
 - [ ] Component package/library sharing across projects
@@ -158,8 +158,8 @@ or materially below Framer's workflow.
 
 Mark the items you want from this set first:
 
-- [~] Component property controls and instance overrides (text, number, boolean, enum, color, image, link, array, object, slot, and the existing media controls). The variant matrix remains open
-- [ ] Variant property matrix and interactive variants
+- [x] Component property controls and instance overrides (text, number, boolean, enum, color, image, link, array, object, slot, and the existing media controls)
+- [x] Variant property matrix with per-variant defaults. Interactive variants remain open
 - [ ] Variables/bindings picker and computed variables
 - [~] Layer event/action panel: Tap, Hover, Press, Keyboard, or Timer to Navigate, Set Variant, Open Overlay, Scroll to, or Set Variable. Modal, popover, and tooltip overlays can be created from the event. Sheet and menu are partial
 - [x] Framer-style responsive sizing and breakpoint inspector
