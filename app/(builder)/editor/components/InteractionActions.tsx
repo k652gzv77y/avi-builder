@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Icon from '@/components/ui/icon';
+import { withActionTransition } from '@/lib/action-transition';
 import {
   DEFAULT_DRAG_DISTANCE_PX,
   defaultDragTrigger,
@@ -59,6 +60,7 @@ import { getLayerName } from '@/lib/layer-display-utils';
 import { placementForKind, resolveOverlayKind } from '@/lib/overlay-position';
 import { generateId } from '@/lib/utils';
 import OverlayChromeControls from './overlay-chrome-controls';
+import TransitionEditor from './transition-editor';
 import { useComponentsStore } from '@/stores/useComponentsStore';
 import { useGlobalsStore } from '@/stores/useGlobalsStore';
 import { usePagesStore } from '@/stores/usePagesStore';
@@ -422,6 +424,13 @@ function ActionFields({ action, isDrag, layers, targets, pages, variables, onCha
             onChange={(drag) => onChange(drag ? { ...action, drag } : { ...action, drag: undefined })}
           />
         )}
+        {action.type === 'set-variant' && (
+          <TransitionEditor
+            value={action.transition}
+            hint="Duration, delay, and stagger are in seconds. Instant plays no animation. Hover, Press, and a drag that returns replay this transition on the way back. Stagger waits between each direct child."
+            onChange={(transition) => onChange(withActionTransition(action, transition))}
+          />
+        )}
         {action.type === 'scroll-variant' && action.stops.map((stop, index) => (
           <Field key={`${action.id}-${index}`} label={`${Math.round(stop.at * 100)}%`}>
             <div className="flex items-center gap-1">
@@ -509,6 +518,13 @@ function ActionFields({ action, isDrag, layers, targets, pages, variables, onCha
             })}
           />
         )}
+        <TransitionEditor
+          value={action.transition}
+          hint={action.operation === 'close'
+            ? 'Duration, delay, and stagger are in seconds. Instant reuses the transition this overlay opened with.'
+            : 'Duration, delay, and stagger are in seconds. Closing and dismissing reuse this transition when Close Overlay does not set one. Stagger waits between each direct child.'}
+          onChange={(transition) => onChange(withActionTransition(action, transition))}
+        />
       </>
     );
   }

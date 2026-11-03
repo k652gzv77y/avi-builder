@@ -5,6 +5,7 @@
  */
 
 import type {
+  ActionTransition,
   DragAxis,
   DragBounds,
   DragDirection,
@@ -45,6 +46,8 @@ export interface DragVariantChoice {
   targetLayerId: string;
   variantId: string;
   release: DragRelease;
+  /** Present when the Set Variant action authored a transition. */
+  transition?: ActionTransition;
 }
 
 const AXES = new Set<DragAxis>(['free', 'x', 'y', 'both']);
@@ -378,6 +381,7 @@ export function dragVariantChoices(
         targetLayerId: action.targetLayerId,
         variantId: action.variantId,
         release: action.drag.release,
+        ...(action.transition ? { transition: action.transition } : {}),
       },
       travel,
       distance: action.drag.distance,

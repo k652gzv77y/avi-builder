@@ -410,6 +410,44 @@ export interface LayerOverlay {
   anchorLayerId?: string;
 }
 
+/** CSS-like curves for a tween. `cubic-bezier` uses the four `bezier` numbers. */
+export type TransitionCurve =
+  | 'ease'
+  | 'ease-in'
+  | 'ease-out'
+  | 'ease-in-out'
+  | 'linear'
+  | 'cubic-bezier';
+
+/** Instant keeps the jump. Tween uses duration. Spring settles from physics. */
+export type TransitionKind = 'instant' | 'tween' | 'spring';
+
+/** Physics for a spring transition. Mass is in the same units Framer uses. */
+export interface TransitionSpring {
+  stiffness: number;
+  damping: number;
+  mass: number;
+}
+
+/**
+ * How a Set Variant or overlay action moves.
+ * Omitted, or `kind: 'instant'`, leaves the change immediate so existing
+ * projects stay put until an author edits the transition.
+ */
+export interface ActionTransition {
+  kind: TransitionKind;
+  /** Seconds. Tweens use this. Springs settle from stiffness, damping, and mass. */
+  duration: number;
+  /** Seconds before the change starts. */
+  delay: number;
+  curve: TransitionCurve;
+  /** Used when `curve` is `cubic-bezier`. */
+  bezier: [number, number, number, number];
+  spring: TransitionSpring;
+  /** Seconds between each direct child. 0 moves them together. */
+  stagger: number;
+}
+
 /** Appear animation presets. The matching tween is what GSAP plays. */
 export type AppearPresetId = 'fade' | 'slide-up' | 'slide-down' | 'scale';
 
@@ -435,6 +473,8 @@ export type InteractionAction =
        * `stick` keeps it after release. `return` clears it when the drag ends.
        */
       drag?: DragVariantRule;
+      /** How the variant change moves. Omitted means immediate. */
+      transition?: ActionTransition;
     }
   | {
       id: string;
@@ -443,6 +483,8 @@ export type InteractionAction =
       targetLayerId: string;
       placement: OverlayPlacement;
       dismiss: OverlayDismiss;
+      /** How the overlay opens or closes. Omitted means immediate. */
+      transition?: ActionTransition;
       /** Absent on older actions. Fixed reads as modal, relative as popover. */
       kind?: OverlayKind;
       anchor?: OverlayAnchor;
