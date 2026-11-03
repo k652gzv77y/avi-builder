@@ -378,9 +378,20 @@ export interface LayerStyle {
 export type OverlayPlacement = 'fixed' | 'relative';
 
 /**
+ * Author-facing overlay chrome.
+ * Modal and sheet cover the page. Popover, tooltip, and menu anchor to a layer.
+ * Older overlays omit kind: fixed reads as modal, relative as popover.
+ */
+export type OverlayKind = 'modal' | 'sheet' | 'popover' | 'tooltip' | 'menu';
+
+/** Preferred side for an anchored overlay. The runtime flips when that side does not fit. */
+export type OverlayAnchor = 'top' | 'right' | 'bottom' | 'left';
+
+/**
  * How an open overlay goes away.
- * Escape and an outside click dismiss it. Focus returns to the trigger when
- * `restoreFocus` is set, and the overlay itself takes focus while open.
+ * Escape and an outside click (including the backdrop) dismiss it. Focus returns
+ * to the trigger when `restoreFocus` is set. Modal, sheet, popover, and menu
+ * trap Tab while open. Tooltips do not take focus.
  */
 export interface OverlayDismiss {
   escape: boolean;
@@ -388,10 +399,15 @@ export interface OverlayDismiss {
   restoreFocus: boolean;
 }
 
-/** Fixed covers the viewport. Relative sits under the trigger. */
+/** Chrome for a layer that opens above the page. */
 export interface LayerOverlay {
   placement: OverlayPlacement;
   dismiss: OverlayDismiss;
+  kind?: OverlayKind;
+  /** Preferred side. Anchored overlays only. Defaults to bottom. */
+  anchor?: OverlayAnchor;
+  /** Layer to anchor to. Empty means the triggering layer. */
+  anchorLayerId?: string;
 }
 
 /** Appear animation presets. The matching tween is what GSAP plays. */
@@ -421,6 +437,11 @@ export type InteractionAction =
       targetLayerId: string;
       placement: OverlayPlacement;
       dismiss: OverlayDismiss;
+      /** Absent on older actions. Fixed reads as modal, relative as popover. */
+      kind?: OverlayKind;
+      anchor?: OverlayAnchor;
+      /** Layer to anchor to. Empty means the triggering layer. */
+      anchorLayerId?: string;
     }
   | {
       id: string;

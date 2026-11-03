@@ -3,12 +3,15 @@
 import { Button } from '@/components/ui/button';
 import { interactionSummary } from '@/lib/interactions-framer';
 import { overlayDismissSummary } from '@/lib/overlay-setup';
-import type { Layer, OverlayPlacement } from '@/types';
+import { overlayKindLabel, resolveOverlayKind } from '@/lib/overlay-position';
+import type { Layer, OverlayKind } from '@/types';
+
+const CREATE_OVERLAYS: readonly OverlayKind[] = ['modal', 'popover', 'tooltip', 'sheet'];
 
 interface InteractionsSectionProps {
   layer: Layer | null;
   onOpen: () => void;
-  onCreateOverlay?: (placement: OverlayPlacement) => void;
+  onCreateOverlay?: (kind: OverlayKind) => void;
 }
 
 /**
@@ -25,7 +28,7 @@ export function InteractionsSection({ layer, onOpen, onCreateOverlay }: Interact
     <div className="flex flex-col gap-2 pb-3" data-panel="interactions-summary">
       {overlay ? (
         <p className="text-[11px] leading-snug text-muted-foreground">
-          {overlay.placement === 'fixed' ? 'Fixed overlay' : 'Relative overlay'}
+          {overlayKindLabel(resolveOverlayKind(overlay))}
           {' · '}
           {overlayDismissSummary(overlay.dismiss)}
         </p>
@@ -57,22 +60,17 @@ export function InteractionsSection({ layer, onOpen, onCreateOverlay }: Interact
       </Button>
       {canCreate && (
         <div className="grid grid-cols-2 gap-1">
-          <Button
-            type="button"
-            size="xs"
-            variant="outline"
-            onClick={() => onCreateOverlay?.('fixed')}
-          >
-            Fixed overlay
-          </Button>
-          <Button
-            type="button"
-            size="xs"
-            variant="outline"
-            onClick={() => onCreateOverlay?.('relative')}
-          >
-            Relative overlay
-          </Button>
+          {CREATE_OVERLAYS.map(kind => (
+            <Button
+              key={kind}
+              type="button"
+              size="xs"
+              variant="outline"
+              onClick={() => onCreateOverlay?.(kind)}
+            >
+              {overlayKindLabel(kind)}
+            </Button>
+          ))}
         </div>
       )}
     </div>

@@ -11,6 +11,7 @@
  */
 
 import { BREAKPOINT_VALUES } from '@/lib/breakpoint-utils';
+import { defaultDismissForKind, placementForKind } from '@/lib/overlay-position';
 import type {
   AppearPresetId,
   InteractionAction,
@@ -19,6 +20,7 @@ import type {
   Layer,
   LayerInteraction,
   OverlayDismiss,
+  OverlayKind,
   OverlayPlacement,
   ScrollPresetId,
   TimerTrigger,
@@ -662,14 +664,20 @@ export function createOverlayAction(
   operation: 'open' | 'close',
   targetLayerId = '',
   placement: OverlayPlacement = 'fixed',
+  kind?: OverlayKind,
 ): Extract<InteractionAction, { type: 'overlay' }> {
+  const resolvedKind = kind ?? (placement === 'relative' ? 'popover' : 'modal');
+  const resolvedPlacement = kind ? placementForKind(kind) : placement;
+  const anchored = placementForKind(resolvedKind) === 'relative';
   return {
     id,
     type: 'overlay',
     operation,
     targetLayerId,
-    placement,
-    dismiss: { ...DEFAULT_OVERLAY_DISMISS },
+    placement: resolvedPlacement,
+    kind: resolvedKind,
+    ...(anchored ? { anchor: 'bottom' as const } : {}),
+    dismiss: kind ? defaultDismissForKind(kind) : { ...DEFAULT_OVERLAY_DISMISS },
   };
 }
 
@@ -966,7 +974,11 @@ export function focusAfterClose(dismiss: OverlayDismiss): boolean {
   return dismiss.restoreFocus;
 }
 
-/** Fixed covers the viewport and centers the layer. Relative sits under the trigger. */
+/**
+ * Unmeasured fallback. Open overlays measure the layer and use
+ * placeModalOverlay, placeSheetOverlay, or placeAnchoredOverlay instead.
+ * Fixed centers the layer. Relative sits under the anchor point.
+ */
 export function overlayPlacementStyle(
   placement: OverlayPlacement,
   anchor?: { bottom: number; left: number },
@@ -975,13 +987,10 @@ export function overlayPlacementStyle(
     return {
       display: 'flex',
       position: 'fixed',
-      top: '0px',
-      right: '0px',
-      bottom: '0px',
-      left: '0px',
-      zIndex: '60',
-      alignItems: 'center',
-      justifyContent: 'center',
+      top: '50%',
+      left: '50%',
+      transform: 'translate(-50%, -50%)',
+      zIndex: '70',
     };
   }
   return {
@@ -989,7 +998,7 @@ export function overlayPlacementStyle(
     position: 'fixed',
     top: `${anchor?.bottom ?? 0}px`,
     left: `${anchor?.left ?? 0}px`,
-    zIndex: '60',
+    zIndex: '70',
   };
 }
 
@@ -1018,9 +1027,13 @@ export function remapActionTarget(
 ): InteractionAction {
   switch (action.type) {
     case 'set-variant':
-    case 'overlay':
     case 'scroll-variant':
       return { ...action, targetLayerId: mapId(action.targetLayerId) };
+    case 'overlay': {
+      const next = { ...action, targetLayerId: mapId(action.targetLayerId) };
+      if (action.anchorLayerId) next.anchorLayerId = mapId(action.anchorLayerId);
+      return next;
+    }
     case 'scroll-to':
       return action.targetLayerId
         ? { ...action, targetLayerId: mapId(action.targetLayerId) }

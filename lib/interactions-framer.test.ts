@@ -190,12 +190,43 @@ test('overlay dismiss honors escape, outside click, and focus return', () => {
 
   assert.equal(overlayPlacementStyle('fixed').position, 'fixed');
   assert.equal(overlayPlacementStyle('fixed').display, 'flex');
-  assert.equal(overlayPlacementStyle('fixed').top, '0px');
+  assert.equal(overlayPlacementStyle('fixed').top, '50%');
+  assert.equal(overlayPlacementStyle('fixed').transform, 'translate(-50%, -50%)');
   const relative = overlayPlacementStyle('relative', { bottom: 40, left: 12 });
   assert.equal(relative.position, 'fixed');
   assert.equal(relative.top, '40px');
   assert.equal(relative.left, '12px');
   assert.equal(relative.display, 'block');
+});
+
+test('overlay kind and anchor survive a save and a component remap', () => {
+  const action = createOverlayAction('act-tip', 'open', 'tip', 'fixed', 'tooltip');
+  assert.equal(action.kind, 'tooltip');
+  assert.equal(action.placement, 'relative');
+  assert.equal(action.anchor, 'bottom');
+  assert.equal(action.dismiss.restoreFocus, false);
+
+  const layer: Layer = { id: 'btn', name: 'button', classes: '' };
+  const authored = authorLayerInteraction(layer, {
+    interactionId: 'int-tip',
+    trigger: 'click',
+    action: { ...action, anchor: 'top', anchorLayerId: 'label' },
+  });
+  const stored = parseLayerInteractions(serializeLayerInteractions(authored.interactions));
+  const saved = stored[0].actions?.[0];
+  assert.equal(saved?.type, 'overlay');
+  if (saved?.type === 'overlay') {
+    assert.equal(saved.kind, 'tooltip');
+    assert.equal(saved.anchor, 'top');
+    assert.equal(saved.anchorLayerId, 'label');
+  }
+
+  const remapped = remapActionTarget(saved!, (id) => `inst-${id}`);
+  assert.equal(remapped.type, 'overlay');
+  if (remapped.type === 'overlay') {
+    assert.equal(remapped.targetLayerId, 'inst-tip');
+    assert.equal(remapped.anchorLayerId, 'inst-label');
+  }
 });
 
 test('hover leave only closes overlays that the event opened', () => {

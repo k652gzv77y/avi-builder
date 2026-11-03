@@ -43,7 +43,6 @@ import {
   keyFromKeyboardEvent,
   nextScrollStop,
   removeInteractionAction,
-  OVERLAY_DISMISS_ROWS,
   sanitizeMilliseconds,
   upsertInteractionAction,
   variantTargets,
@@ -51,7 +50,9 @@ import {
   withScrollPreset,
 } from '@/lib/interactions-framer';
 import { getLayerName } from '@/lib/layer-display-utils';
+import { placementForKind, resolveOverlayKind } from '@/lib/overlay-position';
 import { generateId } from '@/lib/utils';
+import OverlayChromeControls from './overlay-chrome-controls';
 import { useComponentsStore } from '@/stores/useComponentsStore';
 import { useGlobalsStore } from '@/stores/useGlobalsStore';
 import { usePagesStore } from '@/stores/usePagesStore';
@@ -61,8 +62,6 @@ import type {
   KeyboardTrigger,
   Layer,
   LayerInteraction,
-  OverlayDismiss,
-  OverlayPlacement,
   ScrollPresetId,
   TimerTrigger,
 } from '@/types';
@@ -457,23 +456,24 @@ function ActionFields({ action, layers, targets, pages, variables, onChange }: A
           </Select>
         </Field>
         {action.operation === 'open' && (
-          <>
-            <Field label="Position">
-              <Tabs
-                value={action.placement}
-                onValueChange={(placement) => onChange({ ...action, placement: placement as OverlayPlacement })}
-              >
-                <TabsList className="w-full">
-                  <TabsTrigger value="fixed">Fixed</TabsTrigger>
-                  <TabsTrigger value="relative">Relative</TabsTrigger>
-                </TabsList>
-              </Tabs>
-            </Field>
-            <DismissFields
-              dismiss={action.dismiss}
-              onChange={(dismiss) => onChange({ ...action, dismiss })}
-            />
-          </>
+          <OverlayChromeControls
+            value={{
+              kind: resolveOverlayKind(action),
+              anchor: action.anchor ?? 'bottom',
+              anchorLayerId: action.anchorLayerId,
+              dismiss: action.dismiss,
+            }}
+            layers={layers}
+            excludeLayerId={action.targetLayerId}
+            onChange={(next) => onChange({
+              ...action,
+              kind: next.kind,
+              placement: placementForKind(next.kind),
+              anchor: next.anchor,
+              anchorLayerId: next.anchorLayerId,
+              dismiss: next.dismiss,
+            })}
+          />
         )}
       </>
     );
@@ -644,28 +644,6 @@ function VariantSelect({
         ))}
       </SelectContent>
     </Select>
-  );
-}
-
-function DismissFields({
-  dismiss,
-  onChange,
-}: {
-  dismiss: OverlayDismiss;
-  onChange: (dismiss: OverlayDismiss) => void;
-}) {
-  return (
-    <div className="flex flex-col gap-2">
-      {OVERLAY_DISMISS_ROWS.map(row => (
-        <label key={row.key} className="flex items-center gap-2">
-          <Checkbox
-            checked={dismiss[row.key]}
-            onCheckedChange={(checked) => onChange({ ...dismiss, [row.key]: checked === true })}
-          />
-          <Label variant="muted">{row.label}</Label>
-        </label>
-      ))}
-    </div>
   );
 }
 

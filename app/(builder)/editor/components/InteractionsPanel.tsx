@@ -85,7 +85,7 @@ import { createLayerInteraction, interactionSummary, withAppearPreset, withScrol
 import { applyInteractionChange } from '@/lib/overlay-setup';
 
 // 4. Types
-import type { ApplyStyles, Layer, LayerInteraction, InteractionTimeline, InteractionTween, TweenProperties, Breakpoint, OverlayPlacement } from '@/types';
+import type { ApplyStyles, Layer, LayerInteraction, InteractionTimeline, InteractionTween, TweenProperties, Breakpoint, OverlayKind } from '@/types';
 import { BREAKPOINTS } from '@/lib/breakpoint-utils';
 import { useColorVariablesStore } from '@/stores/useColorVariablesStore';
 import { Badge } from '@/components/ui/badge';
@@ -104,7 +104,7 @@ interface InteractionsPanelProps {
   onSelectLayer?: (layerId: string) => void; // Callback to select a layer in the editor
   /** Replace the layer tree after an action edit so overlay dismiss stays in sync. */
   onLayersChange?: (layers: Layer[]) => void;
-  onCreateOverlay?: (placement: OverlayPlacement) => void;
+  onCreateOverlay?: (kind: OverlayKind) => void;
 }
 
 // Sortable animation item component
@@ -1221,8 +1221,11 @@ export default function InteractionsPanel({
               {onCreateOverlay && !triggerLayer.overlay && (
                 <>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => onCreateOverlay('fixed')}>Create fixed overlay</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => onCreateOverlay('relative')}>Create relative overlay</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onCreateOverlay('modal')}>Create modal</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onCreateOverlay('popover')}>Create popover</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onCreateOverlay('tooltip')}>Create tooltip</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onCreateOverlay('sheet')}>Create sheet</DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onCreateOverlay('menu')}>Create menu</DropdownMenuItem>
                 </>
               )}
             </DropdownMenuContent>

@@ -28,6 +28,7 @@ import { SWIPER_CLASS_MAP, SWIPER_DATA_ATTR_MAP } from '@/lib/slider-constants';
 import { getSliderPresizeVars } from '@/lib/slider-utils';
 import { getDynamicTextContent, getImageUrlFromVariable, getVideoUrlFromVariable, getIframeUrlFromVariable, isFieldVariable, isAssetVariable, isStaticTextVariable, isDynamicTextVariable, getStaticTextContent, getAssetId, resolveDesignStyles } from '@/lib/variable-utils';
 import { getTranslatedAssetId, getTranslatedText } from '@/lib/locale-runtime';
+import { resolveOverlayKind } from '@/lib/overlay-position';
 import { isValidLinkSettings, generateLinkHref, resolveLinkAttrs, isLinkAtCollectionBoundary, isLinkToCurrentPage, type LinkResolutionContext } from '@/lib/link-utils';
 import { DEFAULT_ASSETS, buildImageSizes, generateImageSrcset, getOptimizedImageUrl, getSvgAspectRatioStyle, parseImageDimension } from '@/lib/asset-utils';
 import { resolveInlineVariablesFromData } from '@/lib/inline-variables';
@@ -964,6 +965,15 @@ const LayerItem: React.FC<{
     const hiddenInfo = hiddenLayerInfo?.find(info => info.layerId === layer.id);
     if (hiddenInfo) {
       elementProps['data-gsap-hidden'] = hiddenInfo.breakpoints || '';
+    }
+
+    // Hidden until an Open Overlay action shows it. The interaction runtime
+    // positions the layer and, for modal and sheet, adds the backdrop.
+    if (layer.overlay) {
+      elementProps['data-overlay'] = resolveOverlayKind(layer.overlay);
+      elementProps['data-overlay-placement'] = layer.overlay.placement;
+      const existingStyle = (typeof elementProps.style === 'object' && elementProps.style) || {};
+      elementProps.style = { ...existingStyle, display: 'none' };
     }
 
     // Hidden by default in public mode; form submission JS reveals on success/error.

@@ -111,6 +111,7 @@ import { buildDesign } from '@/lib/import/design';
 import { cn, generateId } from '@/lib/utils';
 import { nextInteractionOwnerId } from '@/lib/interaction-owner';
 import { applyOverlaySetup, createOverlayLayer, syncOverlaySettings } from '@/lib/overlay-setup';
+import { overlayKindLabel, resolveOverlayKind } from '@/lib/overlay-position';
 import { sanitizeHtmlId } from '@/lib/html-utils';
 import { stableList } from '@/lib/stable-list';
 import { asLayerArray, isFieldVariable, getCollectionVariable, findParentCollectionLayer, findAllParentCollectionLayers, isTextEditable, isTextContentLayer, isRichTextLayer, isHeadingLayer, findLayerWithParent, resetBindingsOnCollectionSourceChange, isInputInsideFilter, resolveFilterInputId, getLayerIndexes, indexedFindLayerById, indexedFindLayerWithParent, indexedFindParentCollectionLayer } from '@/lib/layer-utils';
@@ -147,7 +148,7 @@ import { useCmsBindingSources } from '@/hooks/use-cms-binding-sources';
 import { getInverseReferenceFields } from '@/lib/collection-utils';
 
 // 7. Types
-import type { Layer, FieldVariable, CollectionField, CollectionVariable, ComponentVariable, BackgroundsDesign, LayerOverlay, OverlayPlacement } from '@/types';
+import type { Layer, FieldVariable, CollectionField, CollectionVariable, ComponentVariable, BackgroundsDesign, LayerOverlay, OverlayKind } from '@/types';
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import {
   DropdownMenu,
@@ -430,10 +431,10 @@ const RightSidebar = React.memo(function RightSidebar({
     if (currentPageId) setDraftLayers(currentPageId, next);
   }, [activeComponentVariantId, currentPageId, editingComponentId, setDraftLayers]);
 
-  const handleCreateOverlay = useCallback((placement: OverlayPlacement) => {
+  const handleCreateOverlay = useCallback((kind: OverlayKind) => {
     const source = interactionOwnerLayer ?? selectedLayer;
     if (!source || source.id === 'body' || source.overlay) return;
-    const overlay = createOverlayLayer(generateId('lyr'), placement);
+    const overlay = createOverlayLayer(generateId('lyr'), kind);
     const next = applyOverlaySetup(allLayers, source.id, overlay, {
       interactionId: generateId('int'),
       actionId: generateId('act'),
@@ -2146,10 +2147,12 @@ const RightSidebar = React.memo(function RightSidebar({
           {selectedLayer.overlay && (
             <InspectorSection
               title="Overlay"
-              hint={selectedLayer.overlay.placement === 'fixed' ? 'Fixed' : 'Relative'}
+              hint={overlayKindLabel(resolveOverlayKind(selectedLayer.overlay))}
             >
               <OverlaySettings
                 overlay={selectedLayer.overlay}
+                layers={allLayers}
+                overlayId={selectedLayer.id}
                 onChange={handleOverlayChange}
               />
             </InspectorSection>

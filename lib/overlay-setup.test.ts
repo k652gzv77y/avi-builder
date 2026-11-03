@@ -27,7 +27,8 @@ test('create overlay inserts a sibling and a Tap open action', () => {
   const children = next?.[0].children ?? [];
   assert.deepEqual(children.map(layer => layer.id), ['button', 'sheet']);
   assert.equal(children[1].overlay?.placement, 'fixed');
-  assert.equal(children[1].customName, 'Fixed overlay');
+  assert.equal(children[1].overlay?.kind, 'modal');
+  assert.equal(children[1].customName, 'Modal');
   assert.deepEqual(children[1].overlay?.dismiss, DEFAULT_OVERLAY_DISMISS);
 
   const action = children[0].interactions?.[0].actions?.[0];
@@ -67,7 +68,9 @@ test('relative overlay keeps an existing Tap action', () => {
   assert.equal(actions.length, 2);
   assert.equal(actions[1].type, 'overlay');
   assert.equal(next?.[1].overlay?.placement, 'relative');
-  assert.equal(next?.[1].customName, 'Relative overlay');
+  assert.equal(next?.[1].overlay?.kind, 'popover');
+  assert.equal(next?.[1].overlay?.anchor, 'bottom');
+  assert.equal(next?.[1].customName, 'Popover');
 });
 
 test('dismiss edits stay on the overlay and the action that opens it', () => {
@@ -82,6 +85,7 @@ test('dismiss edits stay on the overlay and the action that opens it', () => {
     dismiss: { escape: false, outside: true, restoreFocus: false },
   });
   assert.equal(updated[1].overlay?.placement, 'relative');
+  assert.equal(updated[1].overlay?.kind, 'popover');
   assert.equal(updated[1].overlay?.dismiss.escape, false);
   const action = updated[0].interactions?.[0].actions?.[0];
   if (action?.type === 'overlay') {
@@ -104,10 +108,46 @@ test('editing the open action writes the same dismiss options back to the overla
   assert.ok(action && action.type === 'overlay');
   const next = applyInteractionChange(setup, 'button', {
     ...interaction,
-    actions: [{ ...action, placement: 'relative', dismiss: { escape: true, outside: false, restoreFocus: true } }],
+    actions: [{
+      ...action,
+      placement: 'relative',
+      kind: 'popover',
+      anchor: 'top',
+      dismiss: { escape: true, outside: false, restoreFocus: true },
+    }],
   });
   assert.equal(next[1].overlay?.placement, 'relative');
+  assert.equal(next[1].overlay?.kind, 'popover');
+  assert.equal(next[1].overlay?.anchor, 'top');
   assert.equal(next[1].overlay?.dismiss.outside, false);
+});
+
+test('tooltip overlay keeps its anchor layer and does not return focus by default', () => {
+  const overlay = createOverlayLayer('tip', 'tooltip');
+  const setup = applyOverlaySetup([trigger()], 'button', overlay, {
+    interactionId: 'int-1',
+    actionId: 'act-1',
+  });
+  assert.ok(setup);
+  assert.equal(setup[1].customName, 'Tooltip');
+  assert.equal(setup[1].overlay?.dismiss.restoreFocus, false);
+  const interaction = setup[0].interactions?.[0];
+  assert.ok(interaction);
+  const action = interaction.actions?.[0];
+  assert.ok(action && action.type === 'overlay');
+  const next = applyInteractionChange(setup, 'button', {
+    ...interaction,
+    actions: [{ ...action, anchor: 'left', anchorLayerId: 'card' }],
+  });
+  assert.equal(next[1].overlay?.kind, 'tooltip');
+  assert.equal(next[1].overlay?.placement, 'relative');
+  assert.equal(next[1].overlay?.anchor, 'left');
+  assert.equal(next[1].overlay?.anchorLayerId, 'card');
+  const saved = next[0].interactions?.[0].actions?.[0];
+  if (saved?.type === 'overlay') {
+    assert.equal(saved.anchorLayerId, 'card');
+    assert.equal(saved.kind, 'tooltip');
+  }
 });
 
 test('canvas hides overlays until the layer is selected', () => {

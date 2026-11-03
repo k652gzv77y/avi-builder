@@ -1,20 +1,26 @@
 /**
- * Create a Fixed or Relative overlay and open it from a Tap interaction.
- * Dismiss (Escape, outside click, return focus) lives on the overlay layer
- * and is copied onto every Open Overlay action that targets it.
+ * Create an overlay layer and open it from a Tap interaction.
+ * Kind, anchor, and dismiss live on the overlay layer and are copied onto
+ * every Open Overlay action that targets it.
  */
 
 import { insertSiblingAfter } from '@/lib/cms-framer';
 import {
-  DEFAULT_OVERLAY_DISMISS,
   OVERLAY_DISMISS_ROWS,
   createOverlayAction,
 } from '@/lib/interactions-framer';
+import {
+  defaultDismissForKind,
+  overlayKindLabel,
+  placementForKind,
+  resolveOverlayKind,
+} from '@/lib/overlay-position';
 import type {
   Layer,
   LayerInteraction,
   LayerOverlay,
   OverlayDismiss,
+  OverlayKind,
   OverlayPlacement,
 } from '@/types';
 
@@ -25,19 +31,44 @@ export function overlayDismissSummary(dismiss: OverlayDismiss): string {
   return labels.length > 0 ? labels.join(', ') : 'Stays open';
 }
 
-export function createOverlayLayer(id: string, placement: OverlayPlacement = 'fixed'): Layer {
-  const fixed = placement === 'fixed';
-  const padding = fixed ? '24px' : '12px';
+function readOverlayRequest(
+  value: OverlayPlacement | OverlayKind,
+): { placement: OverlayPlacement; kind: OverlayKind } {
+  if (value === 'fixed') return { placement: 'fixed', kind: 'modal' };
+  if (value === 'relative') return { placement: 'relative', kind: 'popover' };
+  return { placement: placementForKind(value), kind: value };
+}
+
+export function createOverlayLayer(
+  id: string,
+  placementOrKind: OverlayPlacement | OverlayKind = 'modal',
+): Layer {
+  const { placement, kind } = readOverlayRequest(placementOrKind);
+  const width = kind === 'tooltip' ? '180px' : kind === 'sheet' ? '420px' : kind === 'modal' ? '320px' : '240px';
+  const padding = kind === 'tooltip' ? '8px' : kind === 'modal' || kind === 'sheet' ? '24px' : '12px';
+  const gap = kind === 'tooltip' ? '4px' : '12px';
+  const minHeight = kind === 'modal' ? '180px' : kind === 'sheet' ? '160px' : undefined;
+  const anchored = placement === 'relative';
   return {
     id,
     name: 'div',
-    customName: fixed ? 'Fixed overlay' : 'Relative overlay',
-    classes: fixed
-      ? ['relative', 'flex', 'flex-col', 'gap-[12px]', 'w-[320px]', 'min-h-[180px]', 'bg-white', 'rounded-[12px]', 'p-[24px]']
-      : ['relative', 'flex', 'flex-col', 'gap-[8px]', 'w-[240px]', 'bg-white', 'rounded-[8px]', 'p-[12px]'],
+    customName: overlayKindLabel(kind),
+    classes: [
+      'relative',
+      'flex',
+      'flex-col',
+      `gap-[${gap}]`,
+      `w-[${width}]`,
+      ...(minHeight ? [`min-h-[${minHeight}]`] : []),
+      'bg-white',
+      kind === 'tooltip' ? 'rounded-[6px]' : 'rounded-[12px]',
+      `p-[${padding}]`,
+    ],
     overlay: {
       placement,
-      dismiss: { ...DEFAULT_OVERLAY_DISMISS },
+      kind,
+      dismiss: defaultDismissForKind(kind),
+      ...(anchored ? { anchor: 'bottom' as const } : {}),
     },
     design: {
       positioning: { isActive: true, position: 'relative' },
@@ -45,12 +76,12 @@ export function createOverlayLayer(id: string, placement: OverlayPlacement = 'fi
         isActive: true,
         display: 'Flex',
         flexDirection: 'column',
-        gap: fixed ? '12px' : '8px',
+        gap,
       },
       sizing: {
         isActive: true,
-        width: fixed ? '320px' : '240px',
-        ...(fixed ? { minHeight: '180px' } : {}),
+        width,
+        ...(minHeight ? { minHeight } : {}),
       },
       spacing: {
         isActive: true,
@@ -88,8 +119,10 @@ export function withOpenOverlay(
 ): Layer {
   const interactions = [...(layer.interactions ?? [])];
   const clickIndex = interactions.findIndex(item => item.trigger === 'click');
-  const action = createOverlayAction(ids.actionId, 'open', overlayId, overlay.placement);
+  const action = createOverlayAction(ids.actionId, 'open', overlayId, overlay.placement, overlay.kind);
   action.dismiss = { ...overlay.dismiss };
+  if (overlay.anchor) action.anchor = overlay.anchor;
+  if (overlay.anchorLayerId) action.anchorLayerId = overlay.anchorLayerId;
 
   if (clickIndex === -1) {
     const created = freshClick(ids.interactionId);
@@ -153,9 +186,15 @@ export function syncOverlaySettings(
   overlay: LayerOverlay,
 ): Layer[] {
   if (!layerHasOverlay(layers, overlayId)) return layers;
+  const kind = resolveOverlayKind(overlay);
+  const placement = placementForKind(kind);
+  const anchored = placement === 'relative';
   const nextOverlay: LayerOverlay = {
-    placement: overlay.placement,
+    placement,
+    kind,
     dismiss: { ...overlay.dismiss },
+    ...(anchored ? { anchor: overlay.anchor ?? 'bottom' } : {}),
+    ...(anchored && overlay.anchorLayerId ? { anchorLayerId: overlay.anchorLayerId } : {}),
   };
 
   const walk = (list: Layer[]): Layer[] => list.map(layer => {
@@ -173,7 +212,17 @@ export function syncOverlaySettings(
             return action;
           }
           actionsChanged = true;
-          return { ...action, placement: nextOverlay.placement, dismiss: { ...nextOverlay.dismiss } };
+          const next: typeof action = {
+            ...action,
+            placement: nextOverlay.placement,
+            kind: nextOverlay.kind,
+            dismiss: { ...nextOverlay.dismiss },
+          };
+          if (nextOverlay.anchor) next.anchor = nextOverlay.anchor;
+          else delete next.anchor;
+          if (nextOverlay.anchorLayerId) next.anchorLayerId = nextOverlay.anchorLayerId;
+          else delete next.anchorLayerId;
+          return next;
         });
         if (!actionsChanged) return interaction;
         changed = true;
@@ -209,6 +258,9 @@ export function applyInteractionChange(
     if (action.type !== 'overlay' || action.operation !== 'open' || !action.targetLayerId) continue;
     next = syncOverlaySettings(next, action.targetLayerId, {
       placement: action.placement,
+      kind: action.kind,
+      anchor: action.anchor,
+      anchorLayerId: action.anchorLayerId,
       dismiss: action.dismiss,
     });
   }
