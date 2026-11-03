@@ -1,12 +1,13 @@
 import { NextRequest } from 'next/server';
 import { z } from 'zod';
 
+import { isAbsentAiChatId } from '@/lib/ai-chat-lookup';
+import { noCache } from '@/lib/api-response';
 import {
   deleteAiChat,
   getAiChatById,
   upsertAiChat,
 } from '@/lib/repositories/aiChatRepository';
-import { noCache } from '@/lib/api-response';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -30,12 +31,25 @@ const upsertSchema = z.object({
   messages: z.array(z.record(z.string(), z.unknown())),
 });
 
+/**
+ * Ids are minted in the browser and a row is written only after a turn is
+ * saved. A non-uuid can never match the primary key; respond the same way as
+ * a missing row so the client can treat both as "not saved yet".
+ */
+function absentChatResponse(id: string) {
+  if (!isAbsentAiChatId(id)) return null;
+  return noCache({ error: 'Chat not found' }, 404);
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
+    const absent = absentChatResponse(id);
+    if (absent) return absent;
+
     const chat = await getAiChatById(id);
 
     if (!chat) {
@@ -59,6 +73,9 @@ export async function PUT(
 ) {
   try {
     const { id } = await params;
+    const absent = absentChatResponse(id);
+    if (absent) return absent;
+
     const body = await request.json();
 
     const parsed = upsertSchema.safeParse(body);
@@ -91,6 +108,8 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
+    const absent = absentChatResponse(id);
+    if (absent) return absent;
 
     await deleteAiChat(id);
 
