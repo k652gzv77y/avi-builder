@@ -245,6 +245,17 @@ function stripSSROnlyData(layers: Layer[]): Layer[] {
       };
     }
 
+    if (stripped._interactiveVariants) {
+      const panes: NonNullable<Layer['_interactiveVariants']>['panes'] = {};
+      for (const [variantId, pane] of Object.entries(stripped._interactiveVariants.panes)) {
+        panes[variantId] = stripSSROnlyData([pane])[0];
+      }
+      stripped._interactiveVariants = {
+        ...stripped._interactiveVariants,
+        panes,
+      };
+    }
+
     if (stripped.children) {
       stripped.children = stripSSROnlyData(stripped.children);
     }

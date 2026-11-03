@@ -66,6 +66,9 @@ export default function ComponentGestureControls({
       onToggle={() => setOpen(!open)}
     >
       <div className="flex flex-col gap-2">
+        <p className="text-[11px] leading-snug text-muted-foreground">
+          Hover and Pressed switch a resting instance while the pointer is there, then return. That variant&apos;s property defaults apply.
+        </p>
         <div className="flex flex-wrap gap-1">
           <Button
             type="button"

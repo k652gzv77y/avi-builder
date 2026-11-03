@@ -70,7 +70,7 @@ or materially below Framer's workflow.
 - [ ] Component package/library sharing across projects
 - [ ] Component documentation, changelog, and usage panel
 - [ ] Safe component upgrades with override conflict resolution
-- [ ] Interactive component states that map directly to variants
+- [x] Interactive component states that map directly to variants. Hover and Pressed switch a resting instance for the gesture, then return. Tap, Hover, and Press actions can target any variant. The active variant's property defaults apply on the canvas, in preview, and on published pages
 
 ## 5. Variables, Data, and Bindings
 
@@ -94,7 +94,7 @@ or materially below Framer's workflow.
 - [x] HTML embeds and head/body code injection
 - [~] Tap, Hover, Press, Keyboard, and Timer can be authored with Navigate, Set Variant, Open Overlay, Scroll to, and Set Variable. Drag and the rest of Framer's interaction model are still open
 - [~] Layer event panel: Tap, Hover (mouse enter), Press (pointer down), Keyboard (key down or key up, with Shift, Cmd, Alt, and Ctrl), and Timer (delay, and repeat with an interval) can be added, edited, and deleted on a layer, including a component instance. Appear, Scroll, and Load remain animation events. Drag and viewport leave are not offered
-- [~] Actions: Navigate to a page or URL, Set Variant, Open/Close Overlay (modal, popover, and tooltip chrome; sheet and menu are partial), Scroll to a layer or the top or bottom of the page, and Set Variable (project variable and value) are stored on the event and run in preview for Tap, Hover, Press, Keyboard, and Timer. Play media, submit form, and run code are not offered
+- [~] Actions: Navigate to a page or URL, Set Variant, Open/Close Overlay (modal, popover, and tooltip chrome; sheet and menu are partial), Scroll to a layer or the top or bottom of the page, and Set Variable (project variable and value) are stored on the event and run in preview for Tap, Hover, Press, Keyboard, and Timer. Hover and Press Set Variant return to the previous variant when the gesture ends. Tap stays. Play media, submit form, and run code are not offered
 - [ ] Transition editor with spring parameters, easing curves, delay, duration, and stagger
 - [ ] Scroll transforms, parallax, sticky sections, and scroll-linked animation timeline
 - [ ] Drag gestures with constraints, snap points, momentum, and drag-to-variant behavior
@@ -159,7 +159,7 @@ or materially below Framer's workflow.
 Mark the items you want from this set first:
 
 - [x] Component property controls and instance overrides (text, number, boolean, enum, color, image, link, array, object, slot, and the existing media controls)
-- [x] Variant property matrix with per-variant defaults. Interactive variants remain open
+- [x] Variant property matrix and interactive variants. Each variant stores property defaults. Hover, Press, and Tap switch the active variant and use those defaults
 - [ ] Variables/bindings picker and computed variables
 - [~] Layer event/action panel: Tap, Hover, Press, Keyboard, or Timer to Navigate, Set Variant, Open Overlay, Scroll to, or Set Variable. Modal, popover, and tooltip overlays can be created from the event. Sheet and menu are partial
 - [x] Framer-style responsive sizing and breakpoint inspector

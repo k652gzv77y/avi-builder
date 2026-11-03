@@ -728,6 +728,13 @@ export interface Layer {
    */
   overlay?: LayerOverlay;
 
+  /**
+   * Alternate component trees a Hover, Press, or Set Variant action can show.
+   * The layer itself is the resting variant. Preview and published pages swap
+   * in a pane, which already includes that variant's property defaults.
+   */
+  _interactiveVariants?: InteractiveVariantPanes;
+
   // SSR-only property for resolved collection items
   _collectionItems?: CollectionItemWithValues[];
   // SSR-only property for collection item values (used for visibility filtering)
@@ -1017,6 +1024,19 @@ export type ControlBindingKey = 'visible' | 'fill' | 'opacity' | 'text';
 export interface StackVariableValue {
   value: string;
   breakpoints?: Partial<Record<'tablet' | 'mobile', string>>;
+}
+
+/**
+ * Variant trees resolved for one component instance.
+ * `panes` omits the resting variant; that tree is the instance layer itself.
+ */
+export interface InteractiveVariantPanes {
+  restingVariantId: string;
+  /** Set when a resting instance should enter this variant on hover. */
+  hoverVariantId?: string;
+  /** Set when a resting instance should enter this variant while pressed. */
+  pressedVariantId?: string;
+  panes: Record<string, Layer>;
 }
 
 // A named layer tree variant of a component. Use variants for UI states

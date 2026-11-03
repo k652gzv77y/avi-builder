@@ -4,12 +4,23 @@
  * Applies component variable overrides during resolution
  */
 
-import type { Layer, Component, ComponentVariable, ComponentVariableValue, LayerVariables, VariantSettingsValue } from '@/types';
+import type { Component, ComponentVariable, ComponentVariableValue, InteractiveVariantPanes, Layer, LayerVariables, VariantSettingsValue } from '@/types';
 import { applyStackBindings } from '@/lib/component-bindings';
 import { applyControlBindings, applyStructuredLayers, variablesForVariant } from '@/lib/component-properties';
+import {
+  collectSetVariantTargets,
+  interactionOwnsGesture,
+  planInteractivePanes,
+} from '@/lib/interactive-variants';
 import { prepareVariantLayersForPublish } from './component-variant-utils';
 import { mergeLayerInteractions, remapComponentRootInteraction, remapInteractionTargets } from '@/lib/interactions-framer';
 import { normalizeComponentVariableValue } from './variable-utils';
+
+interface InstanceSource {
+  layer: Layer;
+  parentVariables?: ComponentVariable[];
+  parentOverrides?: Layer['componentOverrides'];
+}
 
 /**
  * Remap collection_layer_id in a FieldVariable using the ID map.
@@ -604,28 +615,22 @@ function tagLayersWithComponentId(layers: Layer[], componentId: string): Layer[]
 }
 
 /**
- * Recursively resolve component instances in a layer tree
- * @param layers - The layer tree to process
- * @param components - Array of available components
- * @param parentComponentVariables - Variables of the parent component (for variableLinks resolution)
- * @param parentOverrides - Overrides from the parent component instance (for variableLinks resolution)
- * @param _visitedComponentIds - Internal: tracks component IDs in the current resolution chain to prevent circular references
- * @returns Layer tree with components resolved
+ * Recursively resolve component instances in a layer tree.
+ * Records each instance so the caller can attach alternate variant trees.
  */
-export function resolveComponents(
+function resolveComponentNodes(
   layers: Layer[],
   components: Component[],
-  parentComponentVariables?: ComponentVariable[],
-  parentOverrides?: Layer['componentOverrides'],
-  _visitedComponentIds?: Set<string>,
+  parentComponentVariables: ComponentVariable[] | undefined,
+  parentOverrides: Layer['componentOverrides'] | undefined,
+  visited: Set<string>,
+  sources: Map<string, InstanceSource>,
 ): Layer[] {
   // Resolve variableLinks at this level first so nested instances
   // get the correct overrides before their children are resolved
   const effectiveLayers = parentComponentVariables?.length
     ? applyComponentOverrides(layers, parentOverrides, parentComponentVariables)
     : layers;
-
-  const visited = _visitedComponentIds ?? new Set<string>();
 
   return effectiveLayers.map(layer => {
     // If this layer is a component instance, populate its children from the component
@@ -647,6 +652,12 @@ export function resolveComponents(
         : [];
 
       if (component && variantLayers.length) {
+        sources.set(layer.id, {
+          layer: { ...layer },
+          parentVariables: parentComponentVariables,
+          parentOverrides,
+        });
+
         // Track this component in the resolution chain
         const innerVisited = new Set(visited);
         innerVisited.add(layer.componentId);
@@ -664,7 +675,7 @@ export function resolveComponents(
         // Recursively resolve nested components, passing current component's
         // variables and this instance's overrides so nested variableLinks resolve correctly
         const nestedResolved = componentContent.children
-          ? resolveComponents(componentContent.children, components, instanceVariables, layer.componentOverrides, innerVisited)
+          ? resolveComponentNodes(componentContent.children, components, instanceVariables, layer.componentOverrides, innerVisited, sources)
           : [];
 
         // Apply component variable overrides (or defaults) before tagging
@@ -688,7 +699,7 @@ export function resolveComponents(
           [{ ...overriddenRoot, children: overriddenChildren }],
           layer.componentOverrides,
           instanceVariables,
-          (nested) => resolveComponents(nested, components, instanceVariables, layer.componentOverrides, innerVisited),
+          (nested) => resolveComponentNodes(nested, components, instanceVariables, layer.componentOverrides, innerVisited, sources),
         );
         const structuredChildren = structuredRoot.children ?? [];
 
@@ -736,10 +747,140 @@ export function resolveComponents(
     if (layer.children?.length) {
       return {
         ...layer,
-        children: resolveComponents(layer.children, components, parentComponentVariables, parentOverrides, visited),
+        children: resolveComponentNodes(layer.children, components, parentComponentVariables, parentOverrides, visited, sources),
       };
     }
 
     return layer;
   });
+}
+
+function findResolvedLayer(layers: Layer[], id: string): Layer | undefined {
+  for (const layer of layers) {
+    if (layer.id === id) return layer;
+    if (layer.children?.length) {
+      const found = findResolvedLayer(layer.children, id);
+      if (found) return found;
+    }
+  }
+  return undefined;
+}
+
+function instanceAlreadyExpanding(stack: Set<string>, layerId: string): boolean {
+  const prefix = `${layerId}:`;
+  for (const key of stack) {
+    if (key.startsWith(prefix)) return true;
+  }
+  return false;
+}
+
+function withInteractivePanes(layers: Layer[], specs: Map<string, InteractiveVariantPanes>): Layer[] {
+  if (specs.size === 0) return layers;
+  let changed = false;
+  const next = layers.map((layer) => {
+    let current = layer;
+    const spec = specs.get(layer.id);
+    if (spec) {
+      current = { ...current, _interactiveVariants: spec };
+      changed = true;
+    }
+    if (current.children?.length) {
+      const children = withInteractivePanes(current.children, specs);
+      if (children !== current.children) {
+        current = current === layer ? { ...current, children } : { ...current, children };
+        changed = true;
+      }
+    }
+    return current;
+  });
+  return changed ? next : layers;
+}
+
+/**
+ * Pre-render the variants a gesture or a Set Variant action can show.
+ * Each pane is resolved with that variant's property defaults. The resting
+ * tree stays on the instance itself.
+ */
+function attachInteractiveVariantPanes(
+  resolved: Layer[],
+  sources: Map<string, InstanceSource>,
+  components: Component[],
+  paneStack: Set<string>,
+): Layer[] {
+  if (sources.size === 0) return resolved;
+  const targets = collectSetVariantTargets(resolved);
+  const specs = new Map<string, InteractiveVariantPanes>();
+
+  for (const [layerId, source] of sources) {
+    if (instanceAlreadyExpanding(paneStack, layerId)) continue;
+    const component = components.find((item) => item.id === source.layer.componentId);
+    if (!component) continue;
+    const resolvedLayer = findResolvedLayer(resolved, layerId);
+    const explicit = targets.get(layerId) ?? [];
+    const plan = planInteractivePanes(
+      component,
+      source.layer.componentVariantId,
+      explicit,
+      {
+        hover: resolvedLayer ? interactionOwnsGesture(resolvedLayer, 'hover') : false,
+        press: resolvedLayer ? interactionOwnsGesture(resolvedLayer, 'press') : false,
+      },
+    );
+    if (plan.paneIds.length === 0) continue;
+
+    const panes: Record<string, Layer> = {};
+    for (const variantId of plan.paneIds) {
+      const key = `${layerId}:${variantId}`;
+      if (paneStack.has(key)) continue;
+      paneStack.add(key);
+      try {
+        const pane = resolveComponents(
+          [{ ...source.layer, componentVariantId: variantId }],
+          components,
+          source.parentVariables,
+          source.parentOverrides,
+          undefined,
+          paneStack,
+        )[0];
+        if (pane) panes[variantId] = pane;
+      } finally {
+        paneStack.delete(key);
+      }
+    }
+
+    if (Object.keys(panes).length === 0) continue;
+    specs.set(layerId, {
+      restingVariantId: plan.restingVariantId,
+      hoverVariantId: plan.hoverVariantId && panes[plan.hoverVariantId] ? plan.hoverVariantId : undefined,
+      pressedVariantId: plan.pressedVariantId && panes[plan.pressedVariantId] ? plan.pressedVariantId : undefined,
+      panes,
+    });
+  }
+
+  return withInteractivePanes(resolved, specs);
+}
+
+/**
+ * Recursively resolve component instances in a layer tree.
+ * Resting instances also carry hidden variant trees for Hover, Press, and
+ * any Set Variant target so preview and published pages can swap them.
+ */
+export function resolveComponents(
+  layers: Layer[],
+  components: Component[],
+  parentComponentVariables?: ComponentVariable[],
+  parentOverrides?: Layer['componentOverrides'],
+  _visitedComponentIds?: Set<string>,
+  _paneStack?: Set<string>,
+): Layer[] {
+  const sources = new Map<string, InstanceSource>();
+  const resolved = resolveComponentNodes(
+    layers,
+    components,
+    parentComponentVariables,
+    parentOverrides,
+    _visitedComponentIds ?? new Set(),
+    sources,
+  );
+  return attachInteractiveVariantPanes(resolved, sources, components, _paneStack ?? new Set());
 }

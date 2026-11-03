@@ -40,6 +40,7 @@ import { combineBgValues, mergeStaticBgVars } from '@/lib/tailwind-class-mapper'
 import { clsx } from 'clsx';
 import type { HiddenLayerInfo } from '@/lib/animation-utils';
 import { transformLayerIdsForInstance } from '@/lib/resolve-components';
+import { useInteractiveVariantGestures, useInteractiveVariantLayer } from '@/hooks/use-interactive-variant';
 
 /**
  * Per-layer-type code splitting.
@@ -258,7 +259,7 @@ const LayerRendererPublic: React.FC<LayerRendererPublicProps> = ({
     }
 
     return (
-      <LayerItem
+      <InteractiveVariantItem
         key={(layer as Layer & { _bulletKey?: string })._bulletKey || layer.id}
         layer={layer}
         isPublished={isPublished}
@@ -302,6 +303,16 @@ const LayerRendererPublic: React.FC<LayerRendererPublicProps> = ({
     </>
   );
 };
+
+/**
+ * Swaps a component instance to the variant chosen by Hover, Press, or Tap.
+ * The resting layer stays mounted in the tree until a gesture selects a pane.
+ */
+function InteractiveVariantItem(props: React.ComponentProps<typeof LayerItem>) {
+  const shown = useInteractiveVariantLayer(props.layer);
+  useInteractiveVariantGestures(props.layer);
+  return <LayerItem {...props} layer={shown} />;
+}
 
 // Separate LayerItem component to handle drag-and-drop per layer
 const LayerItem: React.FC<{

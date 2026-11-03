@@ -32,6 +32,14 @@ import {
   resolveOverlayKind,
   trapFocusIndex,
 } from '@/lib/overlay-position';
+import {
+  activeVariantId,
+  emptyVariantSession,
+  reduceVariantSession,
+  variantGestureForTrigger,
+  type VariantGesture,
+  type VariantSession,
+} from '@/lib/interactive-variants';
 import { useGlobalsStore } from '@/stores/useGlobalsStore';
 import { useInteractionPreviewStore } from '@/stores/useInteractionPreviewStore';
 import type {
@@ -52,6 +60,11 @@ export interface ActionRunOptions {
   live: boolean;
   /** 0–1 scroll progress. Only scroll-to-variant actions use it. */
   scrollProgress?: number;
+  /**
+   * Hover and Press set a variant only while the gesture lasts.
+   * Tap and other events keep it. Defaults to sticky.
+   */
+  gesture?: VariantGesture;
   onNavigate?: (href: string, openInNewTab: boolean) => void;
   onScrollTo?: (label: string) => void;
   onSetVariable?: (variableId: string, value: string) => void;
@@ -89,11 +102,137 @@ function findLayer(doc: Document, layerId: string): HTMLElement | null {
   return doc.querySelector(`[data-layer-id="${cssEscape(layerId)}"]`);
 }
 
-function applySetVariant(doc: Document, targetLayerId: string, variantId: string): void {
+const variantSessions = new Map<string, VariantSession>();
+
+function commitVariant(doc: Document, layerId: string): void {
+  const active = activeVariantId(variantSessions.get(layerId) ?? emptyVariantSession());
+  const element = findLayer(doc, layerId);
+  if (active) {
+    useInteractionPreviewStore.getState().setVariant(layerId, active);
+    element?.setAttribute('data-interaction-variant', active);
+    return;
+  }
+  useInteractionPreviewStore.getState().clearVariant(layerId);
+  element?.removeAttribute('data-interaction-variant');
+}
+
+function writeVariantSession(doc: Document, layerId: string, next: VariantSession, previous: VariantSession): void {
+  if (next === previous) return;
+  if (activeVariantId(next) == null && next.base == null && next.hover == null && next.press == null) {
+    variantSessions.delete(layerId);
+  } else {
+    variantSessions.set(layerId, next);
+  }
+  commitVariant(doc, layerId);
+}
+
+/** Remember a variant for a gesture and publish the one that should show. */
+export function previewVariantGesture(
+  doc: Document,
+  layerId: string,
+  event:
+    | { type: 'set'; gesture: VariantGesture; variantId: string }
+    | { type: 'end'; gesture: 'hover' | 'press' },
+): void {
+  if (!layerId) return;
+  if (event.type === 'set' && !event.variantId) return;
+  const current = variantSessions.get(layerId) ?? emptyVariantSession();
+  writeVariantSession(doc, layerId, reduceVariantSession(current, event), current);
+}
+
+/** Drop every remembered variant. Tests use this between cases. */
+export function resetInteractiveVariants(): void {
+  variantSessions.clear();
+  useInteractionPreviewStore.getState().clearVariants();
+}
+
+function applySetVariant(
+  doc: Document,
+  targetLayerId: string,
+  variantId: string,
+  gesture: VariantGesture,
+  mode: 'merge' | 'replace',
+): void {
   if (!targetLayerId || !variantId) return;
-  useInteractionPreviewStore.getState().setVariant(targetLayerId, variantId);
-  const element = findLayer(doc, targetLayerId);
-  element?.setAttribute('data-interaction-variant', variantId);
+  if (mode === 'replace') {
+    const current = variantSessions.get(targetLayerId) ?? emptyVariantSession();
+    writeVariantSession(doc, targetLayerId, { base: variantId, hover: null, press: null }, current);
+    return;
+  }
+  previewVariantGesture(doc, targetLayerId, { type: 'set', gesture, variantId });
+}
+
+function pointerHitsLayer(doc: Document, layerId: string, event: Event): HTMLElement | null {
+  const element = findLayer(doc, layerId);
+  if (!element || !isEventNode(event.target)) return null;
+  if (element === event.target || element.contains(event.target)) return element;
+  return null;
+}
+
+function pointerCrossesLayer(doc: Document, layerId: string, event: Event): HTMLElement | null {
+  const element = pointerHitsLayer(doc, layerId, event);
+  if (!element) return null;
+  const related = (event as Event & { relatedTarget?: EventTarget | null }).relatedTarget ?? null;
+  if (isEventNode(related) && (element === related || element.contains(related))) return null;
+  return element;
+}
+
+/**
+ * Hover and Press variants on a component instance.
+ * Listeners stay on the document so swapping the variant tree does not drop them.
+ */
+export function bindComponentGestures(
+  doc: Document,
+  layerId: string,
+  spec: { hoverVariantId?: string; pressedVariantId?: string },
+): () => void {
+  const cleanups: Array<() => void> = [];
+  if (spec.hoverVariantId) {
+    const hoverVariantId = spec.hoverVariantId;
+    const onOver = (event: Event) => {
+      if (!pointerCrossesLayer(doc, layerId, event)) return;
+      previewVariantGesture(doc, layerId, { type: 'set', gesture: 'hover', variantId: hoverVariantId });
+    };
+    const onOut = (event: Event) => {
+      if (!pointerCrossesLayer(doc, layerId, event)) return;
+      previewVariantGesture(doc, layerId, { type: 'end', gesture: 'hover' });
+      previewVariantGesture(doc, layerId, { type: 'end', gesture: 'press' });
+    };
+    doc.addEventListener('pointerover', onOver, true);
+    doc.addEventListener('pointerout', onOut, true);
+    cleanups.push(() => {
+      doc.removeEventListener('pointerover', onOver, true);
+      doc.removeEventListener('pointerout', onOut, true);
+    });
+  }
+  if (spec.pressedVariantId) {
+    const pressedVariantId = spec.pressedVariantId;
+    const onDown = (event: Event) => {
+      if (!pointerHitsLayer(doc, layerId, event)) return;
+      if ('button' in event && event.button !== 0) return;
+      previewVariantGesture(doc, layerId, { type: 'set', gesture: 'press', variantId: pressedVariantId });
+    };
+    const onUp = () => {
+      previewVariantGesture(doc, layerId, { type: 'end', gesture: 'press' });
+    };
+    const onOut = (event: Event) => {
+      if (!pointerCrossesLayer(doc, layerId, event)) return;
+      previewVariantGesture(doc, layerId, { type: 'end', gesture: 'press' });
+    };
+    doc.addEventListener('pointerdown', onDown, true);
+    doc.addEventListener('pointerup', onUp, true);
+    doc.addEventListener('pointercancel', onUp, true);
+    doc.addEventListener('pointerout', onOut, true);
+    cleanups.push(() => {
+      doc.removeEventListener('pointerdown', onDown, true);
+      doc.removeEventListener('pointerup', onUp, true);
+      doc.removeEventListener('pointercancel', onUp, true);
+      doc.removeEventListener('pointerout', onOut, true);
+    });
+  }
+  return () => {
+    cleanups.forEach((cleanup) => cleanup());
+  };
 }
 
 function isEventNode(value: EventTarget | null): value is Node {
@@ -403,11 +542,11 @@ function applyAction(
 ): void {
   switch (action.type) {
     case 'set-variant':
-      applySetVariant(doc, action.targetLayerId, action.variantId);
+      applySetVariant(doc, action.targetLayerId, action.variantId, options.gesture ?? 'sticky', 'merge');
       break;
     case 'scroll-variant': {
       const variantId = variantForScrollProgress(action.stops, options.scrollProgress ?? 1);
-      if (variantId) applySetVariant(doc, action.targetLayerId, variantId);
+      if (variantId) applySetVariant(doc, action.targetLayerId, variantId, 'sticky', 'replace');
       break;
     }
     case 'overlay':
@@ -506,6 +645,51 @@ export function runInteractionActions(
   }
 }
 
+/** Run one event. Hover and Press variants last only for the gesture. */
+export function playInteraction(
+  doc: Document,
+  interaction: LayerInteraction,
+  trigger: HTMLElement | null,
+  options: { live: boolean },
+): void {
+  runInteractionActions(doc, interaction, trigger, {
+    live: options.live,
+    gesture: variantGestureForTrigger(interaction.trigger),
+  });
+}
+
+/**
+ * End a Hover or Press. Variant actions return to the previous variant.
+ * Overlays opened by the event still close.
+ */
+export function releaseInteraction(
+  doc: Document,
+  interaction: LayerInteraction,
+  trigger: HTMLElement | null,
+  options: { live: boolean },
+): void {
+  const gesture = variantGestureForTrigger(interaction.trigger);
+  if (gesture === 'hover' || gesture === 'press') {
+    for (const action of interaction.actions ?? []) {
+      if (action.type !== 'set-variant' || !action.targetLayerId) continue;
+      previewVariantGesture(doc, action.targetLayerId, { type: 'end', gesture });
+    }
+  }
+  const closing = actionsOnHoverLeave(interaction.actions);
+  if (closing.length === 0) return;
+  runInteractionActions(doc, { ...interaction, actions: closing }, trigger, {
+    live: options.live,
+    gesture: 'sticky',
+  });
+}
+
+function variantOnly(interaction: LayerInteraction): LayerInteraction {
+  return {
+    ...interaction,
+    actions: (interaction.actions ?? []).filter((action) => action.type === 'set-variant'),
+  };
+}
+
 function collect(layers: Layer[]): Array<{ triggerLayerId: string; interaction: LayerInteraction }> {
   const found: Array<{ triggerLayerId: string; interaction: LayerInteraction }> = [];
   const walk = (list: Layer[]) => {
@@ -533,9 +717,75 @@ export function prepareOverlayTargets(doc: Document, layers: Layer[]): void {
 }
 
 /**
+ * Hover and Press listeners follow the layer id, so a variant swap can replace
+ * the node without dropping the gesture.
+ */
+function bindHoverPress(
+  doc: Document,
+  layerId: string,
+  interaction: LayerInteraction,
+  live: boolean,
+): () => void {
+  const played = live ? interaction : variantOnly(interaction);
+  if ((played.actions ?? []).length === 0) return () => {};
+
+  if (interaction.trigger === 'hover') {
+    const onOver = (event: Event) => {
+      const element = pointerCrossesLayer(doc, layerId, event);
+      if (!element) return;
+      playInteraction(doc, played, element, { live });
+    };
+    const onOut = (event: Event) => {
+      const element = pointerCrossesLayer(doc, layerId, event);
+      if (!element) return;
+      releaseInteraction(doc, played, element, { live });
+    };
+    doc.addEventListener('pointerover', onOver, true);
+    doc.addEventListener('pointerout', onOut, true);
+    return () => {
+      doc.removeEventListener('pointerover', onOver, true);
+      doc.removeEventListener('pointerout', onOut, true);
+    };
+  }
+
+  if (interaction.trigger === 'press') {
+    let pressed = false;
+    const finish = () => {
+      if (!pressed) return;
+      pressed = false;
+      releaseInteraction(doc, played, findLayer(doc, layerId), { live });
+    };
+    const onDown = (event: Event) => {
+      const element = pointerHitsLayer(doc, layerId, event);
+      if (!element) return;
+      if ('button' in event && event.button !== 0) return;
+      pressed = true;
+      playInteraction(doc, played, element, { live });
+    };
+    const onOut = (event: Event) => {
+      if (!pressed || !pointerCrossesLayer(doc, layerId, event)) return;
+      finish();
+    };
+    doc.addEventListener('pointerdown', onDown, true);
+    doc.addEventListener('pointerup', finish, true);
+    doc.addEventListener('pointercancel', finish, true);
+    doc.addEventListener('pointerout', onOut, true);
+    return () => {
+      doc.removeEventListener('pointerdown', onDown, true);
+      doc.removeEventListener('pointerup', finish, true);
+      doc.removeEventListener('pointercancel', finish, true);
+      doc.removeEventListener('pointerout', onOut, true);
+    };
+  }
+
+  return () => {};
+}
+
+/**
  * Bind action events. `live` is the published page: tap, hover, press, keyboard,
  * timer, appear, and load run there. The editor passes `live: false` and only
- * tracks scroll, so a shortcut does not fire while editing.
+ * tracks scroll plus Hover and Press variant changes, so a shortcut does not
+ * fire while editing.
  */
 export function bindInteractionActions(
   doc: Document,
@@ -576,6 +826,11 @@ export function bindInteractionActions(
   }
 
   if (!options.live) {
+    for (const item of items) {
+      if (item.interaction.trigger !== 'hover' && item.interaction.trigger !== 'press') continue;
+      if (!item.interaction.actions?.some(action => action.type === 'set-variant')) continue;
+      cleanups.push(bindHoverPress(doc, item.triggerLayerId, item.interaction, false));
+    }
     return () => cleanups.forEach(cleanup => cleanup());
   }
 
@@ -590,42 +845,8 @@ export function bindInteractionActions(
       cleanups.push(() => trigger.removeEventListener('click', handleClick));
     }
 
-    if (interaction.trigger === 'hover') {
-      const handleEnter = () => runInteractionActions(doc, interaction, trigger, { live: true });
-      const handleLeave = () => {
-        const closing: LayerInteraction = {
-          ...interaction,
-          actions: actionsOnHoverLeave(interaction.actions),
-        };
-        runInteractionActions(doc, closing, trigger, { live: true });
-      };
-      trigger.addEventListener('mouseenter', handleEnter);
-      trigger.addEventListener('mouseleave', handleLeave);
-      cleanups.push(() => {
-        trigger.removeEventListener('mouseenter', handleEnter);
-        trigger.removeEventListener('mouseleave', handleLeave);
-      });
-    }
-
-    if (interaction.trigger === 'press') {
-      const handleDown = () => runInteractionActions(doc, interaction, trigger, { live: true });
-      const handleUp = () => {
-        const closing: LayerInteraction = {
-          ...interaction,
-          actions: actionsOnHoverLeave(interaction.actions),
-        };
-        runInteractionActions(doc, closing, trigger, { live: true });
-      };
-      trigger.addEventListener('pointerdown', handleDown);
-      trigger.addEventListener('pointerup', handleUp);
-      trigger.addEventListener('pointerleave', handleUp);
-      trigger.addEventListener('pointercancel', handleUp);
-      cleanups.push(() => {
-        trigger.removeEventListener('pointerdown', handleDown);
-        trigger.removeEventListener('pointerup', handleUp);
-        trigger.removeEventListener('pointerleave', handleUp);
-        trigger.removeEventListener('pointercancel', handleUp);
-      });
+    if (interaction.trigger === 'hover' || interaction.trigger === 'press') {
+      cleanups.push(bindHoverPress(doc, item.triggerLayerId, interaction, true));
     }
 
     if (interaction.trigger === 'load') {
