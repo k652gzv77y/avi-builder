@@ -487,15 +487,23 @@ const Canvas = React.memo(function Canvas({
 
     const initializeIframe = () => {
       const doc = iframe.contentDocument;
-      if (!doc) return;
+      // Never write the parent document. A same-origin iframe that is not a
+      // distinct document would wipe the editor shell (blank body, then the
+      // published 500 page) and abort the canvas asset requests.
+      if (!doc || doc === document) return;
 
       // Double-check we haven't already initialized
       if (rootRef.current) return;
 
-      // Write the initial HTML with Tailwind Browser CDN (shared template)
-      doc.open();
-      doc.write(getCanvasIframeHtml('canvas-mount'));
-      doc.close();
+      try {
+        // Write the initial HTML with Tailwind Browser CDN (shared template)
+        doc.open();
+        doc.write(getCanvasIframeHtml('canvas-mount'));
+        doc.close();
+      } catch (error) {
+        console.error('[Canvas] Failed to initialize iframe document:', error);
+        return;
+      }
 
       // Load minimal Swiper CSS (no layout overrides that conflict with Tailwind)
       loadSwiperCss(doc);

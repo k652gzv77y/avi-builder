@@ -76,8 +76,14 @@ const indexCache = new WeakMap<Layer[], LayerIndexes>();
 function buildLayerIndexes(layers: Layer[]): LayerIndexes {
   const layerMap = new Map<string, Layer>();
   const parentMap = new Map<string, string>();
+  const seen = new WeakSet<Layer>();
   const walk = (nodes: Layer[], parentId: string | null) => {
     for (const node of nodes) {
+      // A cycle (a layer listed as its own descendant) used to overflow the
+      // stack while the editor shell was rendering and surface the published
+      // 500 page. Skip the node we've already entered.
+      if (!node || seen.has(node)) continue;
+      seen.add(node);
       layerMap.set(node.id, node);
       if (parentId) parentMap.set(node.id, parentId);
       if (node.children) walk(node.children, node.id);
@@ -450,14 +456,20 @@ export function getFilterInputLayers(layers: Layer[]): Array<{ layerId: string; 
  * Recursively searches through layer tree
  */
 export function findLayerById(layers: Layer[], id: string): Layer | null {
-  for (const layer of layers) {
-    if (layer.id === id) return layer;
-    if (layer.children) {
-      const found = findLayerById(layer.children, id);
-      if (found) return found;
+  const seen = new WeakSet<Layer>();
+  const walk = (nodes: Layer[]): Layer | null => {
+    for (const layer of nodes) {
+      if (!layer || seen.has(layer)) continue;
+      seen.add(layer);
+      if (layer.id === id) return layer;
+      if (layer.children) {
+        const found = walk(layer.children);
+        if (found) return found;
+      }
     }
-  }
-  return null;
+    return null;
+  };
+  return walk(layers);
 }
 
 /** Check if a layer or any of its descendants has the given ID */

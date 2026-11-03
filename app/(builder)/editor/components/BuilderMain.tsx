@@ -816,7 +816,13 @@ export default function BuilderApp({ children }: BuilderAppProps = {} as Builder
             return;
           }
 
-          if (response.data) {
+          if (!response.data) {
+            console.error('[Editor] Initial data response was empty');
+            setBuilderDataPreloaded(true);
+            return;
+          }
+
+          {
             // Get store actions
             const { setPagesAndDrafts, setFolders } = usePagesStore.getState();
             const { setComponents } = useComponentsStore.getState();
