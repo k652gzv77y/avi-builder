@@ -25,15 +25,18 @@ import {
   applyFreeformBox,
   isFreeformDraggable,
   pointerToWindowPoint,
-  resizedBox,
   screenDeltaToCanvas,
+  snapResizedBox,
   type ResizeHandle,
 } from '@/lib/canvas-freeform';
 import {
   cancelFreeformPreview,
+  clearSnapGuides,
+  paintSnapGuides,
   previewFreeformBox,
   readFreeformBox,
   scheduleFreeformRelease,
+  siblingSnapTargets,
 } from '@/lib/canvas-freeform-dom';
 import type { Layer } from '@/types';
 
@@ -690,6 +693,7 @@ export function SelectionOverlay({
     event.stopPropagation();
 
     const box = readFreeformBox(target);
+    const snapTargets = siblingSnapTargets(target);
     const startX = event.clientX;
     const startY = event.clientY;
     const position = readLayerPosition(found.layer) === 'fixed' ? 'fixed' : 'absolute';
@@ -726,9 +730,10 @@ export function SelectionOverlay({
 
     const applyDelta = (clientX: number, clientY: number) => {
       const { dx, dy } = screenDeltaToCanvas(startX, startY, clientX, clientY, zoom);
-      const next = resizedBox(box, handle, dx, dy);
-      nodes.forEach((node) => previewFreeformBox(node, next, position));
-      return { dx, dy, next };
+      const snapped = snapResizedBox(box, handle, dx, dy, snapTargets);
+      nodes.forEach((node) => previewFreeformBox(node, snapped.box, position));
+      paintSnapGuides(target, snapped.guides);
+      return { dx, dy, next: snapped.box };
     };
 
     let finished = false;
@@ -746,6 +751,7 @@ export function SelectionOverlay({
       finished = true;
       detach();
       if (!commit || !pointerEvent) {
+        clearSnapGuides(target);
         nodes.forEach((node) => cancelFreeformPreview(node));
         return;
       }
