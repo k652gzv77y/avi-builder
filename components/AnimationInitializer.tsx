@@ -15,7 +15,7 @@ import { SplitText } from 'gsap/SplitText';
 
 import { ITEMS_INJECTED_EVENT, type ItemsInjectedDetail } from '@/components/FilterableCollection';
 import { buildGsapProps, addTweenToTimeline, createSplitTextAnimation, generateInitialAnimationCSS, getEffectiveApplyStyle, setColorVariableResolver } from '@/lib/animation-utils';
-import { closeOpenOverlays, listenForKeyboard, listenForTimer, playInteraction, prepareOverlayTargets, releaseInteraction, runInteractionActions } from '@/lib/interaction-runtime';
+import { bindDragInteraction, closeOpenOverlays, isDragGestureActive, listenForKeyboard, listenForTimer, playInteraction, prepareOverlayTargets, releaseInteraction, runInteractionActions, subscribeDragGestureEnd } from '@/lib/interaction-runtime';
 import { BREAKPOINT_VALUES, getCurrentBreakpoint } from '@/lib/breakpoint-utils';
 import { remapLayerIdsForCollectionItem } from '@/lib/collection-utils';
 import { useColorVariablesStore } from '@/stores/useColorVariablesStore';
@@ -547,7 +547,7 @@ export default function AnimationInitializer({ layers, injectInitialCSS }: Anima
       // server-emitted CSS. For hover/click, paint the `from` state inline so
       // the resting appearance matches the author's intent instead of the
       // layer's CSS default.
-      if (trigger === 'hover' || trigger === 'click' || trigger === 'press' || trigger === 'key' || trigger === 'timer') {
+      if (trigger === 'hover' || trigger === 'click' || trigger === 'press' || trigger === 'drag' || trigger === 'key' || trigger === 'timer') {
         if (shouldRunOnBreakpoint(interaction, currentBreakpoint)) {
           applyInitialFromState(interaction);
         }
@@ -669,6 +669,17 @@ export default function AnimationInitializer({ layers, injectInitialCSS }: Anima
             if (!getElement(triggerLayerId)) return;
             runInteractionActions(actionDocument, interaction, triggerElement, { live: true });
             if ((interaction.tweens || []).length > 0) getTimeline()?.invalidate().restart();
+          });
+          cleanupRef.current.push(cleanup);
+          break;
+        }
+
+        case 'drag': {
+          // Document listeners survive a variant swap. The design canvas does
+          // not mount this initializer, so free-form move stays on the pointer.
+          const cleanup = bindDragInteraction(actionDocument, triggerLayerId, interaction, {
+            live: true,
+            enabled: () => shouldRunOnBreakpoint(interaction, getCurrentBreakpoint()),
           });
           cleanupRef.current.push(cleanup);
           break;
@@ -799,6 +810,7 @@ export default function AnimationInitializer({ layers, injectInitialCSS }: Anima
     });
 
     let rebindTimer: ReturnType<typeof setTimeout> | null = null;
+    let pendingRebind = false;
     const scheduleRebind = () => {
       if (rebindTimer) return;
       rebindTimer = setTimeout(() => {
@@ -806,6 +818,13 @@ export default function AnimationInitializer({ layers, injectInitialCSS }: Anima
         setRebindTick(t => t + 1);
       }, 50);
     };
+    // A variant swap replaces nodes under the pointer. Rebinding in the middle
+    // of a drag would drop the gesture, so wait until the pointer is up.
+    const unsubscribeDrag = subscribeDragGestureEnd(() => {
+      if (!pendingRebind) return;
+      pendingRebind = false;
+      scheduleRebind();
+    });
 
     const containsTrackedId = (node: Node): boolean => {
       if (!(node instanceof Element)) return false;
@@ -821,6 +840,18 @@ export default function AnimationInitializer({ layers, injectInitialCSS }: Anima
     };
 
     const remountObserver = new MutationObserver(mutations => {
+      if (isDragGestureActive()) {
+        for (const m of mutations) {
+          if (m.type !== 'childList' || isInsideSlider(m.target)) continue;
+          for (const n of m.addedNodes) {
+            if (containsTrackedId(n)) {
+              pendingRebind = true;
+              return;
+            }
+          }
+        }
+        return;
+      }
       for (const m of mutations) {
         if (m.type !== 'childList') continue;
         // Skip Swiper's internal slide reshuffling (loop/transition) so a
@@ -842,6 +873,7 @@ export default function AnimationInitializer({ layers, injectInitialCSS }: Anima
 
     return () => {
       if (rebindTimer) clearTimeout(rebindTimer);
+      unsubscribeDrag();
       remountObserver.disconnect();
       closeOpenOverlays();
       cleanups.forEach((cleanup) => cleanup());

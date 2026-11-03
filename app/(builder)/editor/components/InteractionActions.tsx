@@ -27,6 +27,12 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Icon from '@/components/ui/icon';
+import {
+  DEFAULT_DRAG_DISTANCE_PX,
+  defaultDragTrigger,
+  defaultDragVariantRule,
+  sanitizeDragPixels,
+} from '@/lib/drag-gesture';
 import { runInteractionActions } from '@/lib/interaction-runtime';
 import {
   APPEAR_PRESETS,
@@ -58,6 +64,13 @@ import { useGlobalsStore } from '@/stores/useGlobalsStore';
 import { usePagesStore } from '@/stores/usePagesStore';
 import type {
   AppearPresetId,
+  DragAxis,
+  DragBounds,
+  DragDirection,
+  DragPhase,
+  DragRelease,
+  DragTrigger,
+  DragVariantRule,
   InteractionAction,
   KeyboardTrigger,
   Layer,
@@ -91,6 +104,7 @@ export default function InteractionActions({
   const isActionEvent = interaction.trigger === 'click'
     || interaction.trigger === 'hover'
     || interaction.trigger === 'press'
+    || interaction.trigger === 'drag'
     || interaction.trigger === 'key'
     || interaction.trigger === 'timer';
 
@@ -118,7 +132,12 @@ export default function InteractionActions({
   );
 
   const handleAdd = (kind: 'set-variant' | 'open-overlay' | 'close-overlay' | 'navigate' | 'scroll-to' | 'set-variable' | 'scroll-variant') => {
-    onChange(upsertInteractionAction(interaction, createEventAction(generateId('act'), kind)));
+    const action = createEventAction(generateId('act'), kind);
+    if (kind === 'set-variant' && interaction.trigger === 'drag' && action.type === 'set-variant') {
+      onChange(upsertInteractionAction(interaction, { ...action, drag: defaultDragVariantRule() }));
+      return;
+    }
+    onChange(upsertInteractionAction(interaction, action));
   };
 
   const handlePlay = (action: InteractionAction) => {
@@ -241,6 +260,13 @@ export default function InteractionActions({
         />
       )}
 
+      {interaction.trigger === 'drag' && (
+        <DragFields
+          drag={interaction.drag ?? defaultDragTrigger()}
+          onChange={(drag) => onChange({ ...interaction, drag })}
+        />
+      )}
+
       {actions.length === 0 && isActionEvent && (
         <div className="flex flex-col gap-1 pb-4">
           <p className="text-xs text-muted-foreground">
@@ -321,6 +347,7 @@ export default function InteractionActions({
             </div>
             <ActionFields
               action={action}
+              isDrag={interaction.trigger === 'drag'}
               layers={layers}
               targets={targets}
               pages={pageChoices.map(page => ({ id: page.id, name: page.name, slug: page.slug, is_index: page.is_index }))}
@@ -336,6 +363,7 @@ export default function InteractionActions({
 
 interface ActionFieldsProps {
   action: InteractionAction;
+  isDrag: boolean;
   layers: Layer[];
   targets: ReturnType<typeof variantTargets>;
   pages: Array<{ id: string; name: string; slug: string; is_index: boolean }>;
@@ -343,7 +371,7 @@ interface ActionFieldsProps {
   onChange: (action: InteractionAction) => void;
 }
 
-function ActionFields({ action, layers, targets, pages, variables, onChange }: ActionFieldsProps) {
+function ActionFields({ action, isDrag, layers, targets, pages, variables, onChange }: ActionFieldsProps) {
   if (action.type === 'set-variant' || action.type === 'scroll-variant') {
     const target = targets.find(item => item.layerId === action.targetLayerId);
     return (
@@ -387,6 +415,12 @@ function ActionFields({ action, layers, targets, pages, variables, onChange }: A
               onChange={(variantId) => onChange({ ...action, variantId })}
             />
           </Field>
+        )}
+        {action.type === 'set-variant' && isDrag && (
+          <DragVariantFields
+            rule={action.drag}
+            onChange={(drag) => onChange(drag ? { ...action, drag } : { ...action, drag: undefined })}
+          />
         )}
         {action.type === 'scroll-variant' && action.stops.map((stop, index) => (
           <Field key={`${action.id}-${index}`} label={`${Math.round(stop.at * 100)}%`}>
@@ -793,6 +827,340 @@ function TimerFields({
         </Field>
       )}
     </div>
+  );
+}
+
+const DRAG_AXES: ReadonlyArray<{ value: DragAxis; label: string }> = [
+  { value: 'free', label: 'Free' },
+  { value: 'x', label: 'Horizontal' },
+  { value: 'y', label: 'Vertical' },
+  { value: 'both', label: 'Both' },
+];
+
+const DRAG_PHASES: ReadonlyArray<{ value: DragPhase; label: string }> = [
+  { value: 'move', label: 'While dragging' },
+  { value: 'end', label: 'On release' },
+  { value: 'both', label: 'Both' },
+];
+
+const DRAG_DIRECTIONS: ReadonlyArray<{ value: DragDirection; label: string }> = [
+  { value: 'right', label: 'Right' },
+  { value: 'left', label: 'Left' },
+  { value: 'up', label: 'Up' },
+  { value: 'down', label: 'Down' },
+];
+
+function DragFields({
+  drag,
+  onChange,
+}: {
+  drag: DragTrigger;
+  onChange: (drag: DragTrigger) => void;
+}) {
+  const bounds = drag.bounds;
+  const reference = bounds?.reference ?? 'none';
+
+  const writeReference = (next: 'none' | 'parent' | 'px') => {
+    if (next === 'none') {
+      const cleared: DragTrigger = { ...drag };
+      delete cleared.bounds;
+      onChange(cleared);
+      return;
+    }
+    onChange({ ...drag, bounds: { ...bounds, reference: next } });
+  };
+
+  const writeBound = (key: 'minX' | 'maxX' | 'minY' | 'maxY', raw: string) => {
+    const next: DragBounds = { reference: bounds?.reference ?? 'px', ...bounds };
+    if (raw.trim() === '') {
+      delete next[key];
+    } else {
+      const pixels = sanitizeDragPixels(raw);
+      if (pixels === null) return;
+      next[key] = pixels;
+    }
+    onChange({ ...drag, bounds: next });
+  };
+
+  return (
+    <div className="flex flex-col gap-2 pb-4">
+      <Field label="Axis">
+        <Select
+          value={drag.axis}
+          onValueChange={(axis) => onChange({ ...drag, axis: axis as DragAxis })}
+        >
+          <SelectTrigger className="w-full" aria-label="Drag axis">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {DRAG_AXES.map(item => (
+              <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Field>
+      <Field label="Run">
+        <Select
+          value={drag.phase ?? 'end'}
+          onValueChange={(phase) => onChange({ ...drag, phase: phase as DragPhase })}
+        >
+          <SelectTrigger className="w-full" aria-label="When drag actions run">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {DRAG_PHASES.map(item => (
+              <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Field>
+      <Field label="Bounds">
+        <Select
+          value={reference}
+          onValueChange={(value) => writeReference(value === 'parent' || value === 'px' ? value : 'none')}
+        >
+          <SelectTrigger className="w-full" aria-label="Drag bounds">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">None</SelectItem>
+            <SelectItem value="parent">Parent</SelectItem>
+            <SelectItem value="px">Pixels</SelectItem>
+          </SelectContent>
+        </Select>
+      </Field>
+      {bounds && (
+        <>
+          <PixelInput
+            label="Min X"
+            ariaLabel="Minimum X"
+            value={bounds.minX}
+            onChange={(raw) => writeBound('minX', raw)}
+          />
+          <PixelInput
+            label="Max X"
+            ariaLabel="Maximum X"
+            value={bounds.maxX}
+            onChange={(raw) => writeBound('maxX', raw)}
+          />
+          <PixelInput
+            label="Min Y"
+            ariaLabel="Minimum Y"
+            value={bounds.minY}
+            onChange={(raw) => writeBound('minY', raw)}
+          />
+          <PixelInput
+            label="Max Y"
+            ariaLabel="Maximum Y"
+            value={bounds.maxY}
+            onChange={(raw) => writeBound('maxY', raw)}
+          />
+        </>
+      )}
+      <label className="flex items-center gap-2">
+        <Checkbox
+          checked={drag.momentum === true}
+          onCheckedChange={(checked) => onChange({ ...drag, momentum: checked === true })}
+        />
+        <Label variant="muted">Momentum</Label>
+      </label>
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <Label variant="muted">Snap points</Label>
+          <Button
+            type="button"
+            size="xs"
+            variant="secondary"
+            onClick={() => onChange({
+              ...drag,
+              snap: [...(drag.snap ?? []), { x: 0, y: 0 }],
+            })}
+          >
+            Add
+          </Button>
+        </div>
+        {(drag.snap ?? []).map((point, index) => (
+          <div key={`snap-${index}`} className="grid grid-cols-[1fr_1fr_auto] items-center gap-1">
+            <SnapNumber
+              label="X"
+              ariaLabel={`Snap point ${index + 1} X`}
+              value={point.x}
+              onChange={(pixels) => {
+                const snap = (drag.snap ?? []).map((item, itemIndex) => (
+                  itemIndex === index ? { ...item, x: pixels } : item
+                ));
+                onChange({ ...drag, snap });
+              }}
+            />
+            <SnapNumber
+              label="Y"
+              ariaLabel={`Snap point ${index + 1} Y`}
+              value={point.y}
+              onChange={(pixels) => {
+                const snap = (drag.snap ?? []).map((item, itemIndex) => (
+                  itemIndex === index ? { ...item, y: pixels } : item
+                ));
+                onChange({ ...drag, snap });
+              }}
+            />
+            <Button
+              type="button"
+              size="xs"
+              variant="ghost"
+              aria-label={`Remove snap point ${index + 1}`}
+              onClick={() => onChange({
+                ...drag,
+                snap: (drag.snap ?? []).filter((_, itemIndex) => itemIndex !== index),
+              })}
+            >
+              <Icon name="x" />
+            </Button>
+          </div>
+        ))}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Both locks to the first axis that moves. Momentum glides a short way after release, then stops on a snap point or the bounds. Drag runs in preview and on the published page.
+      </p>
+    </div>
+  );
+}
+
+function DragVariantFields({
+  rule,
+  onChange,
+}: {
+  rule: DragVariantRule | undefined;
+  onChange: (rule: DragVariantRule | undefined) => void;
+}) {
+  const direction = rule?.direction ?? 'any';
+
+  return (
+    <>
+      <Field label="Drag">
+        <Select
+          value={direction}
+          onValueChange={(value) => {
+            if (value === 'any') {
+              onChange(undefined);
+              return;
+            }
+            onChange({
+              direction: value as DragDirection,
+              distance: rule?.distance ?? DEFAULT_DRAG_DISTANCE_PX,
+              release: rule?.release ?? 'stick',
+            });
+          }}
+        >
+          <SelectTrigger className="w-full" aria-label="Drag direction">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="any">Any drag</SelectItem>
+            {DRAG_DIRECTIONS.map(item => (
+              <SelectItem key={item.value} value={item.value}>{item.label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Field>
+      {rule && (
+        <>
+          <PixelInput
+            label="Past"
+            ariaLabel="Drag distance"
+            value={rule.distance}
+            onChange={(raw) => {
+              if (raw.trim() === '') {
+                onChange({ ...rule, distance: 0 });
+                return;
+              }
+              const distance = sanitizeDragPixels(raw);
+              if (distance === null) return;
+              onChange({ ...rule, distance: Math.max(0, distance) });
+            }}
+          />
+          <Field label="Release">
+            <Select
+              value={rule.release}
+              onValueChange={(release) => onChange({
+                ...rule,
+                release: release === 'return' ? 'return' : 'stick',
+              })}
+            >
+              <SelectTrigger className="w-full" aria-label="Drag release">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="stick">Keep variant</SelectItem>
+                <SelectItem value="return">Return</SelectItem>
+              </SelectContent>
+            </Select>
+          </Field>
+        </>
+      )}
+      <p className="text-xs text-muted-foreground">
+        Keep matches Tap: the variant stays after the distance. Return matches Hover: it shows while you are past the distance, then the previous variant comes back.
+      </p>
+    </>
+  );
+}
+
+function SnapNumber({
+  label,
+  ariaLabel,
+  value,
+  onChange,
+}: {
+  label: string;
+  ariaLabel: string;
+  value: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <InputGroup>
+      <InputGroupAddon className="text-xs text-muted-foreground">
+        {label}
+      </InputGroupAddon>
+      <InputGroupInput
+        type="number"
+        step={1}
+        value={value}
+        aria-label={ariaLabel}
+        onChange={(event) => {
+          const pixels = sanitizeDragPixels(event.target.value);
+          if (pixels === null) return;
+          onChange(pixels);
+        }}
+      />
+    </InputGroup>
+  );
+}
+
+function PixelInput({
+  label,
+  ariaLabel,
+  value,
+  onChange,
+}: {
+  label: string;
+  ariaLabel: string;
+  value: number | undefined;
+  onChange: (raw: string) => void;
+}) {
+  return (
+    <Field label={label}>
+      <InputGroup>
+        <InputGroupInput
+          type="number"
+          step={1}
+          value={value ?? ''}
+          aria-label={ariaLabel}
+          onChange={(event) => onChange(event.target.value)}
+        />
+        <InputGroupAddon align="inline-end" className="text-xs text-muted-foreground">
+          px
+        </InputGroupAddon>
+      </InputGroup>
+    </Field>
   );
 }
 
