@@ -168,33 +168,41 @@ export const useColorVariablesStore = create<ColorVariablesStore>((set, get) => 
   setPreviewOverride: (override) => set({ previewOverride: override }),
 
   generateCssDeclarations: () => {
-    const { colorVariables, previewOverride } = get();
-    if (colorVariables.length === 0 && !previewOverride) return '';
-    const toCssValue = (val: string): string => {
-      const parts = val.split('/');
-      if (parts.length < 2) return val;
-      const hex = parts[0];
-      const opacity = parseInt(parts[1]) / 100;
-      const r = parseInt(hex.slice(1, 3), 16);
-      const g = parseInt(hex.slice(3, 5), 16);
-      const b = parseInt(hex.slice(5, 7), 16);
-      return `rgba(${r},${g},${b},${opacity})`;
-    };
-    const settings = useSettingsStore.getState().settingsByKey || {};
-    const modes = settings['variable_modes']?.colors || [];
-    const dark = modes.find((mode: { id: string; name: string }) =>
-      mode.name?.trim().toLowerCase() === 'dark' || mode.id?.toLowerCase() === 'dark'
-    );
-    const darkModeId = dark?.id || null;
-    const modeValues = (settings['color_variable_mode_values'] || {}) as Record<string, Record<string, string>>;
-    const lightDecls = colorVariables
-      .map((v) => {
-        if (previewOverride && v.id === previewOverride.id) return `--${v.id}: ${toCssValue(previewOverride.value)};`;
-        return `--${v.id}: ${toCssValue(v.value)};`;
-      })
-      .join(' ');
-    const darkDecls = darkModeId
-      ? colorVariables
+    try {
+      const { colorVariables, previewOverride } = get();
+      if (colorVariables.length === 0 && !previewOverride) return '';
+      const toCssValue = (val: unknown): string => {
+        if (typeof val !== 'string' || !val) return 'transparent';
+        const parts = val.split('/');
+        if (parts.length < 2) return val;
+        const hex = parts[0];
+        if (!hex.startsWith('#') || hex.length < 7) return val;
+        const opacity = parseInt(parts[1], 10) / 100;
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        if ([r, g, b].some((channel) => Number.isNaN(channel))) return val;
+        return `rgba(${r},${g},${b},${opacity})`;
+      };
+      const settings = useSettingsStore.getState().settingsByKey || {};
+      const rawModes = settings['variable_modes']?.colors;
+      const modes = Array.isArray(rawModes) ? rawModes : [];
+      const dark = modes.find((mode: { id?: string; name?: string }) =>
+        mode?.name?.trim().toLowerCase() === 'dark' || mode?.id?.toLowerCase() === 'dark'
+      );
+      const darkModeId = dark?.id || null;
+      const storedModeValues = settings['color_variable_mode_values'];
+      const modeValues = storedModeValues && typeof storedModeValues === 'object'
+        ? storedModeValues as Record<string, Record<string, string>>
+        : {};
+      const lightDecls = colorVariables
+        .map((v) => {
+          if (previewOverride && v.id === previewOverride.id) return `--${v.id}: ${toCssValue(previewOverride.value)};`;
+          return `--${v.id}: ${toCssValue(v.value)};`;
+        })
+        .join(' ');
+      const darkDecls = darkModeId
+        ? colorVariables
           .map((v) => {
             if (previewOverride && v.id === previewOverride.id) return `--${v.id}: ${toCssValue(previewOverride.value)};`;
             const darkValue = modeValues[v.id]?.[darkModeId];
@@ -203,8 +211,12 @@ export const useColorVariablesStore = create<ColorVariablesStore>((set, get) => 
           })
           .filter(Boolean)
           .join(' ')
-      : '';
-    if (!darkDecls) return `:root { ${lightDecls} }`;
-    return `:root { ${lightDecls} } html.dark { ${darkDecls} }`;
+        : '';
+      if (!darkDecls) return `:root { ${lightDecls} }`;
+      return `:root { ${lightDecls} } html.dark { ${darkDecls} }`;
+    } catch (error) {
+      console.error('[color variables] CSS generation failed:', error);
+      return '';
+    }
   },
 }));

@@ -20,7 +20,6 @@ export default function BreakpointFrames({
   active,
   activeFrameId,
   zoom,
-  previewUrl,
   onSelect,
   onActiveWidthChange,
   children,
@@ -28,7 +27,6 @@ export default function BreakpointFrames({
   active: Breakpoint | 'all';
   activeFrameId?: string | null;
   zoom: number;
-  previewUrl?: string;
   onSelect: (mode: Breakpoint, frame: CanvasBreakpointFrame) => void;
   onActiveWidthChange?: (width: number) => void;
   children: React.ReactNode;
@@ -235,23 +233,15 @@ export default function BreakpointFrames({
                   className="overflow-hidden rounded-[10px] bg-white shadow-[0_18px_40px_rgba(0,0,0,0.08)] outline outline-black/5 dark:bg-[#111] dark:outline-white/10"
                   style={{ width: displayWidth, height: displayHeight }}
                 >
-                  {previewUrl ? (
-                    <iframe
-                      title={`${frame.label} preview`}
-                      src={previewUrl}
-                      className="pointer-events-none origin-top-left border-0 bg-white"
-                      style={{
-                        width: frame.width,
-                        height: PREVIEW_HEIGHT,
-                        transform: `scale(${scale})`,
-                      }}
-                      tabIndex={-1}
-                    />
-                  ) : (
-                    <div className="flex h-full items-center justify-center text-xs text-neutral-400">
-                      {frame.label}
-                    </div>
-                  )}
+                  {/* Placeholder only. A same-origin `/preview` iframe here
+                      navigates two extra Next.js documents (tablet + phone)
+                      inside the editor. Those requests share the Worker
+                      isolate with editor init and were aborting the shell
+                      into the published 500 page. The live canvas is the
+                      active frame. */}
+                  <div className="flex h-full items-center justify-center text-xs text-neutral-400">
+                    {frame.label}
+                  </div>
                 </button>
               )}
 

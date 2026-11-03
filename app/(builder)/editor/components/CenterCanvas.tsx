@@ -2688,7 +2688,6 @@ const CenterCanvas = React.memo(function CenterCanvas({
                   active={viewportMode}
                   activeFrameId={activeFrameId}
                   zoom={zoom}
-                  previewUrl={previewUrl || undefined}
                   onSelect={(mode, frame) => {
                     setActiveFrameId(frame.id);
                     setActiveCanvasWidth(frame.width);
