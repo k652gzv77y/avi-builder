@@ -109,6 +109,7 @@ import { getStyleIds } from '@/lib/layer-style-utils';
 import { resolveLayerClasses, chipClasses } from '@/lib/layer-style-resolve';
 import { buildDesign } from '@/lib/import/design';
 import { cn, generateId } from '@/lib/utils';
+import { nextInteractionOwnerId } from '@/lib/interaction-owner';
 import { applyOverlaySetup, createOverlayLayer, syncOverlaySettings } from '@/lib/overlay-setup';
 import { sanitizeHtmlId } from '@/lib/html-utils';
 import { stableList } from '@/lib/stable-list';
@@ -512,19 +513,20 @@ const RightSidebar = React.memo(function RightSidebar({
     return null;
   }, [selectedLayer, isSelectedLayerAtRoot]);
 
-  // Set interaction owner when interactions tab becomes active
+  // Follow the current selection. An open event only stays put while the
+  // selection is one of its animation targets.
   useEffect(() => {
-    if (activeTab === 'interactions' && selectedLayerId && !interactionOwnerLayerId) {
-      setInteractionOwnerLayerId(selectedLayerId);
-    }
-  }, [activeTab, selectedLayerId, interactionOwnerLayerId]);
-
-  // Update interaction owner layer when selected layer changes (only if no trigger is selected)
-  useEffect(() => {
-    if (activeTab === 'interactions' && selectedLayerId && !selectedTriggerId) {
-      setInteractionOwnerLayerId(selectedLayerId);
-    }
-  }, [activeTab, selectedLayerId, selectedTriggerId]);
+    if (activeTab !== 'interactions') return;
+    const nextOwner = nextInteractionOwnerId(
+      selectedLayerId,
+      interactionOwnerLayerId,
+      selectedTriggerId,
+      interactionOwnerLayer?.interactions,
+    );
+    if (nextOwner === interactionOwnerLayerId) return;
+    setInteractionOwnerLayerId(nextOwner);
+    setSelectedTriggerId(null);
+  }, [activeTab, interactionOwnerLayer, interactionOwnerLayerId, selectedLayerId, selectedTriggerId]);
 
   // Clear interaction owner when tab changes away from interactions
   useEffect(() => {
