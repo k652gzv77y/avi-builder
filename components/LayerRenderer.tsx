@@ -3758,6 +3758,13 @@ const LayerItemImpl: React.FC<{
         {isEditMode && isSelected && !isLockedByOther && (
           <EditingIndicator layerId={layer.id} className="absolute -top-8 right-0 z-20" />
         )}
+        {isEditMode && layer.overlay && resolveOverlayKind(layer.overlay) === 'sheet' && (
+          <span
+            data-overlay-chrome="sheet-handle"
+            aria-hidden="true"
+            className="pointer-events-none absolute left-1/2 top-2 z-20 h-1 w-9 -translate-x-1/2 rounded-full bg-black/25"
+          />
+        )}
         {isEditMode && isSelected && layer.overlay && (
           <span
             data-overlay-badge={resolveOverlayKind(layer.overlay)}

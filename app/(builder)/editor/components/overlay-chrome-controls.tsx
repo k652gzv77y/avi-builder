@@ -132,12 +132,12 @@ export default function OverlayChromeControls({
       </div>
       {value.kind === 'sheet' && (
         <p className="text-[11px] leading-snug text-muted-foreground">
-          Sheet sits on the bottom edge. Drag to close is not available.
+          Sheet sits flush on the bottom edge. Height, max height, and padding come from the layer. Drag to close is not available.
         </p>
       )}
       {value.kind === 'menu' && (
         <p className="text-[11px] leading-snug text-muted-foreground">
-          Menu anchors like a popover. Arrow keys between items are not available.
+          Menu anchors like a popover. Child layers are the items. Up and Down move between them. Typeahead is not available.
         </p>
       )}
     </div>

@@ -5,6 +5,7 @@ import { DEFAULT_OVERLAY_DISMISS } from '@/lib/interactions-framer';
 import {
   applyInteractionChange,
   applyOverlaySetup,
+  createMenuItemLayer,
   createOverlayLayer,
   overlayCanvasHidden,
   overlayDismissSummary,
@@ -148,6 +149,68 @@ test('tooltip overlay keeps its anchor layer and does not return focus by defaul
     assert.equal(saved.anchorLayerId, 'card');
     assert.equal(saved.kind, 'tooltip');
   }
+});
+
+test('a sheet keeps author height, max height, and padding and anchors to the bottom', () => {
+  const overlay = createOverlayLayer('sheet', 'sheet');
+  assert.equal(overlay.overlay?.kind, 'sheet');
+  assert.equal(overlay.overlay?.placement, 'fixed');
+  assert.equal(overlay.customName, 'Sheet');
+  assert.equal(overlay.design?.sizing?.width, '100%');
+  assert.equal(overlay.design?.sizing?.minHeight, '160px');
+  assert.equal(overlay.design?.sizing?.maxHeight, '85vh');
+  assert.equal(overlay.design?.spacing?.paddingTop, '24px');
+  assert.equal(overlay.design?.borders?.borderTopLeftRadius, '16px');
+  assert.equal(overlay.design?.borders?.borderBottomLeftRadius, '0px');
+  const classes = overlay.classes;
+  assert.ok(Array.isArray(classes));
+  assert.ok(classes.includes('w-[100%]'));
+  assert.ok(classes.includes('max-h-[85vh]'));
+  assert.ok(classes.includes('overflow-y-auto'));
+  assert.ok(classes.includes('rounded-tl-[16px]'));
+  assert.ok(classes.includes('rounded-bl-[0px]'));
+});
+
+test('a menu is an anchored list whose children are the items', () => {
+  const overlay = createOverlayLayer('menu-1', 'menu');
+  assert.equal(overlay.overlay?.kind, 'menu');
+  assert.equal(overlay.overlay?.placement, 'relative');
+  assert.equal(overlay.overlay?.anchor, 'bottom');
+  assert.equal(overlay.customName, 'Menu');
+  assert.equal(overlay.attributes?.['data-overlay-slot'], 'items');
+  assert.equal(overlay.design?.sizing?.width, '220px');
+  assert.equal(overlay.design?.spacing?.paddingTop, '4px');
+  const items = overlay.children ?? [];
+  assert.deepEqual(items.map(item => item.customName), ['Edit', 'Duplicate', 'Delete']);
+  assert.ok(items.every(item => item.attributes?.role === 'menuitem' && item.name === 'button'));
+  assert.equal(items[0].children?.[0].settings?.tag, 'span');
+
+  const row = createMenuItemLayer('row', 'Archive');
+  assert.equal(row.attributes?.role, 'menuitem');
+  assert.equal(row.id, 'row');
+
+  const setup = applyOverlaySetup([trigger()], 'button', overlay, {
+    interactionId: 'int-1',
+    actionId: 'act-1',
+  });
+  assert.ok(setup);
+  const action = setup[0].interactions?.[0].actions?.[0];
+  assert.equal(action?.type, 'overlay');
+  if (action?.type === 'overlay') {
+    assert.equal(action.kind, 'menu');
+    assert.equal(action.placement, 'relative');
+    assert.equal(action.anchor, 'bottom');
+    assert.equal(action.dismiss.restoreFocus, true);
+  }
+  const kept = syncOverlaySettings(setup, 'menu-1', {
+    placement: 'relative',
+    kind: 'menu',
+    anchor: 'top',
+    dismiss: { escape: true, outside: true, restoreFocus: true },
+  });
+  assert.equal(kept[1].overlay?.kind, 'menu');
+  assert.equal(kept[1].overlay?.anchor, 'top');
+  assert.equal(kept[1].children?.length, 3);
 });
 
 test('canvas hides overlays until the layer is selected', () => {

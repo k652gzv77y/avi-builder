@@ -6,7 +6,7 @@ import { overlayDismissSummary } from '@/lib/overlay-setup';
 import { overlayKindLabel, resolveOverlayKind } from '@/lib/overlay-position';
 import type { Layer, OverlayKind } from '@/types';
 
-const CREATE_OVERLAYS: readonly OverlayKind[] = ['modal', 'popover', 'tooltip', 'sheet'];
+const CREATE_OVERLAYS: readonly OverlayKind[] = ['modal', 'popover', 'tooltip', 'sheet', 'menu'];
 
 interface InteractionsSectionProps {
   layer: Layer | null;

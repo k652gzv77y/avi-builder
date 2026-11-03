@@ -236,17 +236,64 @@ export function placeModalOverlay(input: {
   };
 }
 
-/** Bottom sheet. Horizontally centered, sitting on the viewport margin. No drag. */
+/** Radius and shadow applied while a sheet is open, when the layer has none of its own. */
+export const SHEET_TOP_RADIUS = '16px';
+export const SHEET_SHADOW = '0 -12px 40px rgba(15, 15, 15, 0.16)';
+
+export interface SheetPlacement {
+  /** Where the top would sit if the panel were positioned from the top. */
+  top: number;
+  left: number;
+  /** Set when the measured panel is wider than the viewport. */
+  maxWidth?: number;
+  /** Set when the measured panel is taller than the viewport. */
+  maxHeight?: number;
+}
+
+/**
+ * Bottom sheet. The panel's bottom edge meets the viewport bottom.
+ * A panel at least as wide as the viewport starts at the left edge.
+ * A narrower panel is centered. A panel taller than the screen is capped
+ * to the viewport height. No drag gesture.
+ * `margin` is ignored: a sheet does not float inset like a modal.
+ */
 export function placeSheetOverlay(input: {
   overlay: OverlaySize;
   viewport: OverlayViewport;
   margin?: number;
-}): { top: number; left: number } {
-  const margin = input.margin ?? OVERLAY_VIEWPORT_MARGIN;
+}): SheetPlacement {
   const { overlay, viewport } = input;
-  const maxLeft = viewport.width - margin - overlay.width;
+  const spans = overlay.width >= viewport.width - 1;
+  const maxWidth = overlay.width > viewport.width ? viewport.width : undefined;
+  const usedWidth = maxWidth ?? overlay.width;
+  const maxLeft = Math.max(0, viewport.width - usedWidth);
+  const capped = overlay.height > viewport.height;
+  const usedHeight = capped ? viewport.height : overlay.height;
   return {
-    top: Math.round(Math.max(margin, viewport.height - margin - overlay.height)),
-    left: Math.round(clamp((viewport.width - overlay.width) / 2, margin, Math.max(margin, maxLeft))),
+    top: Math.round(Math.max(0, viewport.height - usedHeight)),
+    left: spans ? 0 : Math.round(clamp((viewport.width - usedWidth) / 2, 0, maxLeft)),
+    ...(maxWidth != null ? { maxWidth } : {}),
+    ...(capped ? { maxHeight: viewport.height } : {}),
   };
+}
+
+/**
+ * Next item in a vertical menu.
+ * Arrow keys wrap. Home and End jump to the ends.
+ * Left, right, and typed characters are ignored: no grid and no typeahead.
+ * `activeIndex` -1 means focus is on the menu shell, not an item.
+ */
+export function nextMenuItemIndex(key: string, activeIndex: number, count: number): number | null {
+  if (count <= 0) return null;
+  if (key === 'Home') return 0;
+  if (key === 'End') return count - 1;
+  if (key === 'ArrowDown') {
+    if (activeIndex < 0 || activeIndex >= count) return 0;
+    return (activeIndex + 1) % count;
+  }
+  if (key === 'ArrowUp') {
+    if (activeIndex < 0 || activeIndex >= count) return count - 1;
+    return (activeIndex - 1 + count) % count;
+  }
+  return null;
 }

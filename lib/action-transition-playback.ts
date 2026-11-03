@@ -132,15 +132,24 @@ function placeGhost(ghost: HTMLElement, live: HTMLElement): boolean {
   return true;
 }
 
+function isOverlayChrome(node: Node): boolean {
+  if (typeof (node as HTMLElement).getAttribute !== 'function') return false;
+  const marker = (node as HTMLElement).getAttribute('data-overlay-chrome');
+  return marker != null && marker !== '';
+}
+
 function staggerChildren(element: HTMLElement, spec: MotionSpec, stops: Array<() => void>): void {
   if (spec.staggerMs <= 0) return;
-  Array.from(element.children).forEach((child, index) => {
-    if (!isElement(child)) return;
+  // The sheet grabber is chrome, not a designed child, so it does not take a stagger slot.
+  let index = 0;
+  Array.from(element.children).forEach((child) => {
+    if (!isElement(child) || isOverlayChrome(child)) return;
     const delayed: MotionSpec = {
       ...spec,
       delayMs: spec.delayMs + (index + 1) * spec.staggerMs,
       staggerMs: 0,
     };
+    index += 1;
     stops.push(playMotion(child, 0, 1, delayed));
   });
 }
