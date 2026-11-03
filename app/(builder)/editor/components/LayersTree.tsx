@@ -1292,13 +1292,19 @@ export default function LayersTree({
     };
 
     if (editingComponentId) {
-      const { componentDrafts } = useComponentsStore.getState();
+      const { componentDrafts, updateTextVariable } = useComponentsStore.getState();
       const variantId = useEditorStore.getState().editingComponentVariantId;
       const variantDrafts = componentDrafts[editingComponentId];
       const targetVariantId = (variantId && variantDrafts?.[variantId]) ? variantId : (variantDrafts ? Object.keys(variantDrafts)[0] : null);
       if (targetVariantId && variantDrafts) {
         const compLayers = variantDrafts[targetVariantId] || [];
         updateComponentDraft(editingComponentId, targetVariantId, updateLayerProps(compLayers, id, updates));
+      }
+      const visibleVariableId = node.layer.controlBindings?.visible;
+      if (visibleVariableId) {
+        void updateTextVariable(editingComponentId, visibleVariableId, {
+          default_value: { type: 'boolean', value: !newHidden },
+        });
       }
     } else {
       updateLayer(pageId, id, updates);

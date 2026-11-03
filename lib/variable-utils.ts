@@ -16,6 +16,25 @@ import { buildSvgDataUrl } from '@/lib/asset-utils';
 import { parseCollectionLinkValue } from '@/lib/link-utils';
 import { stringToTiptapContent } from '@/lib/text-format-utils';
 
+/** Override buckets that store a value per variable id. `variableLinks` is excluded. */
+export const OVERRIDE_VALUE_KEYS = [
+  'text',
+  'rich_text',
+  'image',
+  'link',
+  'audio',
+  'video',
+  'icon',
+  'variant',
+  'stack',
+  'number',
+  'boolean',
+  'enum',
+  'color',
+] as const satisfies readonly Exclude<keyof NonNullable<Layer['componentOverrides']>, 'variableLinks'>[];
+
+export type OverrideValueKey = (typeof OVERRIDE_VALUE_KEYS)[number];
+
 /** Canonical empty componentOverrides structure — use when setting/resetting overrides */
 export const EMPTY_OVERRIDES: NonNullable<Layer['componentOverrides']> = {
   text: {},
@@ -27,8 +46,21 @@ export const EMPTY_OVERRIDES: NonNullable<Layer['componentOverrides']> = {
   icon: {},
   variant: {},
   stack: {},
+  number: {},
+  boolean: {},
+  enum: {},
+  color: {},
   variableLinks: {},
 };
+
+/** True when any per-variable override bucket has a value. */
+export function hasOverrideValues(overrides: Layer['componentOverrides'] | undefined): boolean {
+  if (!overrides) return false;
+  return OVERRIDE_VALUE_KEYS.some((key) => {
+    const bucket = overrides[key];
+    return !!bucket && Object.keys(bucket).length > 0;
+  });
+}
 
 /**
  * Create a DynamicTextVariable from a string (with or without inline variables)

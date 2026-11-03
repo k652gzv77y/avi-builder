@@ -675,6 +675,13 @@ export interface Layer {
    */
   stackBindings?: Partial<Record<StackVariableKey, string>>;
   /**
+   * Links a layer property to a component property control.
+   * `visible` is a boolean, `fill` is a color, `opacity` is a number,
+   * and `text` is an enum or number written into the layer's text.
+   * Resolved from the instance override or the control's default.
+   */
+  controlBindings?: Partial<Record<ControlBindingKey, string>>;
+  /**
    * Binds a stack property to a CMS field or a Fetch. Resolved at render
    * from the current collection item or the fetch value. Separate from
    * `stackBindings`, which point at component variables.
@@ -690,6 +697,10 @@ export interface Layer {
     icon?: Record<string, ComponentVariableValue>; // ComponentVariable.id → override value (icon)
     variant?: Record<string, ComponentVariableValue>; // ComponentVariable.id → override value (variant)
     stack?: Record<string, StackVariableValue>; // ComponentVariable.id → per-breakpoint stack override
+    number?: Record<string, NumberPropertyValue>;
+    boolean?: Record<string, BooleanPropertyValue>;
+    enum?: Record<string, EnumPropertyValue>;
+    color?: Record<string, ColorPropertyValue>;
     variableLinks?: Record<string, string>; // childVariableId → parentVariableId (pass-through from nested component to parent)
   };
 
@@ -915,14 +926,31 @@ export interface BlockTemplate {
 }
 
 // Component Variable Types (ComponentVariableValue defined after text variable types)
+export type ComponentVariableType = 'text' | 'rich_text' | 'image' | 'link' | 'audio' | 'video' | 'icon' | 'variant' | 'stack' | 'number' | 'boolean' | 'enum' | 'color';
+
+/** Visual-component controls that bind to a layer property (visibility, fill, opacity, text). */
+export type ComponentPropertyType = 'number' | 'boolean' | 'enum' | 'color';
+
+/** One choice in an enum property control. `id` is the stored value. */
+export interface EnumOption {
+  id: string;
+  label: string;
+}
+
 export interface ComponentVariable {
   id: string;        // Unique variable ID
   name: string;      // Display name (e.g., "Button title")
-  type?: 'text' | 'rich_text' | 'image' | 'link' | 'audio' | 'video' | 'icon' | 'variant' | 'stack'; // Variable type (defaults to 'text' for backwards compatibility)
+  type?: ComponentVariableType; // Variable type (defaults to 'text' for backwards compatibility)
   /** Which stack property a `stack` variable controls. */
   stack_key?: StackVariableKey;
   placeholder?: string; // Placeholder text shown in text override inputs
   default_value?: ComponentVariableValue; // Default value
+  /** Choices for an `enum` control. */
+  options?: EnumOption[];
+  /** Inclusive range for a `number` control. */
+  min?: number;
+  max?: number;
+  step?: number;
 }
 
 /**
@@ -946,6 +974,12 @@ export interface VariantStyleOverride {
 
 /** Stack properties that can be exposed as component variables. */
 export type StackVariableKey = 'direction' | 'gap' | 'padding' | 'distribute' | 'align';
+
+/**
+ * Layer properties a component control can drive.
+ * `visible` ← boolean, `fill` ← color, `opacity` ← number, `text` ← enum or number.
+ */
+export type ControlBindingKey = 'visible' | 'fill' | 'opacity' | 'text';
 
 /**
  * Value for a stack variable. Desktop is the base (`value`). Tablet and phone
@@ -1750,8 +1784,32 @@ export interface VariantSettingsValue {
   variant_id: string;
 }
 
-// Component variable value type (text, image, link, audio, video, icon, and variant variables)
-export type ComponentVariableValue = DynamicTextVariable | DynamicRichTextVariable | ImageSettingsValue | LinkSettingsValue | AudioSettingsValue | VideoSettingsValue | IconSettingsValue | VariantSettingsValue | StackVariableValue;
+/** Numeric component property. `value` is the authored number, not a CSS string. */
+export interface NumberPropertyValue {
+  type: 'number';
+  value: number;
+}
+
+/** Boolean component property. `true` means the bound layer is visible. */
+export interface BooleanPropertyValue {
+  type: 'boolean';
+  value: boolean;
+}
+
+/** Enum component property. `value` is an `EnumOption.id`. */
+export interface EnumPropertyValue {
+  type: 'enum';
+  value: string;
+}
+
+/** Solid color component property. Stored as a CSS color (`#hex` or `var(--token)`). */
+export interface ColorPropertyValue {
+  type: 'color';
+  value: string;
+}
+
+// Component variable value type (text, image, link, audio, video, icon, variant, and property controls)
+export type ComponentVariableValue = DynamicTextVariable | DynamicRichTextVariable | ImageSettingsValue | LinkSettingsValue | AudioSettingsValue | VideoSettingsValue | IconSettingsValue | VariantSettingsValue | StackVariableValue | NumberPropertyValue | BooleanPropertyValue | EnumPropertyValue | ColorPropertyValue;
 
 // Pagination Layer Definition (partial Layer for styling pagination controls)
 export interface PaginationLayerConfig {

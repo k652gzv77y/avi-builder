@@ -9,6 +9,8 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/in
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { useDesignSync } from '@/hooks/use-design-sync';
+import { useControlBindings } from '@/hooks/use-control-bindings';
+import { StackPropertyLabel } from './BindingsPicker';
 import { useEditorStore } from '@/stores/useEditorStore';
 import { removeSpaces } from '@/lib/utils';
 import type { Layer } from '@/types';
@@ -44,6 +46,7 @@ const EffectControls = memo(function EffectControls({ layer, onLayerUpdate, acti
     activeUIState,
     activeTextStyleKey,
   });
+  const { bindingFor, syncValue } = useControlBindings({ layer, onLayerUpdate });
 
   // Get current values from layer (no inheritance - only exact breakpoint values)
   const opacity = getDesignProperty('effects', 'opacity') || '100';
@@ -160,10 +163,11 @@ const EffectControls = memo(function EffectControls({ layer, onLayerUpdate, acti
 
   const handleOpacityChange = (value: string) => {
     setOpacityInput(value);
-    const parsed = parseInt(value);
+    const parsed = parseInt(value, 10);
     if (!isNaN(parsed)) {
       const numValue = Math.max(0, Math.min(100, parsed));
       debouncedUpdateDesignProperty('effects', 'opacity', `${numValue}`);
+      syncValue('opacity', { type: 'number', value: numValue });
     }
   };
 
@@ -178,6 +182,7 @@ const EffectControls = memo(function EffectControls({ layer, onLayerUpdate, acti
   // Handle opacity slider change (immediate - slider interaction)
   const handleOpacitySliderChange = (values: number[]) => {
     updateDesignProperty('effects', 'opacity', `${values[0]}`);
+    syncValue('opacity', { type: 'number', value: values[0] });
   };
 
   // Extract blur value (in pixels)
@@ -465,7 +470,7 @@ const EffectControls = memo(function EffectControls({ layer, onLayerUpdate, acti
       <div className="flex flex-col gap-2">
 
           <div className="grid grid-cols-3">
-              <Label variant="muted">Opacity</Label>
+              <StackPropertyLabel binding={bindingFor('opacity')} fallback="Opacity" />
               <div className="col-span-2 grid grid-cols-2 items-center gap-2">
                   <InputGroup>
                       <InputGroupInput

@@ -1687,6 +1687,12 @@ export default function BuilderApp({ children }: BuilderAppProps = {} as Builder
                   });
                 };
                 updateCurrentLayers(updateLayerVisibility(layers));
+                const visibleVariableId = layer.controlBindings?.visible;
+                if (visibleVariableId) {
+                  void useComponentsStore.getState().updateTextVariable(editingComponentId, visibleVariableId, {
+                    default_value: { type: 'boolean', value: currentHidden },
+                  });
+                }
               } else if (currentPageId) {
                 updateLayer(currentPageId, selectedLayerId, {
                   settings: { ...layer.settings, hidden: !currentHidden },

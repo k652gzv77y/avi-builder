@@ -37,7 +37,7 @@ import { detachSpecificLayerFromComponent } from '@/lib/component-utils';
 import { collectVariantVariableOptions, countReplicaOverrides, isReplicaVariant } from '@/lib/component-variant-utils';
 import { useInteractionPreviewStore } from '@/stores/useInteractionPreviewStore';
 import { cn } from '@/lib/utils';
-import { EMPTY_OVERRIDES } from '@/lib/variable-utils';
+import { EMPTY_OVERRIDES, hasOverrideValues } from '@/lib/variable-utils';
 
 import type { Layer, ComponentVariable, Component, Collection, CollectionField } from '@/types';
 import { SIMPLE_TEXT_FIELD_TYPES, type FieldGroup } from '@/lib/collection-field-utils';
@@ -159,8 +159,7 @@ export default function ComponentInstanceSidebar({
 
   const allVariables = component.variables || [];
   const overrides = selectedLayer.componentOverrides;
-  const hasOverrides = ['text', 'rich_text', 'image', 'link', 'audio', 'video', 'icon', 'variant', 'stack']
-    .some(cat => Object.keys(overrides?.[cat as keyof typeof overrides] || {}).length > 0);
+  const hasOverrides = hasOverrideValues(overrides);
 
   const handleEditMasterComponent = useCallback(async () => {
     await editComponent(component.id, {
@@ -244,7 +243,7 @@ export default function ComponentInstanceSidebar({
     const category = type === 'text' ? 'text' : type;
     const currentOverride = overrides?.[category as keyof typeof overrides]?.[childVariable.id];
     const defaultValue = currentOverride ?? childVariable.default_value;
-    if (defaultValue) {
+    if (defaultValue && typeof defaultValue === 'object') {
       await updateTextVariable(editingComponentId, newId, { default_value: defaultValue });
     }
 
@@ -318,6 +317,17 @@ export default function ComponentInstanceSidebar({
             onToggle={() => {}}
             action={
               <div className="flex items-center gap-1">
+                {hasOverrides && (
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    aria-label="Reset all overrides to component"
+                    onClick={handleResetAllOverrides}
+                  >
+                    <Icon name="undo" />
+                    Reset
+                  </Button>
+                )}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button

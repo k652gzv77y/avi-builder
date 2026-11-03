@@ -29,6 +29,7 @@ import {
   replaceLayerWithComponentInstance,
 } from '@/lib/layer-utils';
 import { EMPTY_OVERRIDES, createTextComponentVariableValue } from '@/lib/variable-utils';
+import { stripControlBinding } from '@/lib/component-properties';
 import { stringToTiptapContent } from '@/lib/text-format-utils';
 import { collectFontFamiliesFromDesign, ensureFontsInstalled, fontWarnings } from '@/lib/mcp/font-install';
 import { getCachedLayers as getPageLayers, saveCachedLayers } from '@/lib/mcp/page-layers';
@@ -41,8 +42,11 @@ import {
 } from '@/lib/mcp/broadcast';
 import { designSchema, richTextBlockSchema, templateEnum } from './shared-schemas';
 
-const variableTypeEnum = z.enum(['text', 'rich_text', 'image', 'link', 'audio', 'video', 'icon', 'variant'])
-  .describe('Variable type. "variant" lets instances pick which variant of a nested component is rendered.');
+const variableTypeEnum = z.enum([
+  'text', 'rich_text', 'image', 'link', 'audio', 'video', 'icon', 'variant',
+  'number', 'boolean', 'enum', 'color',
+])
+  .describe('Variable type. "variant" lets instances pick a nested variant. number, boolean, enum, and color are property controls (opacity, visibility, text options, fill).');
 
 const variableSchema = z.object({
   name: z.string().describe('Display name (e.g. "Button label", "Hero image")'),
@@ -50,7 +54,14 @@ const variableSchema = z.object({
   placeholder: z.string().optional()
     .describe('Placeholder text shown in the override input on each instance.'),
   default_value: z.unknown().optional()
-    .describe('Default value applied when an instance does not override the variable. Shape matches the variable type (e.g. { type: "dynamic_text", data: { content: "Click me" } } for text).'),
+    .describe('Default value applied when an instance does not override the variable. Shape matches the variable type (e.g. { type: "dynamic_text", data: { content: "Click me" } } for text, { type: "boolean", value: true } for boolean).'),
+  options: z.array(z.object({
+    id: z.string(),
+    label: z.string(),
+  })).optional().describe('Choices for an enum control.'),
+  min: z.number().optional().describe('Minimum for a number control.'),
+  max: z.number().optional().describe('Maximum for a number control.'),
+  step: z.number().optional().describe('Step for a number control.'),
 });
 
 const variableUpdateSchema = z.object({
@@ -59,6 +70,13 @@ const variableUpdateSchema = z.object({
   type: variableTypeEnum.default('text'),
   placeholder: z.string().optional(),
   default_value: z.unknown().optional(),
+  options: z.array(z.object({
+    id: z.string(),
+    label: z.string(),
+  })).optional(),
+  min: z.number().optional(),
+  max: z.number().optional(),
+  step: z.number().optional(),
 });
 
 /**
@@ -70,6 +88,20 @@ const variableUpdateSchema = z.object({
  * the component, so wrap it in the matching variable value here.
  */
 function normalizeDefaultValue(value: unknown, type: z.infer<typeof variableTypeEnum>): ComponentVariableValue {
+  if (value && typeof value === 'object') return value as ComponentVariableValue;
+  if (type === 'number') {
+    const parsed = typeof value === 'number' ? value : Number(value);
+    return { type: 'number', value: Number.isFinite(parsed) ? parsed : 0 };
+  }
+  if (type === 'boolean') {
+    return { type: 'boolean', value: value === true || value === 'true' };
+  }
+  if (type === 'color') {
+    return { type: 'color', value: typeof value === 'string' && value ? value : '#000000' };
+  }
+  if (type === 'enum') {
+    return { type: 'enum', value: typeof value === 'string' ? value : '' };
+  }
   if (typeof value === 'string') {
     return type === 'rich_text'
       ? createTextComponentVariableValue(stringToTiptapContent(value))
@@ -85,6 +117,10 @@ function normalizeVariables(input: Array<z.infer<typeof variableUpdateSchema>>):
     type: v.type,
     ...(v.placeholder !== undefined && { placeholder: v.placeholder }),
     ...(v.default_value !== undefined && { default_value: normalizeDefaultValue(v.default_value, v.type) }),
+    ...(v.options !== undefined && { options: v.options }),
+    ...(v.min !== undefined && { min: v.min }),
+    ...(v.max !== undefined && { max: v.max }),
+    ...(v.step !== undefined && { step: v.step }),
   }));
 }
 
@@ -249,6 +285,10 @@ variable's declared type, so you only pass the relevant field.`,
         url: z.string().optional().describe('For link variables: external URL'),
         link_page_id: z.string().optional().describe('For link variables: link to this page by ID (alternative to url)'),
         variant_id: z.string().optional().describe('For variant variables: the nested component variant ID to render'),
+        number: z.number().optional().describe('For number variables'),
+        boolean: z.boolean().optional().describe('For boolean variables. true shows a layer bound to Visible'),
+        color: z.string().optional().describe('For color variables, a CSS color such as #ff0000'),
+        option: z.string().optional().describe('For enum variables: option id or label'),
       })).optional().describe('Per-variable content overrides for this instance'),
     },
     async ({ page_id, layer_id, variant_id, reset_overrides, overrides }) => {
@@ -286,6 +326,11 @@ variable's declared type, so you only pass the relevant field.`,
         video: { ...(base.video ?? {}) },
         icon: { ...(base.icon ?? {}) },
         variant: { ...(base.variant ?? {}) },
+        stack: { ...(base.stack ?? {}) },
+        number: { ...(base.number ?? {}) },
+        boolean: { ...(base.boolean ?? {}) },
+        enum: { ...(base.enum ?? {}) },
+        color: { ...(base.color ?? {}) },
         variableLinks: { ...(base.variableLinks ?? {}) },
       };
 
@@ -310,7 +355,7 @@ variable's declared type, so you only pass the relevant field.`,
           continue;
         }
 
-        const value = buildOverrideValue(category, entry);
+        const value = buildOverrideValue(category, entry, variable.options);
         if (!value) {
           results.push({ status: 'error', detail: `No usable value provided for "${variable.name}" (${category})` });
           continue;
@@ -1223,6 +1268,9 @@ function unlinkVariableFromLayers(layers: Layer[], variableId: string): Layer[] 
       }
     }
 
+    const unbound = stripControlBinding(next, variableId);
+    if (unbound !== next) next = unbound;
+
     if (next.children && next.children.length > 0) {
       next = { ...next, children: unlinkVariableFromLayers(next.children, variableId) };
     }
@@ -1291,6 +1339,10 @@ interface OverrideEntryInput {
   url?: string;
   link_page_id?: string;
   variant_id?: string;
+  number?: number;
+  boolean?: boolean;
+  color?: string;
+  option?: string;
 }
 
 /**
@@ -1298,7 +1350,11 @@ interface OverrideEntryInput {
  * agent's friendly input, choosing the shape from the variable's declared type.
  * Returns null when the entry carries no usable value for that type.
  */
-function buildOverrideValue(category: string, entry: OverrideEntryInput): ComponentVariableValue | null {
+function buildOverrideValue(
+  category: string,
+  entry: OverrideEntryInput,
+  options?: Array<{ id: string; label: string }>,
+): ComponentVariableValue | null {
   switch (category) {
     case 'text':
     case 'rich_text':
@@ -1335,6 +1391,24 @@ function buildOverrideValue(category: string, entry: OverrideEntryInput): Compon
     case 'variant':
       if (!entry.variant_id) return null;
       return { variant_id: entry.variant_id } as ComponentVariableValue;
+
+    case 'number':
+      if (typeof entry.number !== 'number' || !Number.isFinite(entry.number)) return null;
+      return { type: 'number', value: entry.number };
+
+    case 'boolean':
+      if (typeof entry.boolean !== 'boolean') return null;
+      return { type: 'boolean', value: entry.boolean };
+
+    case 'color':
+      if (!entry.color) return null;
+      return { type: 'color', value: entry.color };
+
+    case 'enum': {
+      if (!entry.option) return null;
+      const match = options?.find((option) => option.id === entry.option || option.label === entry.option);
+      return { type: 'enum', value: match?.id ?? entry.option };
+    }
 
     default:
       return null;
@@ -1422,6 +1496,15 @@ function linkVariableToLayer(layer: Layer, variableId: string, variableType: str
       // Variant variables target the layer's nested-component variant override
       // via a top-level layer field (not inside variables).
       return { ...layer, componentVariantVariableId: variableId, variables: vars };
+
+    case 'boolean':
+      return { ...layer, variables: vars, controlBindings: { ...layer.controlBindings, visible: variableId } };
+    case 'color':
+      return { ...layer, variables: vars, controlBindings: { ...layer.controlBindings, fill: variableId } };
+    case 'number':
+      return { ...layer, variables: vars, controlBindings: { ...layer.controlBindings, opacity: variableId } };
+    case 'enum':
+      return { ...layer, variables: vars, controlBindings: { ...layer.controlBindings, text: variableId } };
   }
 
   return { ...layer, variables: vars };

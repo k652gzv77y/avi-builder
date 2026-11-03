@@ -10,10 +10,19 @@ import React, { useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import Icon from '@/components/ui/icon';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import ComponentVariableLabel, { VARIABLE_TYPE_ICONS } from './ComponentVariableLabel';
 import StackVariableControl from './StackVariableControl';
 import { isStackVariableValue, stackValuesEqual } from '@/lib/component-bindings';
+import {
+  clearPropertyOverride,
+  isPropertyOverridden,
+  overrideCategory,
+  propertyValuesEqual,
+  readPropertyValue,
+} from '@/lib/component-properties';
+import PropertyControlInput from './PropertyControlInput';
 import ImageSettings from './ImageSettings';
 import LinkSettings from './LinkSettings';
 import AudioSettings from './AudioSettings';
@@ -34,6 +43,7 @@ import {
 } from '@/lib/variable-utils';
 import type {
   ComponentVariable,
+  ComponentVariableValue,
   ImageSettingsValue,
   LinkSettingsValue,
   AudioSettingsValue,
@@ -236,11 +246,32 @@ export default function ComponentVariableOverrides({
     // (image/text/etc.) that anchor the label to the top of the row.
     const centered = options?.centered ?? false;
 
+    const reset = !isEditingComponent && isPropertyOverridden(variable, componentOverrides) ? (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            className="size-5 shrink-0 px-0"
+            aria-label={`Reset ${variable.name} to component`}
+            onClick={() => onOverridesChange(clearPropertyOverride(componentOverrides, variable))}
+          >
+            <Icon name="undo" className="size-3" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Reset to component</TooltipContent>
+      </Tooltip>
+    ) : null;
+
     if (!isEditingComponent) {
       return (
-        <Label variant="muted" className={cn('truncate', !centered && 'pt-2')}>
-          {variable.name}
-        </Label>
+        <div className={cn('flex min-w-0 items-center gap-0.5', !centered && 'pt-1')}>
+          <Label variant="muted" className="truncate">
+            {variable.name}
+          </Label>
+          {reset}
+        </div>
       );
     }
 
@@ -391,6 +422,32 @@ export default function ComponentVariableOverrides({
             </div>
           </div>
         );
+      case 'number':
+      case 'boolean':
+      case 'enum':
+      case 'color': {
+        const centered = variable.type !== 'color';
+        const propertyLabel = renderLabel(variable, { centered });
+        const commit = (next: ComponentVariableValue) => {
+          if (propertyValuesEqual(next, variable.default_value)) {
+            onOverridesChange(clearPropertyOverride(componentOverrides, variable));
+            return;
+          }
+          handleTypedChange(overrideCategory(variable), variable.id, next);
+        };
+        return (
+          <div key={variable.id} className={cn('grid grid-cols-3 gap-2', centered ? 'items-center' : 'items-start')}>
+            {propertyLabel}
+            <div className="col-span-2 *:w-full">
+              <PropertyControlInput
+                variable={variable}
+                value={readPropertyValue(variable, componentOverrides)}
+                onChange={commit}
+              />
+            </div>
+          </div>
+        );
+      }
       case 'variant': {
         const options = getVariantVariableOptions?.(variable.id) ?? [];
         const currentValue = getTypedValue('variant' as 'icon', variable.id) as VariantSettingsValue | undefined;

@@ -47,11 +47,75 @@ import { useCollectionsStore } from '@/stores/useCollectionsStore';
 import { createTextComponentVariableValue, extractTiptapFromComponentVariable } from '@/lib/variable-utils';
 import { collectVariantVariableOptions } from '@/lib/component-variant-utils';
 import { applyStackValueToBoundLayers, isStackVariableValue } from '@/lib/component-bindings';
+import { isEnumPropertyValue } from '@/lib/component-properties';
+import { cn, generateId } from '@/lib/utils';
 import { VARIABLE_TYPE_ICONS } from './ComponentVariableLabel';
 import StackVariableControl from './StackVariableControl';
+import PropertyControlInput from './PropertyControlInput';
 import { Separator } from '@/components/ui/separator';
-import { cn } from '@/lib/utils';
-import type { ComponentVariable, VariantSettingsValue } from '@/types';
+import type { ComponentPropertyType, ComponentVariable, ComponentVariableValue, EnumOption, VariantSettingsValue } from '@/types';
+
+function EnumOptionsEditor({
+  options,
+  onChange,
+}: {
+  options: EnumOption[];
+  onChange: (options: EnumOption[]) => void;
+}) {
+  const [draft, setDraft] = useState(options);
+  const draftRef = React.useRef(options);
+  draftRef.current = draft;
+
+  useEffect(() => {
+    setDraft(options);
+    draftRef.current = options;
+  }, [options]);
+
+  const updateDraft = (next: EnumOption[]) => {
+    draftRef.current = next;
+    setDraft(next);
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      {draft.map((option, index) => (
+        <div key={option.id} className="flex items-center gap-1">
+          <Input
+            value={option.label}
+            aria-label={`Option ${index + 1}`}
+            onChange={(event) => {
+              const label = event.target.value;
+              updateDraft(draftRef.current.map((item) => (
+                item.id === option.id ? { ...item, label } : item
+              )));
+            }}
+            onBlur={() => onChange(draftRef.current)}
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="xs"
+            aria-label={`Remove ${option.label || 'option'}`}
+            disabled={draft.length <= 1}
+            onClick={() => onChange(draft.filter((item) => item.id !== option.id))}
+          >
+            <Icon name="x" />
+          </Button>
+        </div>
+      ))}
+      <Button
+        type="button"
+        variant="secondary"
+        size="sm"
+        className="self-start"
+        onClick={() => onChange([...draft, { id: generateId('opt'), label: `Option ${draft.length + 1}` }])}
+      >
+        <Icon name="plus" />
+        Add option
+      </Button>
+    </div>
+  );
+}
 
 /** Sortable variable item in the sidebar list. */
 function SortableVariableItem({
@@ -138,6 +202,7 @@ export default function ComponentVariablesDialog({
   const addVideoVariable = useComponentsStore((state) => state.addVideoVariable);
   const addIconVariable = useComponentsStore((state) => state.addIconVariable);
   const addVariantVariable = useComponentsStore((state) => state.addVariantVariable);
+  const addPropertyVariable = useComponentsStore((state) => state.addPropertyVariable);
   const updateTextVariable = useComponentsStore((state) => state.updateTextVariable);
   const reorderVariables = useComponentsStore((state) => state.reorderVariables);
   const deleteTextVariable = useComponentsStore((state) => state.deleteTextVariable);
@@ -286,6 +351,60 @@ export default function ComponentVariablesDialog({
     }
   };
 
+  const handleAddPropertyVariable = async (type: ComponentPropertyType) => {
+    if (!componentId) return;
+    const labels: Record<ComponentPropertyType, string> = {
+      number: 'Number',
+      boolean: 'Visible',
+      enum: 'Option',
+      color: 'Color',
+    };
+    const options: EnumOption[] | undefined = type === 'enum'
+      ? [
+        { id: generateId('opt'), label: 'Option 1' },
+        { id: generateId('opt'), label: 'Option 2' },
+      ]
+      : undefined;
+    const defaultValue: ComponentVariableValue = type === 'number'
+      ? { type: 'number', value: 0 }
+      : type === 'boolean'
+        ? { type: 'boolean', value: true }
+        : type === 'color'
+          ? { type: 'color', value: '#000000' }
+          : { type: 'enum', value: options?.[0]?.id ?? '' };
+
+    const newId = await addPropertyVariable(componentId, {
+      name: labels[type],
+      type,
+      default_value: defaultValue,
+      ...(type === 'number' ? { min: undefined, step: 1 } : {}),
+      ...(options ? { options } : {}),
+    });
+    if (!newId) return;
+    const created = useComponentsStore.getState().getComponentById(componentId)?.variables?.find((variable) => variable.id === newId);
+    setSelectedVariableId(newId);
+    setEditingName(created?.name ?? labels[type]);
+  };
+
+  const handlePropertyDefaultChange = (value: ComponentVariableValue) => {
+    if (!componentId || !selectedVariableId) return;
+    void updateTextVariable(componentId, selectedVariableId, { default_value: value });
+  };
+
+  const handleEnumOptionsChange = (options: EnumOption[]) => {
+    if (!componentId || !selectedVariable) return;
+    const current = isEnumPropertyValue(selectedVariable.default_value)
+      ? selectedVariable.default_value.value
+      : '';
+    const nextDefault = options.some((option) => option.id === current)
+      ? current
+      : (options[0]?.id ?? '');
+    void updateTextVariable(componentId, selectedVariable.id, {
+      options,
+      default_value: { type: 'enum', value: nextDefault },
+    });
+  };
+
   const handleVariantDefaultValueChange = (variantId: string) => {
     if (!componentId || !selectedVariableId) return;
     const value: VariantSettingsValue = { variant_id: variantId };
@@ -416,6 +535,22 @@ export default function ComponentVariablesDialog({
                     <DropdownMenuItem onClick={handleAddTextVariable}>
                       <Icon name="text" className="size-3" />
                       Text
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { void handleAddPropertyVariable('number'); }}>
+                      <Icon name="hash" className="size-3" />
+                      Number
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { void handleAddPropertyVariable('boolean'); }}>
+                      <Icon name="checkbox" className="size-3" />
+                      Boolean
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { void handleAddPropertyVariable('enum'); }}>
+                      <Icon name="listUnordered" className="size-3" />
+                      Enum
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { void handleAddPropertyVariable('color'); }}>
+                      <Icon name="color" className="size-3" />
+                      Color
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={handleAddRichTextVariable}>
                       <Icon name="rich-text" className="size-3" />
@@ -619,6 +754,26 @@ export default function ComponentVariablesDialog({
                           }
                         }}
                       />
+                    ) : selectedVariable.type === 'number' || selectedVariable.type === 'boolean' || selectedVariable.type === 'enum' || selectedVariable.type === 'color' ? (
+                      <div className="flex flex-col gap-3">
+                        {selectedVariable.type === 'enum' && (
+                          <EnumOptionsEditor
+                            options={selectedVariable.options ?? []}
+                            onChange={handleEnumOptionsChange}
+                          />
+                        )}
+                        <PropertyControlInput
+                          variable={selectedVariable}
+                          value={selectedVariable.default_value}
+                          onChange={handlePropertyDefaultChange}
+                        />
+                        <p className="text-[11px] leading-snug text-muted-foreground">
+                          {selectedVariable.type === 'boolean' && 'Bind from Visible while editing the component.'}
+                          {selectedVariable.type === 'color' && 'Bind from Fill while editing the component.'}
+                          {selectedVariable.type === 'number' && 'Bind from Opacity, or from Content to show the number as text.'}
+                          {selectedVariable.type === 'enum' && 'Bind from Content to show the selected option as text.'}
+                        </p>
+                      </div>
                     ) : selectedVariable.type === 'rich_text' ? (
                       <ExpandableRichTextEditor
                         value={editingDefaultValue}
