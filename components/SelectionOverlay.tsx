@@ -6,27 +6,87 @@
  * Renders selection, hover, and parent outlines on top of the canvas iframe.
  * Uses direct DOM manipulation for instant updates during scrolling.
  *
- * Note: Drag initiation for sibling reordering is handled by the
- * useCanvasSiblingReorder hook, which listens to iframe mousedown events.
+ * Note: Drag initiation for sibling reordering and free-form moves is handled
+ * by useCanvasSiblingReorder, which listens to iframe mousedown events.
+ * Resize handles on this overlay commit absolute/fixed box edits.
  */
 
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { useEditorStore } from '@/stores/useEditorStore';
 import { usePagesStore } from '@/stores/usePagesStore';
 import { useComponentsStore } from '@/stores/useComponentsStore';
-import { findLayerById } from '@/lib/layer-utils';
+import { findLayerById, findLayerWithParent } from '@/lib/layer-utils';
+import { stableList } from '@/lib/stable-list';
 import { getLayerName } from '@/lib/layer-display-utils';
+import { readLayerPosition } from '@/lib/layout-model';
+import {
+  applyFreeformBox,
+  isFreeformDraggable,
+  resizedBox,
+  type ResizeHandle,
+} from '@/lib/canvas-freeform';
+import {
+  cancelFreeformPreview,
+  previewFreeformBox,
+  readFreeformBox,
+  scheduleFreeformRelease,
+} from '@/lib/canvas-freeform-dom';
+import type { Layer } from '@/types';
+
+interface HandleFrame {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  visible: boolean;
+}
+
+const HIDDEN_HANDLE_FRAME: HandleFrame = { left: 0, top: 0, width: 0, height: 0, visible: false };
+
+const RESIZE_HANDLES: { id: ResizeHandle; x: number; y: number; cursor: string; label: string }[] = [
+  { id: 'nw', x: 0, y: 0, cursor: 'nwse-resize', label: 'top left' },
+  { id: 'n', x: 0.5, y: 0, cursor: 'ns-resize', label: 'top' },
+  { id: 'ne', x: 1, y: 0, cursor: 'nesw-resize', label: 'top right' },
+  { id: 'e', x: 1, y: 0.5, cursor: 'ew-resize', label: 'right' },
+  { id: 'se', x: 1, y: 1, cursor: 'nwse-resize', label: 'bottom right' },
+  { id: 's', x: 0.5, y: 1, cursor: 'ns-resize', label: 'bottom' },
+  { id: 'sw', x: 0, y: 1, cursor: 'nesw-resize', label: 'bottom left' },
+  { id: 'w', x: 0, y: 0.5, cursor: 'ew-resize', label: 'left' },
+];
+
+function currentEditorLayers(): Layer[] {
+  const editor = useEditorStore.getState();
+  if (editor.editingComponentId && editor.editingComponentVariantId) {
+    return stableList(
+      useComponentsStore.getState().componentDrafts[editor.editingComponentId]?.[editor.editingComponentVariantId],
+    );
+  }
+  if (editor.currentPageId) {
+    return stableList(usePagesStore.getState().draftsByPageId[editor.currentPageId]?.layers);
+  }
+  return stableList<Layer>(undefined);
+}
+
+function editableLayer(layerId: string | null) {
+  if (!layerId) return null;
+  return findLayerWithParent(currentEditorLayers(), layerId);
+}
+
+function outlineRect(container: HTMLDivElement | null): HandleFrame | null {
+  const first = container?.firstElementChild as HTMLElement | null;
+  if (!container || container.style.display === 'none' || !first || first.style.display === 'none') return null;
+  const left = Math.round(parseFloat(first.style.left));
+  const top = Math.round(parseFloat(first.style.top));
+  const width = Math.round(parseFloat(first.style.width));
+  const height = Math.round(parseFloat(first.style.height));
+  if (![left, top, width, height].every(Number.isFinite) || width < 1 || height < 1) return null;
+  return { left, top, width, height, visible: true };
+}
 function selectionLayerLabel(layerId: string | null): string {
   if (!layerId) return '';
   if (layerId === 'body') return 'Body';
 
-  const editor = useEditorStore.getState();
-  const layers = editor.editingComponentId && editor.editingComponentVariantId
-    ? useComponentsStore.getState().componentDrafts[editor.editingComponentId]?.[editor.editingComponentVariantId] || []
-    : editor.currentPageId
-      ? usePagesStore.getState().draftsByPageId[editor.currentPageId]?.layers || []
-      : [];
-  const layer = findLayerById(layers, layerId);
+  const layer = findLayerById(currentEditorLayers(), layerId);
   return layer ? getLayerName(layer) : '';
 }
 
@@ -58,6 +118,8 @@ interface SelectionOverlayProps {
   activeSublayerIndex?: number | null;
   /** Active list item index within a list (null = highlight whole list block) */
   activeListItemIndex?: number | null;
+  /** Persist a resize. Stack children do not show handles. */
+  onLayerUpdate?: (layerId: string, updates: Partial<Layer>) => void;
 }
 
 export function SelectionOverlay({
@@ -68,6 +130,7 @@ export function SelectionOverlay({
   zoom,
   activeSublayerIndex,
   activeListItemIndex,
+  onLayerUpdate,
 }: SelectionOverlayProps) {
   const hoveredLayerIdRef = useRef(useEditorStore.getState().hoveredLayerId);
   const activeUIState = useEditorStore((state) => state.activeUIState);
@@ -84,7 +147,7 @@ export function SelectionOverlay({
     ? 'outline outline-1 outline-[#22c1de] shadow-[0_0_0_1px_rgba(0,0,0,0.25)]'
     : isStateActive
       ? 'outline outline-1 outline-[#8dd92f]'
-      : 'outline outline-1 outline-[#0099ff]';
+      : 'outline outline-2 outline-[#0099ff]';
   const HOVERED_OUTLINE_CLASS = isAiLayerPicking
     ? 'outline outline-1 outline-[#22c1de] shadow-[0_0_0_1px_rgba(0,0,0,0.25)]'
     : isStateActive
@@ -100,6 +163,25 @@ export function SelectionOverlay({
   const hoveredContainerRef = useRef<HTMLDivElement>(null);
   const parentContainerRef = useRef<HTMLDivElement>(null);
   const selectionLabelRef = useRef<HTMLDivElement>(null);
+  const [handleFrame, setHandleFrame] = useState<HandleFrame>(HIDDEN_HANDLE_FRAME);
+  const handleFrameRef = useRef(handleFrame);
+  const onLayerUpdateRef = useRef(onLayerUpdate);
+  onLayerUpdateRef.current = onLayerUpdate;
+  const resizeCleanupRef = useRef<(() => void) | null>(null);
+
+  const publishHandleFrame = useCallback((next: HandleFrame | null) => {
+    const frame = next && next.width > 0 && next.height > 0 ? next : HIDDEN_HANDLE_FRAME;
+    const prev = handleFrameRef.current;
+    if (
+      prev.visible === frame.visible
+      && prev.left === frame.left
+      && prev.top === frame.top
+      && prev.width === frame.width
+      && prev.height === frame.height
+    ) return;
+    handleFrameRef.current = frame;
+    setHandleFrame(frame);
+  }, []);
 
   // Track drag/animation/resize state for scroll/mutation handlers
   const isDraggingRef = useRef(false);
@@ -111,7 +193,8 @@ export function SelectionOverlay({
     if (hoveredContainerRef.current) hoveredContainerRef.current.style.display = 'none';
     if (parentContainerRef.current) parentContainerRef.current.style.display = 'none';
     if (selectionLabelRef.current) selectionLabelRef.current.style.display = 'none';
-  }, []);
+    publishHandleFrame(null);
+  }, [publishHandleFrame]);
 
   // Update outline(s) for all elements matching a layer ID
   const updateOutline = useCallback((
@@ -253,6 +336,7 @@ export function SelectionOverlay({
       if (selectedContainerRef.current) selectedContainerRef.current.style.display = 'none';
       if (parentContainerRef.current) parentContainerRef.current.style.display = 'none';
       if (selectionLabelRef.current) selectionLabelRef.current.style.display = 'none';
+      publishHandleFrame(null);
       updateOutline(hoveredContainerRef.current, hoveredLayerIdRef.current, ctx.iframeDoc, ctx.iframeElement, ctx.containerElement, ctx.scale, HOVERED_OUTLINE_CLASS);
       return;
     }
@@ -274,7 +358,20 @@ export function SelectionOverlay({
       ? selectedLayerId
       : (parentLayerId !== selectedLayerId ? parentLayerId : null);
     updateOutline(parentContainerRef.current, effectiveParentId, ctx.iframeDoc, ctx.iframeElement, ctx.containerElement, ctx.scale, PARENT_OUTLINE_CLASS);
-  }, [getOutlineContext, hideAllOutlines, selectedLayerId, parentLayerId, updateOutline, activeSublayerIndex, activeListItemIndex, SELECTED_OUTLINE_CLASS, HOVERED_OUTLINE_CLASS, PARENT_OUTLINE_CLASS, isAiLayerPicking]);
+
+    const found = !skipSolidBorders && onLayerUpdateRef.current && !isDraggingRef.current
+      ? editableLayer(selectedLayerId)
+      : null;
+    if (
+      found
+      && isFreeformDraggable(found.layer, found.parent)
+      && (activeSublayerIndex === null || activeSublayerIndex === undefined)
+    ) {
+      publishHandleFrame(outlineRect(selectedContainerRef.current));
+    } else {
+      publishHandleFrame(null);
+    }
+  }, [getOutlineContext, hideAllOutlines, selectedLayerId, parentLayerId, updateOutline, activeSublayerIndex, activeListItemIndex, SELECTED_OUTLINE_CLASS, HOVERED_OUTLINE_CLASS, PARENT_OUTLINE_CLASS, isAiLayerPicking, publishHandleFrame]);
 
   // Initial update and updates when IDs change. Selecting a layer can reveal a
   // previously hidden ancestor (display:none → visible) in the iframe's separate
@@ -489,6 +586,78 @@ export function SelectionOverlay({
     }
   }, [isSidebarResizing, hideAllOutlines, updateAllOutlines]);
 
+  useEffect(() => () => resizeCleanupRef.current?.(), []);
+
+  const handleColor = isStateActive ? '#8dd92f' : '#0099ff';
+
+  const handleResizePointerDown = (event: React.PointerEvent<HTMLButtonElement>, handle: ResizeHandle) => {
+    if (event.button !== 0 || !iframeElement || !onLayerUpdate || !selectedLayerId) return;
+    const found = editableLayer(selectedLayerId);
+    if (!found || !isFreeformDraggable(found.layer, found.parent)) return;
+    const doc = iframeElement.contentDocument;
+    if (!doc) return;
+    const escaped = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(selectedLayerId) : selectedLayerId;
+    const nodes = Array.from(doc.querySelectorAll(`[data-layer-id="${escaped}"]`)) as HTMLElement[];
+    const target = nodes[0];
+    if (!target) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    const box = readFreeformBox(target);
+    // Match the selection outline: iframe layout pixels are unscaled, and the
+    // editor zoom (not the measured iframe ratio) maps them to the screen.
+    const scale = (zoom || 100) / 100 || 1;
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const position = readLayerPosition(found.layer) === 'fixed' ? 'fixed' : 'absolute';
+    nodes.forEach((node) => {
+      node.dataset.freeformGesture = '1';
+    });
+
+    const applyDelta = (clientX: number, clientY: number) => {
+      const dx = (clientX - startX) / scale;
+      const dy = (clientY - startY) / scale;
+      const next = resizedBox(box, handle, dx, dy);
+      nodes.forEach((node) => previewFreeformBox(node, next, position));
+      return { dx, dy, next };
+    };
+
+    const detach = () => {
+      document.removeEventListener('pointermove', move);
+      document.removeEventListener('pointerup', end);
+      document.removeEventListener('keydown', onKey);
+      resizeCleanupRef.current = null;
+    };
+    const move = (pointerEvent: PointerEvent) => {
+      applyDelta(pointerEvent.clientX, pointerEvent.clientY);
+    };
+    const end = (pointerEvent: PointerEvent) => {
+      detach();
+      const { dx, dy, next } = applyDelta(pointerEvent.clientX, pointerEvent.clientY);
+      if (Math.round(dx) === 0 && Math.round(dy) === 0) {
+        nodes.forEach((node) => cancelFreeformPreview(node));
+        return;
+      }
+      onLayerUpdate(found.layer.id, applyFreeformBox(found.layer, next, 'resize'));
+      nodes.forEach((node) => scheduleFreeformRelease(node));
+    };
+    const onKey = (keyEvent: KeyboardEvent) => {
+      if (keyEvent.key !== 'Escape') return;
+      keyEvent.preventDefault();
+      detach();
+      nodes.forEach((node) => cancelFreeformPreview(node));
+    };
+
+    resizeCleanupRef.current = () => {
+      detach();
+      nodes.forEach((node) => cancelFreeformPreview(node));
+    };
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', end);
+    document.addEventListener('keydown', onKey);
+  };
+
   return (
     <div
       className="absolute inset-0 pointer-events-none overflow-hidden z-40"
@@ -508,6 +677,31 @@ export function SelectionOverlay({
         className="absolute rounded-sm bg-[#0099ff] px-1 py-px text-[10px] font-medium leading-none text-white"
         style={{ display: 'none' }}
       />
+
+      {handleFrame.visible && (
+        <div className="absolute inset-0" style={{ pointerEvents: 'none' }}>
+          {RESIZE_HANDLES.map((handle) => (
+            <button
+              key={handle.id}
+              type="button"
+              aria-label={`Resize from the ${handle.label}`}
+              data-resize-handle={handle.id}
+              className="absolute size-2 rounded-[1px] border bg-white p-0"
+              style={{
+                left: handleFrame.left + handleFrame.width * handle.x,
+                top: handleFrame.top + handleFrame.height * handle.y,
+                marginLeft: -4,
+                marginTop: -4,
+                cursor: handle.cursor,
+                pointerEvents: 'auto',
+                borderColor: handleColor,
+                boxSizing: 'border-box',
+              }}
+              onPointerDown={(event) => handleResizePointerDown(event, handle.id)}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

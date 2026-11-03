@@ -91,7 +91,9 @@ import { formatAuthError } from '@/lib/auth-flow';
 import { findHomepage } from '@/lib/page-utils';
 import { hasTextSelection } from '@/lib/utils';
 import { getStyleIds } from '@/lib/layer-style-resolve';
-import { findLayerById, getClassesString, removeLayerById, canCopyLayer, canDeleteLayer, regenerateIdsWithInteractionRemapping, findParentAndIndex, insertLayerAfter, updateLayerProps, getLayerIndexes, removeRichTextSublayer, canPasteIntoParent, canHaveChildren, LINK_NESTING_ERROR } from '@/lib/layer-utils';
+import { findLayerById, findLayerWithParent, getClassesString, removeLayerById, canCopyLayer, canDeleteLayer, regenerateIdsWithInteractionRemapping, findParentAndIndex, insertLayerAfter, updateLayerProps, getLayerIndexes, removeRichTextSublayer, canPasteIntoParent, canHaveChildren, LINK_NESTING_ERROR } from '@/lib/layer-utils';
+import { isFreeformDraggable, nudgeFreeformLayer } from '@/lib/canvas-freeform';
+import { measureCanvasLayer } from '@/lib/canvas-freeform-dom';
 import { cloneDeep } from 'lodash';
 
 // 5. Types
@@ -1726,6 +1728,28 @@ export default function BuilderApp({ children }: BuilderAppProps = {} as Builder
           }
 
           return;
+        }
+
+        // Arrow keys - nudge a free-form layer, otherwise reorder stack siblings
+        if (
+          (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight')
+          && !isInputFocused
+          && (currentPageId || editingComponentId)
+          && selectedLayerId
+        ) {
+          const layers = getCurrentLayers();
+          const found = findLayerWithParent(layers, selectedLayerId);
+          if (found && isFreeformDraggable(found.layer, found.parent)) {
+            e.preventDefault();
+            if (!isContentOnlyRole && !e.metaKey && !e.ctrlKey && !e.altKey) {
+              const step = e.shiftKey ? 10 : 1;
+              const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0;
+              const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0;
+              const updates = nudgeFreeformLayer(found.layer, dx, dy, measureCanvasLayer(selectedLayerId));
+              if (updates) updateCurrentLayers(updateLayerProps(layers, selectedLayerId, updates));
+            }
+            return;
+          }
         }
 
         // Arrow Up/Down - Reorder layer within siblings

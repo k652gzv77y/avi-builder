@@ -890,6 +890,16 @@ const Canvas = React.memo(function Canvas({
         }
       }
 
+      // Arrow keys nudge or reorder the selection. Stop the iframe document
+      // from scrolling before the event is forwarded to the editor.
+      if (
+        !isInputFocused
+        && useEditorStore.getState().selectedLayerId
+        && (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight')
+      ) {
+        e.preventDefault();
+      }
+
       // Forward keyboard events to parent window for global shortcuts
       // (copy, paste, undo, redo, copy style, paste style, etc.)
       if (!isInputFocused) {

@@ -1931,6 +1931,7 @@ const CenterCanvas = React.memo(function CenterCanvas({
     disabled: isTextEditing,
     onReorder: handleLayerReorder,
     onLayerSelect: setSelectedLayerId,
+    onFreeformCommit: handleCanvasLayerUpdate,
   });
 
   // Calculate parent layer ID for selection overlay (one level up from selected)
@@ -2599,6 +2600,7 @@ const CenterCanvas = React.memo(function CenterCanvas({
             zoom={zoom}
             activeSublayerIndex={activeSublayerIndex}
             activeListItemIndex={activeListItemIndex}
+            onLayerUpdate={handleCanvasLayerUpdate}
           />
         )}
 

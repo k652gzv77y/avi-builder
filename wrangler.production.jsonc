@@ -4,6 +4,12 @@
   "account_id": "ed21b04052e50e8fbf1ee544dea3e938",
   "workers_dev": true,
   "main": ".open-next/worker.js",
+  // Workers Builds runs `next build` and then `wrangler deploy`. That build
+  // does not create this entrypoint, so the upload fails with
+  // "The entry-point file at .open-next/worker.js was not found."
+  "build": {
+    "command": "npm run build:worker"
+  },
   "compatibility_date": "2026-09-01",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "vars": {

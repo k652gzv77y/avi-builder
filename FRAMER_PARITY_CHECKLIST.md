@@ -10,7 +10,9 @@ or materially below Framer's workflow.
 ## 1. Project, Canvas, and Pages
 
 - [x] Pages, page folders, routes, redirects, and page settings
-- [x] Canvas selection, drag/drop, zoom, guides, gap indicators, and layer tree
+- [x] Canvas selection, zoom, layer tree, and stack/flex sibling reorder with gap indicators
+- [x] Free-form drag, resize handles, and arrow-key nudge for absolute, fixed, and frame children
+- [~] Drag snaps to parent and sibling edges while moving; no persistent rulers or smart-guide panel
 - [x] Desktop/tablet/phone breakpoints
 - [x] Per-breakpoint layout overrides with a clear inherited-value indicator
 - [ ] Independent breakpoint creation, naming, ordering, and range editing
@@ -32,7 +34,7 @@ or materially below Framer's workflow.
 - [ ] Fractional grid controls, named grid areas, and visual cell placement
 - [ ] Full positioning pin controls with responsive constraints
 - [ ] Auto layout suggestions when grouping or arranging selected layers
-- [ ] Reorderable layout children directly on canvas
+- [x] Reorderable layout children directly on canvas (stack and grid siblings; absolute children move instead)
 - [ ] Per-breakpoint layout change history / diff view
 - [ ] Container-query and responsive-visibility rules in the visual inspector
 
