@@ -34,11 +34,12 @@ const SITE_VARIABLE_TYPES = new Set<string>(SITE_VARIABLE_TYPE_VALUES);
 export function getVariableCollectionItemCount(
   id: VariableCollectionId,
   colorCount: number,
-  globals: Array<{ type: string }>,
+  globals: Array<{ type: string }> | null | undefined,
 ): number {
+  const list = Array.isArray(globals) ? globals : [];
   if (id === 'colors') return colorCount;
-  if (id === 'assets') return globals.filter((global) => global.type === 'image').length;
-  return globals.filter((global) => SITE_VARIABLE_TYPES.has(global.type)).length;
+  if (id === 'assets') return list.filter((global) => global?.type === 'image').length;
+  return list.filter((global) => !!global && SITE_VARIABLE_TYPES.has(global.type)).length;
 }
 
 export const VARIABLE_MODES_SETTING_KEY = 'variable_modes';

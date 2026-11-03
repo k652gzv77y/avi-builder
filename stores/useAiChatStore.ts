@@ -602,14 +602,10 @@ export const useAiChatStore = create<AiChatStore>()(
           set({ isLoadingChats: true });
 
           // Restore the active conversation after a reload: the id survives in
-          // localStorage but the transcript now lives server-side. Fetched in
-          // parallel with the summaries list to avoid a second sequential
-          // round-trip; a 404 (fresh chat that never hit the server) is a cheap
-          // indexed miss and simply resolves to nothing to restore.
+          // localStorage but the transcript now lives server-side. A fresh
+          // client id was never saved, so asking for it 404s. Wait for the
+          // summary list and only fetch a transcript the server knows about.
           const shouldRestoreActive = state.messages.length === 0 && state.status === 'idle';
-          const restorePromise = shouldRestoreActive
-            ? aiChatsApi.getById(state.currentChatId).catch(() => null)
-            : null;
 
           try {
             const result = await aiChatsApi.getAll();
@@ -638,9 +634,9 @@ export const useAiChatStore = create<AiChatStore>()(
               return { chats, chatsLoaded: true };
             });
 
-            if (restorePromise) {
+            if (shouldRestoreActive && summaryIds.has(state.currentChatId)) {
               const activeId = state.currentChatId;
-              const chat = await restorePromise;
+              const chat = await aiChatsApi.getById(activeId).catch(() => null);
               const restored = (chat?.data?.messages ?? []) as ChatMessage[];
               if (restored.length > 0) {
                 set((s) =>

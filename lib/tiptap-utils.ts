@@ -373,6 +373,7 @@ export function extractPlainTextFromTiptap(content: any): string {
   let result = '';
 
   const extractFromNode = (node: any): void => {
+    if (!node || typeof node !== 'object') return;
     if (node.type === 'text' && node.text) {
       result += node.text;
     } else if (node.type === 'dynamicVariable' && node.attrs?.label) {

@@ -71,6 +71,11 @@ export interface LayerIndexes {
   parentMap: Map<string, string>;
 }
 
+/** Draft `layers` is typed as an array, but a null or non-array value throws on `.find` / `.map` while the canvas is drawing. */
+export function asLayerArray(layers: unknown): Layer[] {
+  return Array.isArray(layers) ? layers as Layer[] : [];
+}
+
 const indexCache = new WeakMap<Layer[], LayerIndexes>();
 
 function buildLayerIndexes(layers: Layer[]): LayerIndexes {
@@ -248,12 +253,14 @@ export function findAncestorByName(layers: Layer[], layerId: string, ancestorNam
  * active pagination type (bullets vs fraction) inside the pagination wrapper.
  */
 export function filterDisabledSliderLayers(layers: Layer[], sliderSettings?: Layer['settings']): Layer[] {
+  if (!Array.isArray(layers)) return [];
   const sliderConfig = sliderSettings?.slider;
 
   // When called with sliderSettings we're already inside a slider context,
   // so filter disabled nav/pagination wrappers at the current level.
   const inputLayers = sliderConfig
     ? layers.filter(layer => {
+      if (!layer || typeof layer !== 'object') return false;
       if (layer.name === 'slideNavigationWrapper' && !sliderConfig.navigation) return false;
       if (layer.name === 'slidePaginationWrapper' && !sliderConfig.pagination) return false;
       return true;
@@ -261,7 +268,8 @@ export function filterDisabledSliderLayers(layers: Layer[], sliderSettings?: Lay
     : layers;
 
   return inputLayers.map(layer => {
-    if (!layer.children?.length) return layer;
+    if (!layer || typeof layer !== 'object') return layer;
+    if (!Array.isArray(layer.children) || layer.children.length === 0) return layer;
 
     const currentSliderSettings = layer.name === 'slider' ? layer.settings : sliderSettings;
     let filteredChildren = filterDisabledSliderLayers(layer.children, currentSliderSettings);
@@ -270,6 +278,7 @@ export function filterDisabledSliderLayers(layers: Layer[], sliderSettings?: Lay
     if (layer.name === 'slidePaginationWrapper' && settings) {
       const isFraction = settings.paginationType === 'fraction';
       filteredChildren = filteredChildren.filter(child => {
+        if (!child || typeof child !== 'object') return false;
         if (child.name === 'slideBullets' && isFraction) return false;
         if (child.name === 'slideFraction' && !isFraction) return false;
         return true;
@@ -2469,7 +2478,8 @@ export function evaluateVisibility(
  * This helps know which layers belong to which component instance
  */
 function buildComponentMap(layers: Layer[], componentMap: Record<string, string> = {}, currentComponentRootId: string | null = null): Record<string, string> {
-  layers.forEach(layer => {
+  asLayerArray(layers).forEach(layer => {
+    if (!layer || typeof layer !== 'object') return;
     // If this is a component instance root, track it
     const rootId = layer.componentId ? layer.id : currentComponentRootId;
 
@@ -2479,7 +2489,7 @@ function buildComponentMap(layers: Layer[], componentMap: Record<string, string>
     }
 
     // Recursively process children
-    if (layer.children && layer.children.length > 0) {
+    if (Array.isArray(layer.children) && layer.children.length > 0) {
       buildComponentMap(layer.children, componentMap, rootId);
     }
   });
@@ -2714,14 +2724,26 @@ export function serializeLayers(
   components: Component[] = [],
   editingComponentVariables?: ComponentVariable[],
 ): { layers: Layer[]; componentMap: Record<string, string> } {
-  const componentMap = buildComponentMap(layers);
-  const resolvedLayers = resolveComponentsInLayers(layers, components, editingComponentVariables);
-  const cloned = JSON.parse(JSON.stringify(resolvedLayers));
-
-  return {
-    layers: cloned,
-    componentMap,
-  };
+  const source = asLayerArray(layers);
+  try {
+    const componentMap = buildComponentMap(source);
+    const resolvedLayers = resolveComponentsInLayers(
+      source,
+      Array.isArray(components) ? components : [],
+      editingComponentVariables,
+    );
+    // A component cycle that escapes the visited set, or any other circular
+    // reference, used to throw here and replace the whole editor with the
+    // error screen. Fall back to the unresolved tree so the canvas can open.
+    const cloned = JSON.parse(JSON.stringify(resolvedLayers)) as Layer[];
+    return {
+      layers: cloned,
+      componentMap,
+    };
+  } catch (error) {
+    console.error('[Editor] Could not resolve layers for the canvas:', error);
+    return { layers: source, componentMap: {} };
+  }
 }
 
 /**

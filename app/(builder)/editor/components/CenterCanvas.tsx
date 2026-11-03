@@ -68,7 +68,7 @@ import RichTextEditorSheet from './RichTextEditorSheet';
 import { buildPreviewAuthRevision, buildLocalizedSlugPath, buildLocalizedDynamicPageUrl } from '@/lib/page-utils';
 import { getTranslationValue, applyCmsTranslations, extractLayerTranslatableItemsShallow } from '@/lib/localisation-utils';
 import { cn } from '@/lib/utils';
-import { getCollectionVariable, canDeleteLayer, findLayerById, findParentCollectionLayer, canLayerHaveLink, updateLayerProps, removeRichTextSublayer, isRichTextLayer, getLayerCmsFieldBinding } from '@/lib/layer-utils';
+import { asLayerArray, getCollectionVariable, canDeleteLayer, findLayerById, findParentCollectionLayer, canLayerHaveLink, updateLayerProps, removeRichTextSublayer, isRichTextLayer, getLayerCmsFieldBinding } from '@/lib/layer-utils';
 import { insertComponentOnCanvas } from '@/lib/insert-component-on-canvas';
 import { CANVAS_BORDER, CANVAS_PADDING, updateViewportOverrides } from '@/lib/canvas-utils';
 import { BREAKPOINTS, DEFAULT_CANVAS_BREAKPOINT_FRAMES } from '@/lib/breakpoint-utils';
@@ -1214,7 +1214,7 @@ const CenterCanvas = React.memo(function CenterCanvas({
   const layers = useMemo(() => {
     // If editing a component, show the active variant's layers
     if (editingComponentId && activeComponentVariantId) {
-      return componentDrafts[editingComponentId]?.[activeComponentVariantId] || [];
+      return asLayerArray(componentDrafts[editingComponentId]?.[activeComponentVariantId]);
     }
 
     // Otherwise show page layers
@@ -1222,7 +1222,7 @@ const CenterCanvas = React.memo(function CenterCanvas({
       return [];
     }
 
-    return currentDraft ? currentDraft.layers : [];
+    return asLayerArray(currentDraft ? currentDraft.layers : []);
   }, [editingComponentId, activeComponentVariantId, componentDrafts, currentPageId, currentDraft]);
 
   // Check if we're waiting for a draft to load (page selected but no draft yet)
@@ -1282,7 +1282,7 @@ const CenterCanvas = React.memo(function CenterCanvas({
             offset: collectionVariable.offset ?? undefined,
           });
         }
-        if (layer.children && layer.children.length > 0) {
+        if (Array.isArray(layer.children) && layer.children.length > 0) {
           traverse(layer.children);
         }
       });
@@ -1376,9 +1376,9 @@ const CenterCanvas = React.memo(function CenterCanvas({
     // Get layers from either the active component variant draft or page draft
     let layersToSearch: Layer[] = [];
     if (editingComponentId && activeComponentVariantId) {
-      layersToSearch = componentDrafts[editingComponentId]?.[activeComponentVariantId] || [];
+      layersToSearch = asLayerArray(componentDrafts[editingComponentId]?.[activeComponentVariantId]);
     } else {
-      layersToSearch = currentDraft ? currentDraft.layers : [];
+      layersToSearch = asLayerArray(currentDraft?.layers);
     }
 
     if (!layersToSearch.length) return null;
@@ -1392,9 +1392,9 @@ const CenterCanvas = React.memo(function CenterCanvas({
     if (!editingLayerId) return undefined;
     let layers: Layer[] = [];
     if (editingComponentId && activeComponentVariantId) {
-      layers = componentDrafts[editingComponentId]?.[activeComponentVariantId] || [];
+      layers = asLayerArray(componentDrafts[editingComponentId]?.[activeComponentVariantId]);
     } else if (currentPageId) {
-      layers = currentDraft ? currentDraft.layers : [];
+      layers = asLayerArray(currentDraft?.layers);
     }
     if (!layers.length) return undefined;
     const page = editingComponentId ? null : currentPage;

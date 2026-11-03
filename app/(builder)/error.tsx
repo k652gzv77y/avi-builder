@@ -31,6 +31,11 @@ export default function BuilderError({ error, reset }: BuilderErrorProps) {
         <p className="mt-2 text-xs text-muted-foreground">
           The builder hit an unexpected error while drawing the canvas. Your published site was not changed.
         </p>
+        {(error.message || error.digest) && (
+          <pre className="mt-4 max-h-48 overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted px-3 py-2 text-left font-mono text-[11px] text-foreground">
+            {[error.message, error.digest ? `digest: ${error.digest}` : ''].filter(Boolean).join('\n')}
+          </pre>
+        )}
         <Button
           type="button"
           size="sm"
