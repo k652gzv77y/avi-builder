@@ -1,7 +1,7 @@
 /**
  * Framer-style interaction model for Sprint 4.
  *
- * Events stay on the existing trigger field (tap, hover, press, appear, scroll, load).
+ * Events stay on the existing trigger field (tap, hover, press, keyboard, timer, appear, scroll, load).
  * Actions are a separate list on that event: set variant, overlay, navigate,
  * scroll to, set variable, and scroll-to-variant. Tweens remain the animation track, including Appear
  * presets. Effects (opacity, shadow, blur) are not part of this model.
@@ -15,11 +15,13 @@ import type {
   AppearPresetId,
   InteractionAction,
   InteractionTween,
+  KeyboardTrigger,
   Layer,
   LayerInteraction,
   OverlayDismiss,
   OverlayPlacement,
   ScrollPresetId,
+  TimerTrigger,
   TweenProperties,
 } from '@/types';
 
@@ -30,6 +32,8 @@ export const EVENT_LABELS: Record<InteractionEvent, string> = {
   click: 'Tap',
   hover: 'Hover',
   press: 'Press',
+  key: 'Keyboard',
+  timer: 'Timer',
   'scroll-into-view': 'Appear',
   'while-scrolling': 'Scroll',
   load: 'Load',
@@ -39,9 +43,27 @@ export const INTERACTION_EVENTS: InteractionEvent[] = [
   'click',
   'hover',
   'press',
+  'key',
+  'timer',
   'scroll-into-view',
   'while-scrolling',
   'load',
+];
+
+/** First run of a new Timer event. */
+export const DEFAULT_TIMER_DELAY_MS = 1000;
+
+/** Repeat gap never schedules a zero-delay loop. */
+export const MIN_TIMER_INTERVAL_MS = 1;
+
+export const KEYBOARD_MODIFIERS: ReadonlyArray<{
+  key: 'ctrl' | 'alt' | 'shift' | 'meta';
+  label: string;
+}> = [
+  { key: 'ctrl', label: 'Ctrl' },
+  { key: 'alt', label: 'Alt' },
+  { key: 'shift', label: 'Shift' },
+  { key: 'meta', label: 'Cmd' },
 ];
 
 export const DEFAULT_OVERLAY_DISMISS: OverlayDismiss = {
@@ -104,6 +126,228 @@ export function eventLabel(trigger: InteractionEvent): string {
   return EVENT_LABELS[trigger];
 }
 
+export function defaultKeyboardTrigger(): KeyboardTrigger {
+  return { key: '', phase: 'down', shift: false, meta: false, alt: false, ctrl: false };
+}
+
+export function defaultTimerTrigger(): TimerTrigger {
+  return {
+    delay: DEFAULT_TIMER_DELAY_MS,
+    repeat: false,
+    interval: DEFAULT_TIMER_DELAY_MS,
+  };
+}
+
+export function withKeyboard(
+  interaction: LayerInteraction,
+  patch: Partial<KeyboardTrigger>,
+): LayerInteraction {
+  return {
+    ...interaction,
+    keyboard: { ...defaultKeyboardTrigger(), ...interaction.keyboard, ...patch },
+  };
+}
+
+export function withTimer(
+  interaction: LayerInteraction,
+  patch: Partial<TimerTrigger>,
+): LayerInteraction {
+  return {
+    ...interaction,
+    timer: { ...defaultTimerTrigger(), ...interaction.timer, ...patch },
+  };
+}
+
+const MODIFIER_KEY_NAMES = new Set([
+  'shift',
+  'control',
+  'ctrl',
+  'alt',
+  'option',
+  'meta',
+  'cmd',
+  'command',
+  'os',
+  'altgraph',
+  'capslock',
+  'hyper',
+  'super',
+  'fn',
+]);
+
+const KEY_ALIASES: Record<string, string> = {
+  ' ': 'space',
+  spacebar: 'space',
+  esc: 'escape',
+  return: 'enter',
+  del: 'delete',
+  'arrow up': 'arrowup',
+  'arrow down': 'arrowdown',
+  'arrow left': 'arrowleft',
+  'arrow right': 'arrowright',
+  'page up': 'pageup',
+  'page down': 'pagedown',
+};
+
+const NAMED_KEY_CODES: Record<string, string> = {
+  Space: 'space',
+  Enter: 'enter',
+  NumpadEnter: 'enter',
+  Escape: 'escape',
+  Tab: 'tab',
+  Backspace: 'backspace',
+  Delete: 'delete',
+  ArrowUp: 'arrowup',
+  ArrowDown: 'arrowdown',
+  ArrowLeft: 'arrowleft',
+  ArrowRight: 'arrowright',
+  Home: 'home',
+  End: 'end',
+  PageUp: 'pageup',
+  PageDown: 'pagedown',
+};
+
+const KEY_LABELS: Record<string, string> = {
+  space: 'Space',
+  enter: 'Enter',
+  escape: 'Esc',
+  tab: 'Tab',
+  backspace: 'Backspace',
+  delete: 'Delete',
+  arrowup: 'Arrow up',
+  arrowdown: 'Arrow down',
+  arrowleft: 'Arrow left',
+  arrowright: 'Arrow right',
+  home: 'Home',
+  end: 'End',
+  pageup: 'Page up',
+  pagedown: 'Page down',
+};
+
+/** Stored key id. Letters and digits are lowercase. Modifier names are empty. */
+export function canonicalKey(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return '';
+  const lower = trimmed.toLowerCase();
+  if (MODIFIER_KEY_NAMES.has(lower)) return '';
+  if (KEY_ALIASES[lower]) return KEY_ALIASES[lower];
+  if (/^[a-z0-9]$/.test(lower)) return lower;
+  if (/^f(?:[1-9]|1[0-2])$/.test(lower)) return lower;
+  return lower;
+}
+
+export interface KeyboardEventLike {
+  key: string;
+  code?: string;
+  shiftKey?: boolean;
+  metaKey?: boolean;
+  altKey?: boolean;
+  ctrlKey?: boolean;
+  repeat?: boolean;
+}
+
+/**
+ * Physical key from a keyboard event. Letter and digit codes win over
+ * `event.key` so Shift+1 stays "1" instead of "!".
+ */
+export function keyFromKeyboardEvent(event: Pick<KeyboardEventLike, 'key' | 'code'>): string | null {
+  const code = event.code ?? '';
+  const letter = /^Key([A-Z])$/.exec(code);
+  if (letter) return letter[1].toLowerCase();
+  const digit = /^Digit([0-9])$/.exec(code);
+  if (digit) return digit[1];
+  const numpad = /^Numpad([0-9])$/.exec(code);
+  if (numpad) return numpad[1];
+  const fn = /^F([1-9]|1[0-2])$/.exec(code);
+  if (fn) return `f${fn[1]}`;
+  if (NAMED_KEY_CODES[code]) return NAMED_KEY_CODES[code];
+  const key = canonicalKey(event.key || '');
+  return key || null;
+}
+
+/** Exact shortcut match. A held key repeat does not fire key down again. */
+export function keyboardEventMatches(
+  keyboard: KeyboardTrigger | undefined,
+  event: KeyboardEventLike,
+  phase: 'down' | 'up',
+): boolean {
+  if (!keyboard?.key) return false;
+  if ((keyboard.phase ?? 'down') !== phase) return false;
+  if (phase === 'down' && event.repeat) return false;
+  const pressed = keyFromKeyboardEvent(event);
+  if (!pressed || pressed !== canonicalKey(keyboard.key)) return false;
+  if (!!event.shiftKey !== !!keyboard.shift) return false;
+  if (!!event.metaKey !== !!keyboard.meta) return false;
+  if (!!event.altKey !== !!keyboard.alt) return false;
+  if (!!event.ctrlKey !== !!keyboard.ctrl) return false;
+  return true;
+}
+
+/** Ctrl, Alt, and Cmd still run while a text field is focused. Shift does not. */
+export function keyboardBypassesTyping(keyboard: KeyboardTrigger | undefined): boolean {
+  return !!(keyboard?.meta || keyboard?.ctrl || keyboard?.alt);
+}
+
+export function keyboardShouldFire(
+  keyboard: KeyboardTrigger | undefined,
+  event: KeyboardEventLike,
+  phase: 'down' | 'up',
+  typing = false,
+): boolean {
+  if (!keyboardEventMatches(keyboard, event, phase)) return false;
+  if (typing && !keyboardBypassesTyping(keyboard)) return false;
+  return true;
+}
+
+export function formatKeyLabel(key: string): string {
+  const canonical = canonicalKey(key);
+  if (!canonical) return '';
+  if (KEY_LABELS[canonical]) return KEY_LABELS[canonical];
+  if (/^[a-z]$/.test(canonical)) return canonical.toUpperCase();
+  if (/^f\d+$/.test(canonical)) return canonical.toUpperCase();
+  return canonical;
+}
+
+/** "Ctrl+Shift+⌘+K". Empty when no key is chosen. */
+export function formatKeyboardCombo(keyboard: KeyboardTrigger | undefined): string {
+  if (!keyboard?.key) return '';
+  const label = formatKeyLabel(keyboard.key);
+  if (!label) return '';
+  const modifiers: string[] = [];
+  if (keyboard.ctrl) modifiers.push('Ctrl');
+  if (keyboard.alt) modifiers.push('Alt');
+  if (keyboard.shift) modifiers.push('Shift');
+  if (keyboard.meta) modifiers.push('⌘');
+  return [...modifiers, label].join('+');
+}
+
+export function sanitizeMilliseconds(value: unknown, minimum = 0): number | null {
+  let numeric: number;
+  if (typeof value === 'number') numeric = value;
+  else if (typeof value === 'string' && value.trim() !== '') numeric = Number(value);
+  else return null;
+  if (!Number.isFinite(numeric)) return null;
+  return Math.max(minimum, Math.round(numeric));
+}
+
+export interface TimerSchedule {
+  delay: number;
+  /** Null fires once. A repeat uses at least {@link MIN_TIMER_INTERVAL_MS}. */
+  interval: number | null;
+}
+
+/** When a Timer event runs. Missing or non-numeric delay does not run. */
+export function timerSchedule(timer: TimerTrigger | undefined): TimerSchedule | null {
+  if (!timer) return null;
+  const delay = sanitizeMilliseconds(timer.delay, 0);
+  if (delay === null) return null;
+  if (!timer.repeat) return { delay, interval: null };
+  const raw = timer.interval === undefined ? delay : timer.interval;
+  const interval = sanitizeMilliseconds(raw, MIN_TIMER_INTERVAL_MS);
+  if (interval === null) return { delay, interval: MIN_TIMER_INTERVAL_MS };
+  return { delay, interval };
+}
+
 const ACTION_TYPES = new Set<InteractionAction['type']>([
   'set-variant',
   'overlay',
@@ -145,6 +389,8 @@ export function createLayerInteraction(
       } : {}),
     },
     tweens: [],
+    ...(trigger === 'key' ? { keyboard: defaultKeyboardTrigger() } : {}),
+    ...(trigger === 'timer' ? { timer: defaultTimerTrigger() } : {}),
   };
 }
 
@@ -242,7 +488,50 @@ function readInteraction(value: unknown): LayerInteraction {
       }
     }
   }
+  if (value.keyboard !== undefined) value.keyboard = readKeyboard(value.keyboard);
+  if (value.timer !== undefined) value.timer = readTimer(value.timer);
   return value as unknown as LayerInteraction;
+}
+
+function readFlag(record: Record<string, unknown>, key: string, label: string): boolean {
+  const flag = record[key];
+  if (flag === undefined) return false;
+  if (typeof flag !== 'boolean') throw new Error(`${label} is not supported`);
+  return flag;
+}
+
+function readKeyboard(value: unknown): KeyboardTrigger {
+  if (!isRecord(value)) throw new Error('Keyboard trigger is not supported');
+  if (value.key !== undefined && typeof value.key !== 'string') {
+    throw new Error('Keyboard key is not supported');
+  }
+  if (value.phase !== undefined && value.phase !== 'down' && value.phase !== 'up') {
+    throw new Error('Keyboard phase is not supported');
+  }
+  return {
+    key: canonicalKey(typeof value.key === 'string' ? value.key : ''),
+    phase: value.phase === 'up' ? 'up' : 'down',
+    shift: readFlag(value, 'shift', 'Keyboard shift'),
+    meta: readFlag(value, 'meta', 'Keyboard command'),
+    alt: readFlag(value, 'alt', 'Keyboard alt'),
+    ctrl: readFlag(value, 'ctrl', 'Keyboard control'),
+  };
+}
+
+function readTimer(value: unknown): TimerTrigger {
+  if (!isRecord(value)) throw new Error('Timer trigger is not supported');
+  const delay = sanitizeMilliseconds(value.delay, 0);
+  if (delay === null) throw new Error('Timer delay is not supported');
+  if (value.repeat !== undefined && typeof value.repeat !== 'boolean') {
+    throw new Error('Timer repeat is not supported');
+  }
+  const timer: TimerTrigger = { delay, repeat: value.repeat === true };
+  if (value.interval !== undefined) {
+    const interval = sanitizeMilliseconds(value.interval, 0);
+    if (interval === null) throw new Error('Timer interval is not supported');
+    timer.interval = interval;
+  }
+  return timer;
 }
 
 /** Read a stored interactions array. Throws when the document is not the event model. */
@@ -329,9 +618,26 @@ export function actionLabel(action: InteractionAction): string {
   }
 }
 
+function eventHeading(interaction: LayerInteraction): string {
+  const label = eventLabel(interaction.trigger);
+  if (interaction.trigger === 'key') {
+    const combo = formatKeyboardCombo(interaction.keyboard);
+    const phase = interaction.keyboard?.phase === 'up' ? 'up' : '';
+    const detail = [phase, combo].filter(Boolean).join(' ');
+    return detail ? `${label} ${detail}` : label;
+  }
+  if (interaction.trigger === 'timer') {
+    const schedule = timerSchedule(interaction.timer);
+    if (!schedule) return label;
+    if (schedule.interval == null) return `${label} ${schedule.delay}ms`;
+    return `${label} ${schedule.delay}ms every ${schedule.interval}ms`;
+  }
+  return label;
+}
+
 /** "Tap → Set Variant" for the event list. */
 export function interactionSummary(interaction: LayerInteraction): string {
-  const event = eventLabel(interaction.trigger);
+  const event = eventHeading(interaction);
   const action = interaction.actions?.[0];
   if (action) return `${event} → ${actionLabel(action)}`;
   if (interaction.appearPreset) {

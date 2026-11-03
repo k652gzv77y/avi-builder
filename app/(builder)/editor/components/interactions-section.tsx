@@ -31,7 +31,7 @@ export function InteractionsSection({ layer, onOpen, onCreateOverlay }: Interact
         </p>
       ) : interactions.length === 0 ? (
         <p className="text-[11px] leading-snug text-muted-foreground">
-          Tap, hover, appear, and scroll. These are events, not visual effects.
+          Tap, hover, press, keyboard, timer, appear, and scroll. These are events, not visual effects.
         </p>
       ) : (
         <ul className="flex flex-col gap-1">

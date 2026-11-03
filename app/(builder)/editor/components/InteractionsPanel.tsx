@@ -1212,6 +1212,8 @@ export default function InteractionsPanel({
               <DropdownMenuItem onClick={() => handleAddInteraction('click')} disabled={usedTriggers.has('click')}>{TRIGGER_LABELS.click}</DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleAddInteraction('hover')} disabled={usedTriggers.has('hover')}>{TRIGGER_LABELS.hover}</DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleAddInteraction('press')} disabled={usedTriggers.has('press')}>{TRIGGER_LABELS.press}</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleAddInteraction('key')} disabled={usedTriggers.has('key')}>{TRIGGER_LABELS.key}</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleAddInteraction('timer')} disabled={usedTriggers.has('timer')}>{TRIGGER_LABELS.timer}</DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleAddInteraction('scroll-into-view')} disabled={usedTriggers.has('scroll-into-view')}>{TRIGGER_LABELS['scroll-into-view']}</DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleAddInteraction('while-scrolling')} disabled={usedTriggers.has('while-scrolling')}>{TRIGGER_LABELS['while-scrolling']}</DropdownMenuItem>
               <DropdownMenuSeparator />

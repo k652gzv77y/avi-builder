@@ -7,6 +7,7 @@ import {
   actionsForRun,
   actionsOnHoverLeave,
   authorLayerInteraction,
+  canonicalKey,
   createAppearTween,
   createLayerInteraction,
   createNavigateAction,
@@ -18,8 +19,13 @@ import {
   dismissOnEscape,
   dismissOnPointer,
   focusAfterClose,
+  formatKeyboardCombo,
+  formatKeyLabel,
   hrefForPage,
   interactionSummary,
+  keyFromKeyboardEvent,
+  keyboardEventMatches,
+  keyboardShouldFire,
   mergeLayerInteractions,
   nextScrollStop,
   overlayOpenTargets,
@@ -32,6 +38,7 @@ import {
   resolveNavigateHref,
   scrollToPlan,
   scrollProgressThroughViewport,
+  timerSchedule,
   serializeLayerInteractions,
   upsertInteractionAction,
   upsertLayerInteraction,
@@ -39,7 +46,9 @@ import {
   variantForScrollProgress,
   variantTargets,
   withAppearPreset,
+  withKeyboard,
   withScrollPreset,
+  withTimer,
 } from '@/lib/interactions-framer';
 
 function interaction(partial: Partial<LayerInteraction> = {}): LayerInteraction {
@@ -443,4 +452,170 @@ test('press set-variable and tap scroll-to serialize on the layer', () => {
   ]);
   assert.equal(leave.length, 1);
   assert.equal(leave[0].type, 'overlay');
+});
+
+test('keyboard shortcuts match key, modifiers, and phase', () => {
+  const plain = { key: 'k', phase: 'down' as const };
+  assert.equal(keyboardEventMatches(plain, { key: 'k', code: 'KeyK' }, 'down'), true);
+  assert.equal(keyboardEventMatches(plain, { key: 'K', code: 'KeyK', shiftKey: true }, 'down'), false);
+  assert.equal(keyboardEventMatches(plain, { key: 'k' }, 'up'), false);
+  assert.equal(keyboardEventMatches(plain, { key: 'k', repeat: true }, 'down'), false);
+  assert.equal(keyboardEventMatches({ key: 'k', phase: 'up' }, { key: 'K' }, 'up'), true);
+  assert.equal(keyFromKeyboardEvent({ key: 'Shift', code: 'ShiftLeft' }), null);
+  assert.equal(canonicalKey('Cmd'), '');
+  assert.equal(keyboardEventMatches({ key: '' }, { key: 'k' }, 'down'), false);
+
+  const combo = { key: 'k', meta: true, shift: true, phase: 'down' as const };
+  assert.equal(keyboardEventMatches(combo, { key: 'k', code: 'KeyK', metaKey: true, shiftKey: true }, 'down'), true);
+  assert.equal(keyboardEventMatches(combo, { key: 'k', code: 'KeyK', metaKey: true }, 'down'), false);
+  assert.equal(keyboardEventMatches(combo, {
+    key: 'k',
+    code: 'KeyK',
+    metaKey: true,
+    shiftKey: true,
+    ctrlKey: true,
+  }, 'down'), false);
+  assert.equal(keyboardEventMatches({ key: 'k', ctrl: true }, { key: 'k', metaKey: true }, 'down'), false);
+  assert.equal(keyboardEventMatches({ key: 'k', alt: true }, { key: 'k', altKey: true }, 'down'), true);
+
+  assert.equal(keyFromKeyboardEvent({ key: '!', code: 'Digit1' }), '1');
+  assert.equal(keyboardEventMatches(
+    { key: '1', shift: true },
+    { key: '!', code: 'Digit1', shiftKey: true },
+    'down',
+  ), true);
+  assert.equal(keyboardEventMatches(
+    { key: '1' },
+    { key: '!', code: 'Digit1', shiftKey: true },
+    'down',
+  ), false);
+
+  assert.equal(keyFromKeyboardEvent({ key: 'Enter' }), 'enter');
+  assert.equal(keyboardEventMatches({ key: 'enter' }, { key: 'Enter', code: 'Enter' }, 'down'), true);
+  assert.equal(keyboardEventMatches({ key: 'space' }, { key: ' ', code: 'Space' }, 'down'), true);
+  assert.equal(formatKeyLabel('k'), 'K');
+  assert.equal(formatKeyLabel('escape'), 'Esc');
+  assert.equal(formatKeyboardCombo({ key: 'k', ctrl: true, shift: true, meta: true }), 'Ctrl+Shift+⌘+K');
+  assert.equal(formatKeyboardCombo({ key: '' }), '');
+
+  assert.equal(keyboardShouldFire(plain, { key: 'k' }, 'down', true), false);
+  assert.equal(keyboardShouldFire(
+    { key: 'k', shift: true },
+    { key: 'K', shiftKey: true },
+    'down',
+    true,
+  ), false);
+  assert.equal(keyboardShouldFire(
+    { key: 'k', meta: true },
+    { key: 'k', metaKey: true },
+    'down',
+    true,
+  ), true);
+});
+
+test('timer schedule waits, then repeats on an interval', () => {
+  assert.equal(timerSchedule(undefined), null);
+  assert.deepEqual(timerSchedule({ delay: 1000 }), { delay: 1000, interval: null });
+  assert.deepEqual(timerSchedule({ delay: 250.4, repeat: false, interval: 50 }), {
+    delay: 250,
+    interval: null,
+  });
+  assert.deepEqual(timerSchedule({ delay: -20, repeat: true }), { delay: 0, interval: 1 });
+  assert.deepEqual(timerSchedule({ delay: 500, repeat: true, interval: 1200 }), {
+    delay: 500,
+    interval: 1200,
+  });
+  assert.deepEqual(timerSchedule({ delay: 800, repeat: true }), { delay: 800, interval: 800 });
+  assert.deepEqual(timerSchedule({ delay: 800, repeat: true, interval: 0 }), { delay: 800, interval: 1 });
+  assert.equal(timerSchedule({ delay: Number.NaN }), null);
+});
+
+test('keyboard and timer events round-trip with the existing actions', () => {
+  const layer: Layer = { id: 'btn', name: 'button', classes: '' };
+  const keyEvent = withKeyboard(createLayerInteraction('int-key', 'key'), {
+    key: 'K',
+    meta: true,
+    phase: 'down',
+  });
+  const withNavigate = authorLayerInteraction(
+    { ...layer, interactions: [keyEvent] },
+    {
+      interactionId: 'int-key',
+      trigger: 'key',
+      action: createNavigateAction('act-go', 'url'),
+    },
+  );
+  const edited = {
+    ...withNavigate,
+    interactions: withNavigate.interactions?.map(item => (
+      item.id === 'int-key' ? withKeyboard(item, { key: 'K', meta: true, phase: 'down' }) : item
+    )),
+  };
+  const storedKey = parseLayerInteractions(serializeLayerInteractions(edited.interactions));
+  assert.equal(storedKey[0].trigger, 'key');
+  assert.equal(storedKey[0].keyboard?.key, 'k');
+  assert.equal(storedKey[0].keyboard?.meta, true);
+  assert.equal(storedKey[0].keyboard?.phase, 'down');
+  assert.equal(interactionSummary(storedKey[0]), 'Keyboard ⌘+K → Navigate');
+  assert.deepEqual(actionEffects(storedKey[0]), [{ type: 'navigate', href: null }]);
+
+  const keyUp = withKeyboard(storedKey[0], { phase: 'up' });
+  assert.equal(interactionSummary(keyUp), 'Keyboard up ⌘+K → Navigate');
+
+  const timerEvent = withTimer(createLayerInteraction('int-timer', 'timer'), {
+    delay: 1500,
+    repeat: true,
+    interval: 400,
+  });
+  const withVariable = authorLayerInteraction(
+    { ...layer, interactions: [timerEvent] },
+    {
+      interactionId: 'int-timer',
+      trigger: 'timer',
+      action: createSetVariableAction('act-var', 'var-theme', 'dark'),
+    },
+  );
+  const keptTimer = {
+    ...withVariable,
+    interactions: withVariable.interactions?.map(item => (
+      item.id === 'int-timer'
+        ? withTimer(item, { delay: 1500, repeat: true, interval: 400 })
+        : item
+    )),
+  };
+  const storedTimer = parseLayerInteractions(serializeLayerInteractions(keptTimer.interactions));
+  assert.equal(storedTimer[0].trigger, 'timer');
+  assert.deepEqual(timerSchedule(storedTimer[0].timer), { delay: 1500, interval: 400 });
+  assert.equal(interactionSummary(storedTimer[0]), 'Timer 1500ms every 400ms → Set Variable');
+  assert.deepEqual(actionEffects(storedTimer[0]), [
+    { type: 'set-variable', variableId: 'var-theme', value: 'dark' },
+  ]);
+
+  assert.throws(
+    () => parseLayerInteractions(JSON.stringify([{
+      id: 'bad',
+      trigger: 'key',
+      timeline: { breakpoints: ['desktop'], repeat: 0, yoyo: false },
+      tweens: [],
+      keyboard: { key: 'k', phase: 'sideways' },
+    }])),
+    /phase/,
+  );
+  assert.throws(
+    () => parseLayerInteractions(JSON.stringify([{
+      id: 'bad',
+      trigger: 'timer',
+      timeline: { breakpoints: ['desktop'], repeat: 0, yoyo: false },
+      tweens: [],
+      timer: { delay: 'soon' },
+    }])),
+    /delay/,
+  );
+
+  const createdKey = createLayerInteraction('fresh-key', 'key');
+  assert.equal(createdKey.keyboard?.key, '');
+  assert.equal(createdKey.keyboard?.phase, 'down');
+  const createdTimer = createLayerInteraction('fresh-timer', 'timer');
+  assert.equal(createdTimer.timer?.delay, 1000);
+  assert.equal(createdTimer.timer?.repeat, false);
 });

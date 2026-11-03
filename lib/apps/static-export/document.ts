@@ -14,7 +14,7 @@ import type { FontPreload } from '@/lib/font-utils'
 import { getClassesString } from '@/lib/layer-utils'
 import { getEffectiveApplyStyle } from '@/lib/animation-utils'
 
-import type { Layer, Page, PageFolder } from '@/types'
+import type { Layer, LayerInteraction, Page, PageFolder } from '@/types'
 
 /**
  * Extract the class string from the synthetic `body` layer so the exporter
@@ -543,7 +543,7 @@ const VISIBILITY_BOOT_SCRIPT = `
 
 export interface ExportedInteraction {
   triggerLayerId: string
-  trigger: 'click' | 'hover' | 'press' | 'load' | 'scroll-into-view' | 'while-scrolling'
+  trigger: LayerInteraction['trigger']
   breakpoints: string[]
   yoyo: boolean
   tweens: Array<{

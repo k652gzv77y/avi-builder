@@ -10,17 +10,19 @@ import {
   dismissOnEscape,
   dismissOnPointer,
   focusAfterClose,
+  keyboardShouldFire,
   overlayOpenTargets,
   overlayPlacementStyle,
   resolveNavigateHref,
   scrollProgressThroughViewport,
   scrollToPlan,
+  timerSchedule,
   variableAssignment,
   variantForScrollProgress,
 } from '@/lib/interactions-framer';
 import { useGlobalsStore } from '@/stores/useGlobalsStore';
 import { useInteractionPreviewStore } from '@/stores/useInteractionPreviewStore';
-import type { InteractionAction, Layer, LayerInteraction } from '@/types';
+import type { InteractionAction, KeyboardPhase, KeyboardTrigger, Layer, LayerInteraction, TimerTrigger } from '@/types';
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -241,6 +243,72 @@ function applyAction(
   }
 }
 
+function isTypingTarget(target: EventTarget | null): boolean {
+  if (!target || typeof target !== 'object') return false;
+  const element = target as HTMLElement;
+  if (typeof element.tagName !== 'string') return false;
+  const tag = element.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+  if (element.isContentEditable) return true;
+  return typeof element.closest === 'function' && !!element.closest('[contenteditable="true"]');
+}
+
+/**
+ * Keyboard listens on the document that owns the layer.
+ * Tap and Press hit the layer element. A key event does not, unless that
+ * layer is focused, so the shortcut is page-scoped while the layer is mounted.
+ * Plain letters stay quiet inside text fields. Ctrl, Alt, and Cmd still run.
+ * Holding the key does not repeat. Key up runs the action list only when the
+ * event phase is up — it does not close overlays the way Press does.
+ */
+export function listenForKeyboard(
+  doc: Document,
+  keyboard: KeyboardTrigger | undefined,
+  fire: () => void,
+): () => void {
+  const onKey = (phase: KeyboardPhase) => (event: Event) => {
+    if (!('key' in event) || typeof event.key !== 'string') return;
+    const keyboardEvent = event as KeyboardEvent;
+    if (!keyboardShouldFire(keyboard, keyboardEvent, phase, isTypingTarget(keyboardEvent.target))) return;
+    if (phase === 'down') keyboardEvent.preventDefault();
+    fire();
+  };
+  const onDown = onKey('down');
+  const onUp = onKey('up');
+  doc.addEventListener('keydown', onDown);
+  doc.addEventListener('keyup', onUp);
+  return () => {
+    doc.removeEventListener('keydown', onDown);
+    doc.removeEventListener('keyup', onUp);
+  };
+}
+
+/**
+ * First run waits `delay` ms from the moment the layer binds in preview.
+ * Repeat then fires every `interval` ms. The caller clears this on unmount.
+ */
+export function listenForTimer(
+  timer: TimerTrigger | undefined,
+  fire: () => void,
+): () => void {
+  const schedule = timerSchedule(timer);
+  if (!schedule || typeof window === 'undefined') return () => {};
+  let intervalId: number | undefined;
+  const timeoutId = window.setTimeout(() => {
+    try {
+      fire();
+    } finally {
+      if (schedule.interval != null) {
+        intervalId = window.setInterval(fire, schedule.interval);
+      }
+    }
+  }, schedule.delay);
+  return () => {
+    window.clearTimeout(timeoutId);
+    if (intervalId !== undefined) window.clearInterval(intervalId);
+  };
+}
+
 export function runInteractionActions(
   doc: Document,
   interaction: LayerInteraction,
@@ -280,8 +348,9 @@ export function prepareOverlayTargets(doc: Document, layers: Layer[]): void {
 }
 
 /**
- * Bind action events. `live` is the published page: tap, hover, appear, and
- * load run there. The editor passes `live: false` and only tracks scroll.
+ * Bind action events. `live` is the published page: tap, hover, press, keyboard,
+ * timer, appear, and load run there. The editor passes `live: false` and only
+ * tracks scroll, so a shortcut does not fire while editing.
  */
 export function bindInteractionActions(
   doc: Document,
@@ -376,6 +445,18 @@ export function bindInteractionActions(
 
     if (interaction.trigger === 'load') {
       runInteractionActions(doc, interaction, trigger, { live: true });
+    }
+
+    if (interaction.trigger === 'key') {
+      cleanups.push(listenForKeyboard(doc, interaction.keyboard, () => {
+        runInteractionActions(doc, interaction, trigger, { live: true });
+      }));
+    }
+
+    if (interaction.trigger === 'timer') {
+      cleanups.push(listenForTimer(interaction.timer, () => {
+        runInteractionActions(doc, interaction, trigger, { live: true });
+      }));
     }
 
     if (interaction.trigger === 'scroll-into-view' && view && 'IntersectionObserver' in view) {
