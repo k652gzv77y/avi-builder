@@ -47,13 +47,14 @@ import { useCollectionsStore } from '@/stores/useCollectionsStore';
 import { createTextComponentVariableValue, extractTiptapFromComponentVariable } from '@/lib/variable-utils';
 import { collectVariantVariableOptions } from '@/lib/component-variant-utils';
 import { applyStackValueToBoundLayers, isStackVariableValue } from '@/lib/component-bindings';
-import { isEnumPropertyValue } from '@/lib/component-properties';
+import { defaultArrayValue, defaultObjectValue, emptySlotValue, isEnumPropertyValue } from '@/lib/component-properties';
 import { cn, generateId } from '@/lib/utils';
 import { VARIABLE_TYPE_ICONS } from './ComponentVariableLabel';
 import StackVariableControl from './StackVariableControl';
 import PropertyControlInput from './PropertyControlInput';
+import StructuredPropertyEditor from './structured-property-editor';
 import { Separator } from '@/components/ui/separator';
-import type { ComponentPropertyType, ComponentVariable, ComponentVariableValue, EnumOption, VariantSettingsValue } from '@/types';
+import type { ComponentPropertyType, ComponentVariable, ComponentVariableValue, EnumOption, StructuredField, VariantSettingsValue } from '@/types';
 
 function EnumOptionsEditor({
   options,
@@ -386,6 +387,29 @@ export default function ComponentVariablesDialog({
     setEditingName(created?.name ?? labels[type]);
   };
 
+  const handleAddStructuredVariable = async (type: 'array' | 'object' | 'slot') => {
+    if (!componentId) return;
+    const fields: StructuredField[] | undefined = type === 'slot'
+      ? undefined
+      : [{ id: generateId('fld'), name: 'Title', type: 'text' }];
+    const defaultValue: ComponentVariableValue = type === 'slot'
+      ? emptySlotValue()
+      : type === 'object'
+        ? defaultObjectValue(fields ?? [])
+        : defaultArrayValue(fields ?? []);
+    const labels = { array: 'List', object: 'Group', slot: 'Slot' };
+    const newId = await addPropertyVariable(componentId, {
+      name: labels[type],
+      type,
+      default_value: defaultValue,
+      ...(fields ? { fields } : {}),
+    });
+    if (!newId) return;
+    const created = useComponentsStore.getState().getComponentById(componentId)?.variables?.find((variable) => variable.id === newId);
+    setSelectedVariableId(newId);
+    setEditingName(created?.name ?? labels[type]);
+  };
+
   const handlePropertyDefaultChange = (value: ComponentVariableValue) => {
     if (!componentId || !selectedVariableId) return;
     void updateTextVariable(componentId, selectedVariableId, { default_value: value });
@@ -551,6 +575,18 @@ export default function ComponentVariablesDialog({
                     <DropdownMenuItem onClick={() => { void handleAddPropertyVariable('color'); }}>
                       <Icon name="color" className="size-3" />
                       Color
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { void handleAddStructuredVariable('array'); }}>
+                      <Icon name="listOrdered" className="size-3" />
+                      Array
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { void handleAddStructuredVariable('object'); }}>
+                      <Icon name="box" className="size-3" />
+                      Object
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => { void handleAddStructuredVariable('slot'); }}>
+                      <Icon name="layers" className="size-3" />
+                      Slot
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={handleAddRichTextVariable}>
                       <Icon name="rich-text" className="size-3" />
@@ -774,6 +810,31 @@ export default function ComponentVariablesDialog({
                           {selectedVariable.type === 'enum' && 'Bind from Content to show the selected option as text.'}
                         </p>
                       </div>
+                    ) : selectedVariable.type === 'array' || selectedVariable.type === 'object' ? (
+                      <div className="flex flex-col gap-3">
+                        <StructuredPropertyEditor
+                          variable={selectedVariable}
+                          value={selectedVariable.default_value}
+                          editableSchema
+                          onValueChange={handlePropertyDefaultChange}
+                          onFieldsChange={(fields, next) => {
+                            if (!componentId) return;
+                            void updateTextVariable(componentId, selectedVariable.id, {
+                              fields,
+                              default_value: next,
+                            });
+                          }}
+                        />
+                        <p className="text-[11px] leading-snug text-muted-foreground">
+                          {selectedVariable.type === 'array'
+                            ? 'Bind a frame to Repeat. Bind text, fill, opacity, or visibility inside it to these fields.'
+                            : 'Bind text, fill, opacity, or visibility to a field in this group.'}
+                        </p>
+                      </div>
+                    ) : selectedVariable.type === 'slot' ? (
+                      <p className="text-xs text-muted-foreground py-2">
+                        Link this slot from a frame in Layout. Layers inside that frame are the fallback. Instances can replace them.
+                      </p>
                     ) : selectedVariable.type === 'rich_text' ? (
                       <ExpandableRichTextEditor
                         value={editingDefaultValue}

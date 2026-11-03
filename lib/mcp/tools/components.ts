@@ -42,11 +42,24 @@ import {
 } from '@/lib/mcp/broadcast';
 import { designSchema, richTextBlockSchema, templateEnum } from './shared-schemas';
 
+const structuredFieldSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  type: z.enum(['text', 'number', 'boolean', 'enum', 'color']),
+  options: z.array(z.object({
+    id: z.string(),
+    label: z.string(),
+  })).optional(),
+  min: z.number().optional(),
+  max: z.number().optional(),
+  step: z.number().optional(),
+});
+
 const variableTypeEnum = z.enum([
   'text', 'rich_text', 'image', 'link', 'audio', 'video', 'icon', 'variant',
-  'number', 'boolean', 'enum', 'color',
+  'number', 'boolean', 'enum', 'color', 'array', 'object', 'slot',
 ])
-  .describe('Variable type. "variant" lets instances pick a nested variant. number, boolean, enum, and color are property controls (opacity, visibility, text options, fill).');
+  .describe('Variable type. "variant" lets instances pick a nested variant. number, boolean, enum, and color are property controls (opacity, visibility, text options, fill). array and object group fields. slot is replaced per instance, with the linked frame\'s children as fallback.');
 
 const variableSchema = z.object({
   name: z.string().describe('Display name (e.g. "Button label", "Hero image")'),
@@ -62,6 +75,8 @@ const variableSchema = z.object({
   min: z.number().optional().describe('Minimum for a number control.'),
   max: z.number().optional().describe('Maximum for a number control.'),
   step: z.number().optional().describe('Step for a number control.'),
+  fields: z.array(structuredFieldSchema).optional()
+    .describe('Fields for an array item or an object control.'),
 });
 
 const variableUpdateSchema = z.object({
@@ -77,6 +92,7 @@ const variableUpdateSchema = z.object({
   min: z.number().optional(),
   max: z.number().optional(),
   step: z.number().optional(),
+  fields: z.array(structuredFieldSchema).optional(),
 });
 
 /**
@@ -102,6 +118,15 @@ function normalizeDefaultValue(value: unknown, type: z.infer<typeof variableType
   if (type === 'enum') {
     return { type: 'enum', value: typeof value === 'string' ? value : '' };
   }
+  if (type === 'slot') {
+    return value && typeof value === 'object' ? value as ComponentVariableValue : { type: 'slot', layers: [] };
+  }
+  if (type === 'object') {
+    return value && typeof value === 'object' ? value as ComponentVariableValue : { type: 'object', value: {} };
+  }
+  if (type === 'array') {
+    return value && typeof value === 'object' ? value as ComponentVariableValue : { type: 'array', items: [] };
+  }
   if (typeof value === 'string') {
     return type === 'rich_text'
       ? createTextComponentVariableValue(stringToTiptapContent(value))
@@ -121,6 +146,7 @@ function normalizeVariables(input: Array<z.infer<typeof variableUpdateSchema>>):
     ...(v.min !== undefined && { min: v.min }),
     ...(v.max !== undefined && { max: v.max }),
     ...(v.step !== undefined && { step: v.step }),
+    ...(v.fields !== undefined && { fields: v.fields }),
   }));
 }
 
@@ -289,6 +315,8 @@ variable's declared type, so you only pass the relevant field.`,
         boolean: z.boolean().optional().describe('For boolean variables. true shows a layer bound to Visible'),
         color: z.string().optional().describe('For color variables, a CSS color such as #ff0000'),
         option: z.string().optional().describe('For enum variables: option id or label'),
+        value: z.unknown().optional()
+          .describe('For array, object, or slot variables: the full value ({ type, items|value|layers }).'),
       })).optional().describe('Per-variable content overrides for this instance'),
     },
     async ({ page_id, layer_id, variant_id, reset_overrides, overrides }) => {
@@ -331,6 +359,9 @@ variable's declared type, so you only pass the relevant field.`,
         boolean: { ...(base.boolean ?? {}) },
         enum: { ...(base.enum ?? {}) },
         color: { ...(base.color ?? {}) },
+        array: { ...(base.array ?? {}) },
+        object: { ...(base.object ?? {}) },
+        slot: { ...(base.slot ?? {}) },
         variableLinks: { ...(base.variableLinks ?? {}) },
       };
 
@@ -1343,6 +1374,7 @@ interface OverrideEntryInput {
   boolean?: boolean;
   color?: string;
   option?: string;
+  value?: unknown;
 }
 
 /**
@@ -1409,6 +1441,12 @@ function buildOverrideValue(
       const match = options?.find((option) => option.id === entry.option || option.label === entry.option);
       return { type: 'enum', value: match?.id ?? entry.option };
     }
+
+    case 'array':
+    case 'object':
+    case 'slot':
+      if (entry.value && typeof entry.value === 'object') return entry.value as ComponentVariableValue;
+      return null;
 
     default:
       return null;
@@ -1505,6 +1543,12 @@ function linkVariableToLayer(layer: Layer, variableId: string, variableType: str
       return { ...layer, variables: vars, controlBindings: { ...layer.controlBindings, opacity: variableId } };
     case 'enum':
       return { ...layer, variables: vars, controlBindings: { ...layer.controlBindings, text: variableId } };
+
+    case 'slot':
+      return { ...layer, variables: vars, slotVariableId: variableId };
+
+    case 'array':
+      return { ...layer, variables: vars, repeatVariableId: variableId };
   }
 
   return { ...layer, variables: vars };

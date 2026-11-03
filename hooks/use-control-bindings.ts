@@ -9,8 +9,11 @@
 import { useCallback } from 'react';
 import {
   applyControlBindings,
-  controlsForBinding,
+  controlBindingChoices,
   CONTROL_BINDING_LABELS,
+  isScalarPropertyValue,
+  parseBindingId,
+  withFieldValue,
 } from '@/lib/component-properties';
 import { defaultBindingSources, type BindingSource } from '@/lib/component-bindings';
 import { useComponentsStore } from '@/stores/useComponentsStore';
@@ -101,9 +104,20 @@ export function useControlBindings({ layer, onLayerUpdate }: UseControlBindingsA
 
   const syncValue = useCallback((key: ControlBindingKey, value: ComponentVariableValue) => {
     if (!layer || !editingComponentId) return;
-    const variableId = layer.controlBindings?.[key];
-    if (!variableId) return;
-    void updateTextVariable(editingComponentId, variableId, { default_value: value });
+    const bindingId = layer.controlBindings?.[key];
+    if (!bindingId) return;
+    const parsed = parseBindingId(bindingId);
+    const variable = useComponentsStore.getState().getComponentById(editingComponentId)
+      ?.variables?.find((item) => item.id === parsed.variableId);
+    if (!variable) return;
+    if (!parsed.fieldId) {
+      void updateTextVariable(editingComponentId, parsed.variableId, { default_value: value });
+      return;
+    }
+    if (!isScalarPropertyValue(value)) return;
+    const next = withFieldValue(variable, parsed.fieldId, value);
+    if (!next) return;
+    void updateTextVariable(editingComponentId, parsed.variableId, { default_value: next });
   }, [editingComponentId, layer, updateTextVariable]);
 
   const bindingFor = useCallback((key: ControlBindingKey): {
@@ -114,7 +128,7 @@ export function useControlBindings({ layer, onLayerUpdate }: UseControlBindingsA
     onUnlink?: () => void;
   } | null => {
     if (!layer) return null;
-    const variables = controlsForBinding(key, component?.variables ?? []);
+    const variables = controlBindingChoices(key, component?.variables ?? []);
     const linkedId = layer.controlBindings?.[key];
     const linked = variables.find((item) => item.id === linkedId);
     const canUseVariables = !!editingComponentId;

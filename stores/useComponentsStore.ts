@@ -27,7 +27,7 @@ import {
   replicaSourceLayers,
   withoutReplicaOverride,
 } from '@/lib/component-variant-utils';
-import type { Component, ComponentPropertyType, ComponentVariable, ComponentVariableValue, ComponentVariant, ComponentVariantState, EnumOption, Layer, LayerStyle, StackVariableKey, StackVariableValue } from '@/types';
+import type { Component, ComponentPropertyType, ComponentVariable, ComponentVariableValue, ComponentVariant, ComponentVariantState, EnumOption, Layer, LayerStyle, StackVariableKey, StackVariableValue, StructuredField } from '@/types';
 
 /**
  * Per-component, per-variant working copy of layers used while editing a
@@ -247,14 +247,15 @@ interface ComponentsActions {
     stackKey: StackVariableKey,
     defaultValue: StackVariableValue,
   ) => Promise<string | null>;
-  /** Add a number, boolean, enum, or color property control. */
+  /** Add a property control, including array, object, and slot. */
   addPropertyVariable: (
     componentId: string,
     input: {
       name: string;
-      type: ComponentPropertyType;
+      type: ComponentPropertyType | 'array' | 'object' | 'slot';
       default_value: ComponentVariableValue;
       options?: EnumOption[];
+      fields?: StructuredField[];
       min?: number;
       max?: number;
       step?: number;
@@ -263,7 +264,7 @@ interface ComponentsActions {
   updateTextVariable: (
     componentId: string,
     variableId: string,
-    updates: Partial<Pick<ComponentVariable, 'name' | 'placeholder' | 'default_value' | 'options' | 'min' | 'max' | 'step'>>,
+    updates: Partial<Pick<ComponentVariable, 'name' | 'placeholder' | 'default_value' | 'options' | 'fields' | 'min' | 'max' | 'step'>>,
   ) => Promise<void>;
   reorderVariables: (componentId: string, orderedIds: string[]) => Promise<void>;
   deleteTextVariable: (componentId: string, variableId: string) => Promise<void>;
@@ -1427,6 +1428,7 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
         type: input.type,
         default_value: input.default_value,
         ...(input.options ? { options: input.options } : {}),
+        ...(input.fields ? { fields: input.fields } : {}),
         ...(input.min !== undefined ? { min: input.min } : {}),
         ...(input.max !== undefined ? { max: input.max } : {}),
         ...(input.step !== undefined ? { step: input.step } : {}),

@@ -6,7 +6,7 @@
 
 import type { Layer, Component, ComponentVariable, ComponentVariableValue, LayerVariables, VariantSettingsValue } from '@/types';
 import { applyStackBindings } from '@/lib/component-bindings';
-import { applyControlBindings } from '@/lib/component-properties';
+import { applyControlBindings, applyStructuredLayers } from '@/lib/component-properties';
 import { prepareVariantLayersForPublish } from './component-variant-utils';
 import { mergeLayerInteractions, remapComponentRootInteraction, remapInteractionTargets } from '@/lib/interactions-framer';
 import { normalizeComponentVariableValue } from './variable-utils';
@@ -296,6 +296,9 @@ const OVERRIDE_CATEGORIES: OverrideCategory[] = [
   'boolean',
   'enum',
   'color',
+  'array',
+  'object',
+  'slot',
 ];
 
 function findOverrideByVariableId(
@@ -672,9 +675,19 @@ export function resolveComponents(
           component.variables
         );
 
+        // Slot replacement and array repeat run on the instance, after defaults
+        // are applied and before ids are namespaced for this instance.
+        const [structuredRoot] = applyStructuredLayers(
+          [{ ...overriddenRoot, children: overriddenChildren }],
+          layer.componentOverrides,
+          component.variables,
+          (nested) => resolveComponents(nested, components, component.variables, layer.componentOverrides, innerVisited),
+        );
+        const structuredChildren = structuredRoot.children ?? [];
+
         // Tag with master component ID for translation lookups
-        const taggedChildren = overriddenChildren.length
-          ? tagLayersWithComponentId(overriddenChildren, component.id)
+        const taggedChildren = structuredChildren.length
+          ? tagLayersWithComponentId(structuredChildren, component.id)
           : [];
 
         // Transform layer IDs to be instance-specific
@@ -699,7 +712,7 @@ export function resolveComponents(
         // runtime ID becomes the page-instance ID.
         return {
           ...layer,
-          ...overriddenRoot,
+          ...structuredRoot,
           id: layer.id,
           componentId: layer.componentId, // Keep the original componentId
           _masterComponentId: component.id,

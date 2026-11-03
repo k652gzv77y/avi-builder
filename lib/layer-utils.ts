@@ -9,6 +9,7 @@ import { resolveInlineVariablesFromData } from '@/lib/inline-variables';
 import { DEFAULT_TEXT_STYLES } from '@/lib/text-format-utils';
 import { getCmsFieldBinding } from '@/lib/tiptap-utils';
 import { applyStackBindings } from '@/lib/component-bindings';
+import { applyStructuredLayers } from '@/lib/component-properties';
 import { applyComponentOverrides } from '@/lib/resolve-components';
 import { getComponentVariantLayers } from '@/lib/component-variant-utils';
 import { mergeLayerInteractions, remapActionTarget, remapInteractionTargets } from '@/lib/interactions-framer';
@@ -2673,12 +2674,27 @@ function resolveComponentsInLayers(
           component.variables,
         );
 
+        // Slot replacement and array repeat. Children are already instance-scoped,
+        // so a slot override is prefixed with those ids and is not transformed again.
+        const [structuredRoot] = applyStructuredLayers(
+          [{ ...componentContent, id: layer.id, children: overriddenChildren }],
+          layer.componentOverrides,
+          component.variables,
+          (nested) => resolveComponentsInLayers(
+            nested,
+            components,
+            component.variables,
+            layer.componentOverrides,
+            innerVisited,
+          ),
+        );
+
         // Tag children with the master component ID so injectTranslatedText
         // resolves component-scoped translation keys (component:{componentId}:...)
         // instead of falling back to page scope. Mirrors the server-side
         // resolveComponents pipeline so the canvas matches what the published
         // page renders.
-        const taggedChildren = overriddenChildren.map(child =>
+        const taggedChildren = (structuredRoot.children ?? []).map(child =>
           tagLayerSubtreeWithComponentId(child, component.id)
         );
 

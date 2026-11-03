@@ -1,15 +1,20 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { ComponentVariable, Layer } from '@/types';
-import { applyComponentOverrides } from '@/lib/resolve-components';
-import { hasOverrideValues } from '@/lib/variable-utils';
+import type { Component, ComponentVariable, Layer } from '@/types';
+import { serializeLayers } from '@/lib/layer-utils';
+import { applyComponentOverrides, resolveComponents } from '@/lib/resolve-components';
+import { hasOverrideValues, EMPTY_OVERRIDES } from '@/lib/variable-utils';
 import {
   applyControlBindings,
   applyControlValueToBoundLayers,
+  applyStructuredLayers,
   clearPropertyOverride,
+  isObjectPropertyValue,
   isPropertyOverridden,
+  isTextPropertyValue,
   propertyValuesEqual,
   readPropertyValue,
+  stripControlBinding,
 } from '@/lib/component-properties';
 
 function layer(partial: Partial<Layer> & Pick<Layer, 'id'>): Layer {
@@ -151,4 +156,228 @@ test('a number bound to text replaces the layer copy', () => {
   );
   assert.equal(next.variables?.text?.type === 'dynamic_text' ? next.variables.text.data.content : '', '7');
   assert.equal(next.variables?.text && 'id' in next.variables.text ? next.variables.text.id : undefined, undefined);
+});
+
+const authorFields = [
+  { id: 'name', name: 'Name', type: 'text' as const },
+  { id: 'tint', name: 'Tint', type: 'color' as const },
+];
+
+const authorVariable: ComponentVariable = {
+  id: 'author',
+  name: 'Author',
+  type: 'object',
+  fields: authorFields,
+  default_value: {
+    type: 'object',
+    value: {
+      name: { type: 'text', value: 'Ada' },
+      tint: { type: 'color', value: '#111111' },
+    },
+  },
+};
+
+const listVariable: ComponentVariable = {
+  id: 'features',
+  name: 'Features',
+  type: 'array',
+  fields: [{ id: 'title', name: 'Title', type: 'text' }],
+  default_value: {
+    type: 'array',
+    items: [{ id: 'default-item', value: { title: { type: 'text', value: 'Hello' } } }],
+  },
+};
+
+const slotVariable: ComponentVariable = {
+  id: 'body',
+  name: 'Body',
+  type: 'slot',
+  default_value: { type: 'slot', layers: [] },
+};
+
+function textOf(node: Layer | undefined): string {
+  const text = node?.variables?.text;
+  if (text && text.type === 'dynamic_text') return text.data.content;
+  return '';
+}
+
+function componentFixture(root: Layer, componentVariables: ComponentVariable[]): Component {
+  return {
+    id: 'cmp',
+    name: 'Card',
+    layers: [root],
+    variables: componentVariables,
+    is_published: false,
+    created_at: '',
+    updated_at: '',
+  };
+}
+
+test('object and array overrides reset one property at a time', () => {
+  const overrides = {
+    object: {
+      author: {
+        type: 'object' as const,
+        value: {
+          name: { type: 'text' as const, value: 'Grace' },
+          tint: { type: 'color' as const, value: '#abcdef' },
+        },
+      },
+    },
+    array: {
+      features: {
+        type: 'array' as const,
+        items: [
+          { id: 'a', value: { title: { type: 'text' as const, value: 'One' } } },
+          { id: 'b', value: { title: { type: 'text' as const, value: 'Two' } } },
+        ],
+      },
+    },
+  };
+
+  assert.equal(hasOverrideValues(overrides), true);
+  assert.equal(isPropertyOverridden(authorVariable, overrides), true);
+  assert.equal(propertyValuesEqual(
+    { type: 'array', items: [{ id: 'a', value: { title: { type: 'text', value: 'One' } } }] },
+    { type: 'array', items: [{ id: 'other', value: { title: { type: 'text', value: 'One' } } }] },
+  ), true);
+
+  const cleared = clearPropertyOverride(overrides, listVariable);
+  assert.equal(isPropertyOverridden(listVariable, cleared), false);
+  assert.equal(isPropertyOverridden(authorVariable, cleared), true);
+  const author = readPropertyValue(authorVariable, cleared);
+  assert.equal(author && 'value' in author && author.value && typeof author.value === 'object' && 'name' in author.value
+    ? (author.value.name as { value: string }).value
+    : '', 'Grace');
+
+  const reset = clearPropertyOverride(cleared, authorVariable);
+  assert.equal(hasOverrideValues(reset), false);
+  assert.equal(hasOverrideValues(EMPTY_OVERRIDES), false);
+  const restored = readPropertyValue(authorVariable, reset);
+  assert.equal(objectFieldText(restored, 'name'), 'Ada');
+});
+
+function objectFieldText(value: ReturnType<typeof readPropertyValue>, fieldId: string): string {
+  if (!isObjectPropertyValue(value)) return '';
+  const field = value.value[fieldId];
+  return isTextPropertyValue(field) ? field.value : '';
+}
+
+test('an object field binds like a top-level color or text control', () => {
+  const card = layer({
+    id: 'card',
+    controlBindings: { fill: 'author.tint', text: 'author.name' },
+    variables: { text: { type: 'dynamic_text', data: { content: 'Placeholder' } } },
+  });
+  const painted = applyControlBindings(card, undefined, [authorVariable], { ephemeral: false });
+  assert.equal(painted.design?.backgrounds?.backgroundColor, '#111111');
+  assert.equal(textOf(painted), 'Ada');
+
+  const overridden = applyControlBindings(card, {
+    object: {
+      author: {
+        type: 'object',
+        value: {
+          name: { type: 'text', value: 'Grace' },
+          tint: { type: 'color', value: '#00ff00' },
+        },
+      },
+    },
+  }, [authorVariable], { ephemeral: true });
+  assert.equal(overridden._dynamicStyles?.backgroundColor, '#00ff00');
+  assert.equal(textOf(overridden), 'Grace');
+
+  const stripped = stripControlBinding(card, 'author');
+  assert.equal(stripped.controlBindings, undefined);
+});
+
+test('slot fallback stays until an instance replaces it, and reset restores it', () => {
+  const fallback = layer({
+    id: 'fallback',
+    name: 'text',
+    variables: { text: { type: 'dynamic_text', data: { content: 'Fallback' } } },
+  });
+  const slot = layer({
+    id: 'slot',
+    slotVariableId: 'body',
+    children: [fallback],
+  });
+  const repeater = layer({
+    id: 'list',
+    repeatVariableId: 'features',
+    children: [layer({
+      id: 'title',
+      name: 'text',
+      controlBindings: { text: 'features.title' },
+      variables: { text: { type: 'dynamic_text', data: { content: 'Template' } } },
+    })],
+  });
+  const root = layer({ id: 'root', children: [slot, repeater] });
+  const componentVariables = [authorVariable, listVariable, slotVariable];
+  const component = componentFixture(root, componentVariables);
+
+  const withFallback = resolveComponents(
+    [layer({ id: 'inst', componentId: 'cmp' })],
+    [component],
+  )[0];
+  assert.equal(textOf(withFallback.children?.[0].children?.[0]), 'Fallback');
+  assert.equal(withFallback.children?.[1].children?.length, 1);
+  assert.equal(textOf(withFallback.children?.[1].children?.[0]), 'Hello');
+
+  const custom = layer({
+    id: 'custom',
+    name: 'text',
+    variables: { text: { type: 'dynamic_text', data: { content: 'Custom' } } },
+  });
+  const overrides = {
+    slot: { body: { type: 'slot' as const, layers: [custom] } },
+    array: {
+      features: {
+        type: 'array' as const,
+        items: [
+          { id: 'a', value: { title: { type: 'text' as const, value: 'One' } } },
+          { id: 'b', value: { title: { type: 'text' as const, value: 'Two' } } },
+        ],
+      },
+    },
+  };
+  const replaced = resolveComponents(
+    [layer({ id: 'inst', componentId: 'cmp', componentOverrides: overrides })],
+    [component],
+  )[0];
+  assert.equal(textOf(replaced.children?.[0].children?.[0]), 'Custom');
+  assert.equal(textOf(replaced.children?.[0].children?.[0]) === 'Fallback', false);
+  assert.equal(replaced.children?.[1].children?.length, 2);
+  assert.equal(textOf(replaced.children?.[1].children?.[0]), 'One');
+  assert.equal(textOf(replaced.children?.[1].children?.[1]), 'Two');
+
+  const onCanvas = serializeLayers(
+    [layer({ id: 'inst', componentId: 'cmp', componentOverrides: overrides })],
+    [component],
+  ).layers[0];
+  assert.equal(textOf(onCanvas.children?.[0].children?.[0]), 'Custom');
+  assert.equal(onCanvas.children?.[1].children?.length, 2);
+  assert.equal(textOf(onCanvas.children?.[1].children?.[0]), 'One');
+  assert.equal(textOf(onCanvas.children?.[1].children?.[1]), 'Two');
+
+  const hidden = applyStructuredLayers(
+    [slot],
+    { slot: { body: { type: 'slot', layers: [] } } },
+    componentVariables,
+    (nested) => nested,
+  )[0];
+  assert.equal(hidden.children?.length ?? 0, 0);
+
+  const editing = serializeLayers([root], [], componentVariables).layers[0];
+  assert.equal(editing.children?.[1].children?.length, 1);
+  assert.equal(textOf(editing.children?.[1].children?.[0]), 'Template');
+
+  const reset = clearPropertyOverride(overrides, slotVariable);
+  assert.equal(isPropertyOverridden(slotVariable, reset), false);
+  assert.equal(isPropertyOverridden(listVariable, reset), true);
+  const restored = resolveComponents(
+    [layer({ id: 'inst', componentId: 'cmp', componentOverrides: reset })],
+    [component],
+  )[0];
+  assert.equal(textOf(restored.children?.[0].children?.[0]), 'Fallback');
 });

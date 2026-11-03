@@ -103,7 +103,7 @@ function getLayerDisplayLabel(
   const hasUserRename = layer.customName && layer.customName !== (getBlockName(layer.name) || '');
 
   if (hasUserRename) {
-    return layer.customName!;
+    return withStructureLabel(layer, layer.customName!);
   }
 
   // Component instances: prefer the component's name over the underlying
@@ -111,7 +111,7 @@ function getLayerDisplayLabel(
   // component would otherwise display as "Section" instead of the
   // component's actual name).
   if (!isTextLayer && !layer.componentId && layer.customName) {
-    return layer.customName;
+    return withStructureLabel(layer, layer.customName);
   }
 
   if (isTextLayer) {
@@ -126,12 +126,19 @@ function getLayerDisplayLabel(
 
       const trimmed = textContent.trim();
       if (trimmed) {
-        return trimmed.length > 30 ? trimmed.slice(0, 30) + '...' : trimmed;
+        return withStructureLabel(layer, trimmed.length > 30 ? trimmed.slice(0, 30) + '...' : trimmed);
       }
     }
   }
 
-  return getLayerName(layer, context, breakpoint);
+  return withStructureLabel(layer, getLayerName(layer, context, breakpoint));
+}
+
+function withStructureLabel(layer: Layer, label: string): string {
+  if (layer.slotVariableId && layer.repeatVariableId) return `${label} · Slot · List`;
+  if (layer.slotVariableId) return `${label} · Slot`;
+  if (layer.repeatVariableId) return `${label} · List`;
+  return label;
 }
 
 interface LayerTreeStoreValues {

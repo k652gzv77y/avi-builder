@@ -31,6 +31,9 @@ export const OVERRIDE_VALUE_KEYS = [
   'boolean',
   'enum',
   'color',
+  'array',
+  'object',
+  'slot',
 ] as const satisfies readonly Exclude<keyof NonNullable<Layer['componentOverrides']>, 'variableLinks'>[];
 
 export type OverrideValueKey = (typeof OVERRIDE_VALUE_KEYS)[number];
@@ -50,6 +53,9 @@ export const EMPTY_OVERRIDES: NonNullable<Layer['componentOverrides']> = {
   boolean: {},
   enum: {},
   color: {},
+  array: {},
+  object: {},
+  slot: {},
   variableLinks: {},
 };
 

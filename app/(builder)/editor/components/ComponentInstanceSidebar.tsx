@@ -34,7 +34,8 @@ import { useComponentsStore } from '@/stores/useComponentsStore';
 import { usePagesStore } from '@/stores/usePagesStore';
 import { useEditComponent } from '@/hooks/use-edit-component';
 import { detachSpecificLayerFromComponent } from '@/lib/component-utils';
-import { collectVariantVariableOptions, countReplicaOverrides, isReplicaVariant } from '@/lib/component-variant-utils';
+import { findSlotFallback } from '@/lib/component-properties';
+import { collectVariantVariableOptions, countReplicaOverrides, getComponentVariantLayers, isReplicaVariant } from '@/lib/component-variant-utils';
 import { useInteractionPreviewStore } from '@/stores/useInteractionPreviewStore';
 import { cn } from '@/lib/utils';
 import { EMPTY_OVERRIDES, hasOverrideValues } from '@/lib/variable-utils';
@@ -141,6 +142,7 @@ export default function ComponentInstanceSidebar({
   const setPreviewVariant = useInteractionPreviewStore((state) => state.setVariant);
   const clearPreviewVariant = useInteractionPreviewStore((state) => state.clearVariant);
   const updateTextVariable = useComponentsStore((state) => state.updateTextVariable);
+  const componentDrafts = useComponentsStore((state) => state.componentDrafts[component.id]);
 
   const setDraftLayers = usePagesStore((state) => state.setDraftLayers);
   const pages = usePagesStore((state) => state.pages);
@@ -499,6 +501,14 @@ export default function ComponentInstanceSidebar({
               onCreateOverrideVariable={handleCreateOverrideVariable}
               onManageVariables={(varId) => openVariablesDialog(varId)}
               getVariantVariableOptions={(variableId) => collectVariantVariableOptions(component, allComponents, variableId)}
+              getSlotFallback={(variableId) => {
+                const variantId = selectedLayer.componentVariantId;
+                const draft = variantId ? componentDrafts?.[variantId] : undefined;
+                const layers = draft && draft.length > 0
+                  ? draft
+                  : getComponentVariantLayers(component, variantId);
+                return findSlotFallback(layers, variableId) ?? [];
+              }}
               renderTextOverride={(variable, value, onChange, onClear) =>
                 variable.type === 'rich_text' ? (
                   <ExpandableRichTextEditor
