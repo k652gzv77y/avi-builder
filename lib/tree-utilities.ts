@@ -147,12 +147,14 @@ export function flattenTree(
   collapsedIds: Set<string> = new Set(),
   breakpoint: Breakpoint = 'desktop'
 ): FlattenedItem[] {
+  if (!Array.isArray(items)) return [];
   const flattened: FlattenedItem[] = [];
   
   // Sort items by CSS order for responsive breakpoints
   const sortedItems = sortByOrderClass(items, breakpoint);
 
   sortedItems.forEach((item, index) => {
+    if (!item || typeof item !== 'object') return;
     const isCollapsed = collapsedIds.has(item.id);
 
     flattened.push({
@@ -169,7 +171,7 @@ export function flattenTree(
     // Elements like select, input, textarea etc. may have internal children (e.g., <option>)
     // but these should not appear in the Layers tree
     const nodeCanHaveChildren = canHaveChildren(item);
-    if (item.children && item.children.length > 0 && !isCollapsed && nodeCanHaveChildren) {
+    if (Array.isArray(item.children) && item.children.length > 0 && !isCollapsed && nodeCanHaveChildren) {
       flattened.push(
         ...flattenTree(item.children, item.id, depth + 1, collapsedIds, breakpoint)
       );

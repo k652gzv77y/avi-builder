@@ -85,9 +85,17 @@ function lookup(styles: StyleLookup): (id: string) => LayerStyle | undefined {
   return typeof styles === 'function' ? styles : (id: string) => styles.get(id);
 }
 
+function classString(classes: unknown): string {
+  if (typeof classes === 'string') return classes;
+  if (Array.isArray(classes)) {
+    return classes.filter((item): item is string => typeof item === 'string').join(' ');
+  }
+  return '';
+}
+
 function splitClasses(classes: string | string[] | undefined): string[] {
-  if (!classes) return [];
-  const str = Array.isArray(classes) ? classes.join(' ') : classes;
+  const str = classString(classes);
+  if (!str) return [];
   return str.split(/\s+/).filter(Boolean);
 }
 
@@ -108,8 +116,8 @@ export function chipClasses(
   styles: StyleLookup,
 ): string {
   const override = layer.styleOverridesByStyle?.[styleId];
-  if (override?.classes !== undefined) return override.classes;
-  return lookup(styles)(styleId)?.classes ?? '';
+  if (override?.classes !== undefined) return classString(override.classes);
+  return classString(lookup(styles)(styleId)?.classes);
 }
 
 /** Whether a layer carries a per-chip override for the given style id. */

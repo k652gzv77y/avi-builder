@@ -110,7 +110,7 @@ import { buildDesign } from '@/lib/import/design';
 import { cn, generateId } from '@/lib/utils';
 import { applyOverlaySetup, createOverlayLayer, syncOverlaySettings } from '@/lib/overlay-setup';
 import { sanitizeHtmlId } from '@/lib/html-utils';
-import { isFieldVariable, getCollectionVariable, findParentCollectionLayer, findAllParentCollectionLayers, isTextEditable, isTextContentLayer, isRichTextLayer, isHeadingLayer, findLayerWithParent, resetBindingsOnCollectionSourceChange, isInputInsideFilter, resolveFilterInputId, getLayerIndexes, indexedFindLayerById, indexedFindLayerWithParent, indexedFindParentCollectionLayer } from '@/lib/layer-utils';
+import { asLayerArray, isFieldVariable, getCollectionVariable, findParentCollectionLayer, findAllParentCollectionLayers, isTextEditable, isTextContentLayer, isRichTextLayer, isHeadingLayer, findLayerWithParent, resetBindingsOnCollectionSourceChange, isInputInsideFilter, resolveFilterInputId, getLayerIndexes, indexedFindLayerById, indexedFindLayerWithParent, indexedFindParentCollectionLayer } from '@/lib/layer-utils';
 import { detachSpecificLayerFromComponent } from '@/lib/component-utils';
 import { convertContentToValue, parseValueToContent } from '@/lib/cms-variables-utils';
 import { defaultPaginationCountDoc, defaultPaginationInfoDoc } from '@/lib/pagination-text-utils';
@@ -348,9 +348,9 @@ const RightSidebar = React.memo(function RightSidebar({
   // Get all layers (for interactions target selection)
   const allLayers: Layer[] = useMemo(() => {
     if (editingComponentId && activeComponentVariantId) {
-      return componentDrafts[editingComponentId]?.[activeComponentVariantId] || [];
+      return asLayerArray(componentDrafts[editingComponentId]?.[activeComponentVariantId] || []);
     } else if (currentPageId) {
-      return currentDraft ? currentDraft.layers : [];
+      return asLayerArray(currentDraft ? currentDraft.layers : []);
     }
     return [];
   }, [editingComponentId, activeComponentVariantId, componentDrafts, currentPageId, currentDraft]);

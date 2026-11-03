@@ -8,6 +8,7 @@ import Icon from '@/components/ui/icon';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 // 4. Internal components
+import { PanelErrorBoundary } from '@/components/panel-error-boundary';
 import ComponentVariantsSection from './ComponentVariantsSection';
 import LayersTree from './LayersTree';
 import LeftSidebarAssets from './LeftSidebarAssets';
@@ -22,7 +23,7 @@ import { useComponentsStore } from '@/stores/useComponentsStore';
 import { usePagesStore } from '@/stores/usePagesStore';
 
 // 6. Utils
-import { resetBindingsAfterMove } from '@/lib/layer-utils';
+import { asLayerArray, resetBindingsAfterMove } from '@/lib/layer-utils';
 import { hasAssetsPanelQuery } from '@/lib/sidebar-panel-url';
 
 // 5.5 Hooks
@@ -177,12 +178,12 @@ const LeftSidebar = React.memo(function LeftSidebar({
   const layersForCurrentPage = useMemo(() => {
     // If editing a component, show the active variant's layers.
     if (editingComponentId && activeComponentVariantId) {
-      return componentDrafts[editingComponentId]?.[activeComponentVariantId] || [];
+      return asLayerArray(componentDrafts[editingComponentId]?.[activeComponentVariantId]);
     }
 
     // Otherwise show page layers
     if (!currentPageId) return [];
-    return currentDraft ? currentDraft.layers : [];
+    return asLayerArray(currentDraft ? currentDraft.layers : []);
   }, [editingComponentId, activeComponentVariantId, componentDrafts, currentPageId, currentDraft]);
 
   // Handle layer reordering from drag & drop
@@ -513,11 +514,13 @@ const LeftSidebar = React.memo(function LeftSidebar({
 
       {/* Element Library Slide-Out (lazy loaded, always mounted to preserve state) */}
       <Suspense fallback={null}>
-        <ElementLibrary
-          isOpen={showElementLibrary}
-          onClose={() => setShowElementLibrary(false)}
-          liveLayerUpdates={liveLayerUpdates}
-        />
+        <PanelErrorBoundary label="Insert">
+          <ElementLibrary
+            isOpen={showElementLibrary}
+            onClose={() => setShowElementLibrary(false)}
+            liveLayerUpdates={liveLayerUpdates}
+          />
+        </PanelErrorBoundary>
       </Suspense>
     </>
   );

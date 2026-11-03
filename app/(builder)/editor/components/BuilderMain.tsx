@@ -33,6 +33,7 @@ import LocalizationContent from '../components/LocalizationContent';
 import ProfileContent from '../components/ProfileContent';
 import IntegrationsContent from '../components/IntegrationsContent';
 import MigrationChecker from '@/components/MigrationChecker';
+import { PanelErrorBoundary } from '@/components/panel-error-boundary';
 import BuilderLoading from '@/components/BuilderLoading';
 import { Toaster } from '@/components/ui/sonner';
 import { toast } from 'sonner';
@@ -2392,7 +2393,9 @@ export default function BuilderApp({ children }: BuilderAppProps = {} as Builder
             {/* CMS View - kept mounted for instant switching */}
             <div className={activeTab === 'cms' ? 'flex flex-1 min-w-0 overflow-hidden' : 'hidden'}>
               <Suspense fallback={null}>
-                <CMS />
+                <PanelErrorBoundary label="Collections">
+                  <CMS />
+                </PanelErrorBoundary>
               </Suspense>
               {!isEditor && agentEnabled && (
                 <div className="w-64 shrink-0 bg-background border-l flex flex-col h-full overflow-hidden">
@@ -2450,10 +2453,12 @@ export default function BuilderApp({ children }: BuilderAppProps = {} as Builder
     {/* Collaboration: Realtime Cursors - scoped to context (tab + page/collection/component) */}
     {user && cursorRoomName && routeType !== 'settings' && routeType !== 'localization' && routeType !== 'profile' && routeType !== 'integrations' && (
       <Suspense fallback={null}>
-        <RealtimeCursors
-          roomName={cursorRoomName}
-          username={user.user_metadata?.full_name || user.email?.split('@')[0] || 'Anonymous'}
-        />
+        <PanelErrorBoundary label="Cursors">
+          <RealtimeCursors
+            roomName={cursorRoomName}
+            username={user.user_metadata?.full_name || user.email?.split('@')[0] || 'Anonymous'}
+          />
+        </PanelErrorBoundary>
       </Suspense>
     )}
 
@@ -2526,7 +2531,9 @@ export default function BuilderApp({ children }: BuilderAppProps = {} as Builder
 
     {/* Drag preview portal - follows cursor during element drag */}
     <Suspense fallback={null}>
-      <DragPreviewPortal />
+      <PanelErrorBoundary label="Drag preview">
+        <DragPreviewPortal />
+      </PanelErrorBoundary>
     </Suspense>
 
     </>

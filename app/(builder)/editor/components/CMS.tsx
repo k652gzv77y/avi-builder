@@ -505,9 +505,11 @@ const CMS = React.memo(function CMS() {
       const colFields = fields[collectionId] || [];
       const slugField = colFields.find(f => f.key === 'slug');
       if (!slugField) continue;
-      for (const item of items[collectionId]) {
-        const slugValue = item.values[slugField.id];
-        if (slugValue) {
+      const collectionItems = items[collectionId];
+      if (!Array.isArray(collectionItems)) continue;
+      for (const item of collectionItems) {
+        const slugValue = item?.values?.[slugField.id];
+        if (typeof slugValue === 'string' && slugValue) {
           slugs[item.id] = slugValue;
         }
       }
@@ -1972,6 +1974,7 @@ const CMS = React.memo(function CMS() {
 
                       // Color fields - display as color swatch
                       if (field.type === 'color' && value) {
+                        const colorText = typeof value === 'string' ? value : '';
                         return (
                           <td
                             key={field.id}
@@ -1981,9 +1984,9 @@ const CMS = React.memo(function CMS() {
                             <div className="flex items-center gap-2">
                               <div
                                 className="size-5 rounded border border-white/10 shrink-0"
-                                style={{ backgroundColor: value as string }}
+                                style={{ backgroundColor: colorText || 'transparent' }}
                               />
-                              <span className="text-xs">{value}</span>
+                              <span className="text-xs">{colorText || '-'}</span>
                             </div>
                           </td>
                         );
@@ -2011,15 +2014,18 @@ const CMS = React.memo(function CMS() {
 
                       // Option fields - display as Badge with the option name
                       if (field.type === 'option') {
+                        const optionText = typeof value === 'string' || typeof value === 'number'
+                          ? String(value)
+                          : '';
                         return (
                           <td
                             key={field.id}
                             className="px-4 py-5"
                             onClick={() => handleEditItem(item)}
                           >
-                            {value ? (
+                            {optionText ? (
                               <Badge variant="secondary" className="font-normal">
-                                <span className="line-clamp-1 truncate max-w-50">{value}</span>
+                                <span className="line-clamp-1 truncate max-w-50">{optionText}</span>
                               </Badge>
                             ) : (
                               <span className="text-muted-foreground">-</span>
@@ -2030,7 +2036,9 @@ const CMS = React.memo(function CMS() {
 
                       // Count fields - computed numeric value, defaults to 0
                       if (field.type === 'count') {
-                        const numeric = value != null && value !== '' ? value : '0';
+                        const numeric = typeof value === 'number' || typeof value === 'string'
+                          ? value
+                          : '0';
                         return (
                           <td
                             key={field.id}
