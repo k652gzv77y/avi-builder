@@ -52,6 +52,40 @@ export function isFreeformDraggable(layer: Layer | null | undefined, parent: Lay
   return containerLayoutKind(parent) === 'frame';
 }
 
+/** Screen pixels of a handle drag, divided by the editor zoom, in CSS pixels. */
+export function screenDeltaToCanvas(
+  startX: number,
+  startY: number,
+  x: number,
+  y: number,
+  zoomPercent: number,
+): { dx: number; dy: number } {
+  const scale = zoomPercent > 0 ? zoomPercent / 100 : 1;
+  return {
+    dx: (x - startX) / scale,
+    dy: (y - startY) / scale,
+  };
+}
+
+/**
+ * Overlay handles report window pixels. Events that fall through into the
+ * iframe report canvas CSS pixels, so scale those back onto the window.
+ */
+export function pointerToWindowPoint(
+  clientX: number,
+  clientY: number,
+  fromIframe: boolean,
+  iframeOrigin: { left: number; top: number } | null,
+  zoomPercent: number,
+): { x: number; y: number } {
+  if (!fromIframe || !iframeOrigin) return { x: clientX, y: clientY };
+  const scale = zoomPercent > 0 ? zoomPercent / 100 : 1;
+  return {
+    x: iframeOrigin.left + clientX * scale,
+    y: iframeOrigin.top + clientY * scale,
+  };
+}
+
 export function movedBox(box: FreeformBox, dx: number, dy: number): FreeformBox {
   return {
     ...box,

@@ -9,6 +9,8 @@
  * Note: Drag initiation for sibling reordering and free-form moves is handled
  * by useCanvasSiblingReorder, which listens to iframe mousedown events.
  * Resize handles on this overlay commit absolute/fixed box edits.
+ * The canvas iframe would swallow the pointer once it leaves a handle,
+ * so a resize keeps a full-screen shield in this document until pointerup.
  */
 
 import React, { useEffect, useRef, useCallback, useState } from 'react';
@@ -22,7 +24,9 @@ import { readLayerPosition } from '@/lib/layout-model';
 import {
   applyFreeformBox,
   isFreeformDraggable,
+  pointerToWindowPoint,
   resizedBox,
+  screenDeltaToCanvas,
   type ResizeHandle,
 } from '@/lib/canvas-freeform';
 import {
@@ -42,6 +46,8 @@ interface HandleFrame {
 }
 
 const HIDDEN_HANDLE_FRAME: HandleFrame = { left: 0, top: 0, width: 0, height: 0, visible: false };
+/** Invisible grab size around the 8px handle square. */
+const HANDLE_HIT_SIZE = 20;
 
 const RESIZE_HANDLES: { id: ResizeHandle; x: number; y: number; cursor: string; label: string }[] = [
   { id: 'nw', x: 0, y: 0, cursor: 'nwse-resize', label: 'top left' },
@@ -605,36 +611,67 @@ export function SelectionOverlay({
     event.stopPropagation();
 
     const box = readFreeformBox(target);
-    // Match the selection outline: iframe layout pixels are unscaled, and the
-    // editor zoom (not the measured iframe ratio) maps them to the screen.
-    const scale = (zoom || 100) / 100 || 1;
     const startX = event.clientX;
     const startY = event.clientY;
     const position = readLayerPosition(found.layer) === 'fixed' ? 'fixed' : 'absolute';
+    const cursor = RESIZE_HANDLES.find((item) => item.id === handle)?.cursor ?? 'nwse-resize';
     nodes.forEach((node) => {
       node.dataset.freeformGesture = '1';
     });
 
+    // The selection overlay is pointer-events: none except on the handles.
+    // Without a shield, the pointer falls into the iframe after a few pixels
+    // and this document never receives pointerup, so width/height never save.
+    const shield = document.createElement('div');
+    shield.setAttribute('data-canvas-resize-shield', 'true');
+    shield.style.cssText = [
+      'position:fixed',
+      'inset:0',
+      'z-index:100000',
+      'background:transparent',
+      'touch-action:none',
+      `cursor:${cursor}`,
+    ].join(';');
+    document.body.appendChild(shield);
+    try {
+      shield.setPointerCapture(event.pointerId);
+    } catch {
+      // The pointer can already be over the iframe. Listeners below still commit.
+    }
+
+    const pointFromEvent = (pointerEvent: PointerEvent) => {
+      const fromIframe = pointerEvent.view != null && pointerEvent.view === iframeElement.contentWindow;
+      const origin = fromIframe ? iframeElement.getBoundingClientRect() : null;
+      return pointerToWindowPoint(pointerEvent.clientX, pointerEvent.clientY, fromIframe, origin, zoom);
+    };
+
     const applyDelta = (clientX: number, clientY: number) => {
-      const dx = (clientX - startX) / scale;
-      const dy = (clientY - startY) / scale;
+      const { dx, dy } = screenDeltaToCanvas(startX, startY, clientX, clientY, zoom);
       const next = resizedBox(box, handle, dx, dy);
       nodes.forEach((node) => previewFreeformBox(node, next, position));
       return { dx, dy, next };
     };
 
+    let finished = false;
     const detach = () => {
-      document.removeEventListener('pointermove', move);
-      document.removeEventListener('pointerup', end);
-      document.removeEventListener('keydown', onKey);
+      window.removeEventListener('pointermove', move, true);
+      window.removeEventListener('pointerup', end, true);
+      doc.removeEventListener('pointermove', move, true);
+      doc.removeEventListener('pointerup', end, true);
+      window.removeEventListener('keydown', onKey, true);
+      if (shield.parentNode) shield.remove();
       resizeCleanupRef.current = null;
     };
-    const move = (pointerEvent: PointerEvent) => {
-      applyDelta(pointerEvent.clientX, pointerEvent.clientY);
-    };
-    const end = (pointerEvent: PointerEvent) => {
+    const finish = (pointerEvent: PointerEvent | null, commit: boolean) => {
+      if (finished) return;
+      finished = true;
       detach();
-      const { dx, dy, next } = applyDelta(pointerEvent.clientX, pointerEvent.clientY);
+      if (!commit || !pointerEvent) {
+        nodes.forEach((node) => cancelFreeformPreview(node));
+        return;
+      }
+      const point = pointFromEvent(pointerEvent);
+      const { dx, dy, next } = applyDelta(point.x, point.y);
       if (Math.round(dx) === 0 && Math.round(dy) === 0) {
         nodes.forEach((node) => cancelFreeformPreview(node));
         return;
@@ -642,20 +679,25 @@ export function SelectionOverlay({
       onLayerUpdate(found.layer.id, applyFreeformBox(found.layer, next, 'resize'));
       nodes.forEach((node) => scheduleFreeformRelease(node));
     };
+    const move = (pointerEvent: PointerEvent) => {
+      if (finished) return;
+      pointerEvent.preventDefault();
+      const point = pointFromEvent(pointerEvent);
+      applyDelta(point.x, point.y);
+    };
+    const end = (pointerEvent: PointerEvent) => finish(pointerEvent, true);
     const onKey = (keyEvent: KeyboardEvent) => {
       if (keyEvent.key !== 'Escape') return;
       keyEvent.preventDefault();
-      detach();
-      nodes.forEach((node) => cancelFreeformPreview(node));
+      finish(null, false);
     };
 
-    resizeCleanupRef.current = () => {
-      detach();
-      nodes.forEach((node) => cancelFreeformPreview(node));
-    };
-    document.addEventListener('pointermove', move);
-    document.addEventListener('pointerup', end);
-    document.addEventListener('keydown', onKey);
+    resizeCleanupRef.current = () => finish(null, false);
+    window.addEventListener('pointermove', move, true);
+    window.addEventListener('pointerup', end, true);
+    doc.addEventListener('pointermove', move, true);
+    doc.addEventListener('pointerup', end, true);
+    window.addEventListener('keydown', onKey, true);
   };
 
   return (
@@ -686,19 +728,25 @@ export function SelectionOverlay({
               type="button"
               aria-label={`Resize from the ${handle.label}`}
               data-resize-handle={handle.id}
-              className="absolute size-2 rounded-[1px] border bg-white p-0"
+              className="absolute border-0 bg-transparent p-0"
               style={{
                 left: handleFrame.left + handleFrame.width * handle.x,
                 top: handleFrame.top + handleFrame.height * handle.y,
-                marginLeft: -4,
-                marginTop: -4,
+                width: HANDLE_HIT_SIZE,
+                height: HANDLE_HIT_SIZE,
+                marginLeft: -(HANDLE_HIT_SIZE / 2),
+                marginTop: -(HANDLE_HIT_SIZE / 2),
                 cursor: handle.cursor,
                 pointerEvents: 'auto',
-                borderColor: handleColor,
-                boxSizing: 'border-box',
+                touchAction: 'none',
               }}
               onPointerDown={(event) => handleResizePointerDown(event, handle.id)}
-            />
+            >
+              <span
+                className="pointer-events-none absolute left-1/2 top-1/2 size-2 -translate-x-1/2 -translate-y-1/2 rounded-[1px] border bg-white"
+                style={{ borderColor: handleColor, boxSizing: 'border-box' }}
+              />
+            </button>
           ))}
         </div>
       )}
