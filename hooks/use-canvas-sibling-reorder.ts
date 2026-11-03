@@ -3,8 +3,9 @@
 /**
  * useCanvasSiblingReorder Hook
  *
- * Handles drag-and-drop reordering of sibling layers on the canvas.
- * Constrained to only allow reordering within the same parent container.
+ * Handles drag-and-drop on the canvas.
+ * Absolute, fixed, and frame children move freely (left/top or right/bottom).
+ * Stack and grid children stay in flow and only reorder among siblings.
  *
  * Features:
  * - Initiates drag from mousedown on selected layer in iframe
@@ -21,11 +22,29 @@
  * - Skips processing for minimal mouse movements
  */
 
-import { useRef, useEffect, useMemo, useCallback } from 'react';
+import { useRef, useEffect, useMemo } from 'react';
 import { useEditorStore } from '@/stores/useEditorStore';
-import { findLayerById, getSiblingIds, reorderSiblings } from '@/lib/layer-utils';
+import { findLayerById, findLayerWithParent, getSiblingIds, reorderSiblings } from '@/lib/layer-utils';
 import { iframeToWindowCoords, getIframeScale } from '@/lib/iframe-utils';
 import { setDragCursor, clearDragCursor } from '@/lib/drag-cursor';
+import {
+  applyFreeformBox,
+  constrainAxis,
+  isFreeformDraggable,
+  movedBox,
+  snapTranslation,
+} from '@/lib/canvas-freeform';
+import {
+  cancelFreeformPreview,
+  clearSnapGuides,
+  holdFreeformCommit,
+  paintSnapGuides,
+  readFreeformBox,
+  scheduleFreeformRelease,
+  siblingSnapTargets,
+  translateFreeform,
+} from '@/lib/canvas-freeform-dom';
+import type { FreeformBox, SnapTargets } from '@/lib/canvas-freeform';
 import type { Layer } from '@/types';
 
 // Minimum pixel movement required to trigger hit-testing
@@ -69,6 +88,91 @@ function getSiblingInfo(layers: Layer[], layerId: string): { originalIndex: numb
   return null;
 }
 
+/**
+ * Component instances paint their inner layers, which are not in the page
+ * tree. Walk up to the instance (or the layer itself) that the document owns
+ * so a drag moves the thing the user can actually edit.
+ */
+function resolveDragTarget(element: HTMLElement, layers: Layer[]): { layerId: string; element: HTMLElement } | null {
+  let node: HTMLElement | null = element;
+  while (node) {
+    const layerId = node.getAttribute('data-layer-id');
+    if (layerId && findLayerWithParent(layers, layerId)) {
+      return { layerId, element: node };
+    }
+    const parent: HTMLElement | null = node.parentElement;
+    node = parent ? parent.closest<HTMLElement>('[data-layer-id]') : null;
+  }
+  return null;
+}
+
+interface FreeformSession {
+  layer: Layer;
+  element: HTMLElement;
+  box: FreeformBox;
+  targets: SnapTargets;
+  /** Mousedown in iframe CSS pixels. Iframe events can subtract this directly. */
+  startIframeX: number;
+  startIframeY: number;
+  /** Same point in window pixels, using the editor zoom rather than measured scale. */
+  startWindowX: number;
+  startWindowY: number;
+  /** Screen pixels per CSS pixel. Zoom is the scale the selection overlay trusts. */
+  scale: number;
+  dx: number;
+  dy: number;
+}
+
+function beginFreeformSession(
+  element: HTMLElement,
+  layer: Layer,
+  startIframeX: number,
+  startIframeY: number,
+  iframe: HTMLIFrameElement,
+  zoom: number,
+): FreeformSession | null {
+  const box = readFreeformBox(element);
+  if (box.width <= 0 && box.height <= 0) return null;
+  const scale = (zoom || 100) / 100;
+  const iframeRect = iframe.getBoundingClientRect();
+  return {
+    layer,
+    element,
+    box,
+    targets: siblingSnapTargets(element),
+    startIframeX,
+    startIframeY,
+    startWindowX: iframeRect.left + startIframeX * scale,
+    startWindowY: iframeRect.top + startIframeY * scale,
+    scale: scale || 1,
+    dx: 0,
+    dy: 0,
+  };
+}
+
+function updateFreeformSession(
+  session: FreeformSession,
+  clientX: number,
+  clientY: number,
+  shiftKey: boolean,
+  fromIframe: boolean,
+) {
+  // Iframe mouse events are already in CSS pixels. Events that have left the
+  // iframe are window pixels and need the zoom scale.
+  const rawDx = fromIframe
+    ? clientX - session.startIframeX
+    : (clientX - session.startWindowX) / session.scale;
+  const rawDy = fromIframe
+    ? clientY - session.startIframeY
+    : (clientY - session.startWindowY) / session.scale;
+  const locked = constrainAxis(rawDx, rawDy, shiftKey);
+  const snapped = snapTranslation(session.box, locked.dx, locked.dy, session.targets);
+  session.dx = snapped.dx;
+  session.dy = snapped.dy;
+  translateFreeform(session.element, snapped.dx, snapped.dy);
+  paintSnapGuides(session.element, snapped.guides);
+}
+
 interface UseCanvasSiblingReorderOptions {
   /** Reference to the canvas iframe element */
   iframeElement: HTMLIFrameElement | null;
@@ -86,6 +190,8 @@ interface UseCanvasSiblingReorderOptions {
   onReorder?: (newLayers: Layer[]) => void;
   /** Callback when a layer is selected (for drag-to-select) */
   onLayerSelect?: (layerId: string) => void;
+  /** Persist a free-form move. Stack children keep using onReorder. */
+  onFreeformCommit?: (layerId: string, updates: Partial<Layer>) => void;
 }
 
 export function useCanvasSiblingReorder({
@@ -97,6 +203,7 @@ export function useCanvasSiblingReorder({
   disabled = false,
   onReorder,
   onLayerSelect,
+  onFreeformCommit,
 }: UseCanvasSiblingReorderOptions) {
   const isDraggingLayerOnCanvas = useEditorStore((state) => state.isDraggingLayerOnCanvas);
   const draggedLayerId = useEditorStore((state) => state.draggedLayerId);
@@ -130,11 +237,15 @@ export function useCanvasSiblingReorder({
   const selectedLayerIdRef = useRef(selectedLayerId);
   const onReorderRef = useRef(onReorder);
   const onLayerSelectRef = useRef(onLayerSelect);
+  const onFreeformCommitRef = useRef(onFreeformCommit);
   const zoomRef = useRef(zoom);
   const iframeRef = useRef(iframeElement);
 
   // Track the layer being potentially dragged (may differ from selected)
   const potentialDragLayerIdRef = useRef<string | null>(null);
+  const potentialDragElementRef = useRef<HTMLElement | null>(null);
+  const potentialDragIframePosRef = useRef<{ x: number; y: number } | null>(null);
+  const freeformRef = useRef<FreeformSession | null>(null);
 
   useEffect(() => {
     layersRef.current = layers;
@@ -151,6 +262,10 @@ export function useCanvasSiblingReorder({
   useEffect(() => {
     onLayerSelectRef.current = onLayerSelect;
   }, [onLayerSelect]);
+
+  useEffect(() => {
+    onFreeformCommitRef.current = onFreeformCommit;
+  }, [onFreeformCommit]);
 
   useEffect(() => {
     zoomRef.current = zoom;
@@ -178,8 +293,11 @@ export function useCanvasSiblingReorder({
         return;
       }
 
-      // Store the layer being potentially dragged
+      // Store the layer being potentially dragged. Keep the element that was
+      // hit so repeated collection layers move the instance under the pointer.
       potentialDragLayerIdRef.current = clickedLayerId;
+      potentialDragElementRef.current = layerElement;
+      potentialDragIframePosRef.current = { x: e.clientX, y: e.clientY };
 
       // Prevent text selection from starting during potential drag
       e.preventDefault();
@@ -218,6 +336,17 @@ export function useCanvasSiblingReorder({
           clientX = coords.windowX;
           clientY = coords.windowY;
         }
+      }
+
+      if (freeformRef.current) {
+        updateFreeformSession(
+          freeformRef.current,
+          isFromIframe ? e.clientX : clientX,
+          isFromIframe ? e.clientY : clientY,
+          e.shiftKey,
+          isFromIframe,
+        );
+        return;
       }
 
       // If drag already started, perform hit-testing (RAF-throttled)
@@ -261,7 +390,42 @@ export function useCanvasSiblingReorder({
         // Get sibling info and start the drag
         // Use the layer that was clicked (not necessarily the selected one)
         const currentLayers = layersRef.current;
-        const dragLayerId = potentialDragLayerIdRef.current;
+        const resolvedTarget = potentialDragElementRef.current
+          ? resolveDragTarget(potentialDragElementRef.current, currentLayers)
+          : null;
+        const dragLayerId = resolvedTarget?.layerId ?? potentialDragLayerIdRef.current;
+        if (resolvedTarget) {
+          potentialDragLayerIdRef.current = resolvedTarget.layerId;
+          potentialDragElementRef.current = resolvedTarget.element;
+        }
+
+        if (dragLayerId && onFreeformCommitRef.current) {
+          const found = findLayerWithParent(currentLayers, dragLayerId);
+          const element = potentialDragElementRef.current;
+          const currentIframe = iframeRef.current;
+          if (found && element && currentIframe && isFreeformDraggable(found.layer, found.parent)) {
+            const iframeStart = potentialDragIframePosRef.current;
+            const session = iframeStart
+              ? beginFreeformSession(element, found.layer, iframeStart.x, iframeStart.y, currentIframe, zoomRef.current)
+              : null;
+            if (session) {
+              if (onLayerSelectRef.current && dragLayerId !== selectedLayerIdRef.current) {
+                onLayerSelectRef.current(dragLayerId);
+              }
+              freeformRef.current = session;
+              hasDragStartedRef.current = true;
+              setDragCursor(iframeElement?.contentDocument, currentIframe);
+              updateFreeformSession(
+                session,
+                isFromIframe ? e.clientX : clientX,
+                isFromIframe ? e.clientY : clientY,
+                e.shiftKey,
+                isFromIframe,
+              );
+              return;
+            }
+          }
+        }
 
         if (dragLayerId) {
           const siblingInfoData = getSiblingInfo(currentLayers, dragLayerId);
@@ -471,10 +635,37 @@ export function useCanvasSiblingReorder({
     };
 
     const handleDocumentMouseUp = () => {
+      const freeform = freeformRef.current;
+      if (freeform) {
+        freeformRef.current = null;
+        isPotentialDragRef.current = false;
+        dragStartPosRef.current = null;
+        potentialDragLayerIdRef.current = null;
+        potentialDragElementRef.current = null;
+        potentialDragIframePosRef.current = null;
+        hasDragStartedRef.current = false;
+        try {
+          clearSnapGuides(freeform.element);
+          const updates = applyFreeformBox(
+            freeform.layer,
+            movedBox(freeform.box, freeform.dx, freeform.dy),
+            'move',
+          );
+          holdFreeformCommit(freeform.element, updates);
+          onFreeformCommitRef.current?.(freeform.layer.id, updates);
+        } finally {
+          scheduleFreeformRelease(freeform.element);
+          clearDragCursor(iframeElement?.contentDocument);
+        }
+        return;
+      }
+
       // Reset potential drag state
       isPotentialDragRef.current = false;
       dragStartPosRef.current = null;
       potentialDragLayerIdRef.current = null;
+      potentialDragElementRef.current = null;
+      potentialDragIframePosRef.current = null;
 
       // If a drag was actually started, end it now
       if (hasDragStartedRef.current) {
@@ -544,6 +735,13 @@ export function useCanvasSiblingReorder({
         cancelAnimationFrame(rafRef.current);
         rafRef.current = null;
       }
+
+      if (freeformRef.current) {
+        const session = freeformRef.current;
+        freeformRef.current = null;
+        cancelFreeformPreview(session.element);
+        clearDragCursor(iframeElement?.contentDocument);
+      }
     };
   }, [iframeElement, disabled]);
 
@@ -566,6 +764,20 @@ export function useCanvasSiblingReorder({
   // Escape key handler
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && freeformRef.current) {
+        const session = freeformRef.current;
+        freeformRef.current = null;
+        hasDragStartedRef.current = false;
+        isPotentialDragRef.current = false;
+        dragStartPosRef.current = null;
+        potentialDragLayerIdRef.current = null;
+        potentialDragElementRef.current = null;
+        potentialDragIframePosRef.current = null;
+        cancelFreeformPreview(session.element);
+        clearDragCursor();
+        return;
+      }
+
       if (e.key === 'Escape' && hasDragStartedRef.current) {
         hasDragStartedRef.current = false;
         isPotentialDragRef.current = false;
