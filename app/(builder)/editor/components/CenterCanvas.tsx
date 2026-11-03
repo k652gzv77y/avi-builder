@@ -36,6 +36,7 @@ import {
 import { useCanvasPan } from '@/hooks/use-canvas-pan';
 import { useEditorUrl } from '@/hooks/use-editor-url';
 import { useEditComponent } from '@/hooks/use-edit-component';
+import { useShowCanvasRulers } from '@/hooks/use-show-canvas-rulers';
 import { useZoom } from '@/hooks/use-zoom';
 import { useUndoRedo } from '@/hooks/use-undo-redo';
 import { useRole } from '@/hooks/use-role';
@@ -58,6 +59,7 @@ import BreakpointBar from './breakpoint-bar';
 import BreakpointFrames from './BreakpointFrames';
 import { CollectionFieldSelector } from './CollectionFieldSelector';
 import AiActivityOverlay from '@/components/AiActivityOverlay';
+import CanvasRulers from '@/components/canvas-rulers';
 import SelectionOverlay from '@/components/SelectionOverlay';
 import RichTextLinkPopover from './RichTextLinkPopover';
 import PageSelector from './PageSelector';
@@ -85,6 +87,7 @@ import { setDragCursor, clearDragCursor } from '@/lib/drag-cursor';
 import type { Layer, Page, CollectionField, Asset } from '@/types';
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuShortcut,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
@@ -134,6 +137,8 @@ interface ViewportZoomControlsProps {
   onResetZoom: () => void;
   onZoomToFit: () => void;
   onAutofit: () => void;
+  showRulers?: boolean;
+  onShowRulersChange?: (show: boolean) => void;
 }
 
 /** Shared zoom dropdown used in both the canvas and preview toolbars. */
@@ -144,6 +149,8 @@ function ViewportZoomControls({
   onResetZoom,
   onZoomToFit,
   onAutofit,
+  showRulers,
+  onShowRulersChange,
 }: ViewportZoomControlsProps) {
   return (
     <div className="flex justify-center gap-2">
@@ -164,7 +171,7 @@ function ViewportZoomControls({
           sideOffset={4}
           avoidCollisions={false}
           collisionPadding={0}
-          className="max-h-75! w-38"
+          className={cn('max-h-75!', onShowRulersChange ? 'w-44' : 'w-38')}
           // Don't return focus to the trigger on close, otherwise pressing Space
           // (the pan shortcut) re-activates the focused button and reopens this menu.
           onCloseAutoFocus={(e) => e.preventDefault()}
@@ -190,6 +197,18 @@ function ViewportZoomControls({
             Fit width
             <DropdownMenuShortcut>⌘2</DropdownMenuShortcut>
           </DropdownMenuItem>
+          {onShowRulersChange && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuCheckboxItem
+                checked={showRulers === true}
+                onCheckedChange={(checked) => onShowRulersChange(checked === true)}
+              >
+                Show rulers
+                <DropdownMenuShortcut>⇧R</DropdownMenuShortcut>
+              </DropdownMenuCheckboxItem>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
@@ -587,6 +606,7 @@ const CenterCanvas = React.memo(function CenterCanvas({
 }: CenterCanvasProps) {
   const { canEditStructure } = useRole();
   const selectedLayerId = useEditorStore((state) => state.selectedLayerId);
+  const { show: showRulers, setShow: setShowRulers } = useShowCanvasRulers();
 
   const [showAddBlockPanel, setShowAddBlockPanel] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -2305,6 +2325,8 @@ const CenterCanvas = React.memo(function CenterCanvas({
               onResetZoom={resetZoom}
               onZoomToFit={zoomToFit}
               onAutofit={autofit}
+              showRulers={showRulers}
+              onShowRulersChange={setShowRulers}
             />
             <Button
               size="sm"
@@ -2637,6 +2659,14 @@ const CenterCanvas = React.memo(function CenterCanvas({
 
         {/* Element picker SVG connector overlay */}
         <ElementPickerOverlay iframeElement={canvasIframeElement} zoom={zoom} />
+
+        <CanvasRulers
+          iframeElement={canvasIframeElement}
+          viewportRef={canvasContainerRef}
+          scrollRef={scrollContainerRef}
+          zoom={zoom}
+          enabled={showRulers && !isPreviewMode && isCanvasReady && !isComponentCanvasSettling}
+        />
 
         {/* Translation loading overlay — shown while translations for the
             active locale are being fetched. Mirrors the preview-mode overlay

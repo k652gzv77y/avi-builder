@@ -87,6 +87,7 @@ const shortcutCategories: { left: ShortcutCategory[]; right: ShortcutCategory[] 
         { name: 'Zoom to 100%', keys: [{ name: '⌘' }, { name: '0' }] },
         { name: 'Zoom to Fit', keys: [{ name: '⌘' }, { name: '1' }] },
         { name: 'Autofit', keys: [{ name: '⌘' }, { name: '2' }] },
+        { name: 'Show or hide rulers', keys: [{ name: '⇧' }, { name: 'R' }] },
         { name: 'Pan', keys: [{ name: 'Space', icon: 'space' }, { name: 'Drag (left-click)' }, { name: '', isBreak: true }, { name: 'Drag (middle-click)' }] },
       ],
     },
