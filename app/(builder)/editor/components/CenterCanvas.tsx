@@ -104,6 +104,7 @@ import type { UseLiveLayerUpdatesReturn } from '@/hooks/use-live-layer-updates';
 import type { UseLiveComponentUpdatesReturn } from '@/hooks/use-live-component-updates';
 import { useCanvasDropDetection } from '@/hooks/use-canvas-drop-detection';
 import { useCanvasSiblingReorder } from '@/hooks/use-canvas-sibling-reorder';
+import { shouldIgnoreCanvasBodySelect, useCanvasMarquee } from '@/hooks/use-canvas-marquee';
 
 interface CenterCanvasProps {
   currentPageId: string | null;
@@ -1435,6 +1436,7 @@ const CenterCanvas = React.memo(function CenterCanvas({
   const handleCanvasLayerClick = useCallback((layerId: string, event?: React.MouseEvent) => {
     // Don't select layers while panning the canvas (Space-drag / middle-mouse)
     if (isPanGestureActive()) return;
+    if (layerId === 'body' && shouldIgnoreCanvasBodySelect()) return;
 
     // Skip selection changes during drag operations
     const { isDraggingLayerOnCanvas, isDraggingToCanvas, elementPicker: picker } = useEditorStore.getState();
@@ -1459,6 +1461,11 @@ const CenterCanvas = React.memo(function CenterCanvas({
     if (!isPreviewMode) {
       // Switch to Layers tab when a layer is clicked on canvas
       setActiveSidebarTab('layers');
+
+      if (event && (event.shiftKey || event.metaKey || event.ctrlKey) && layerId !== 'body') {
+        useEditorStore.getState().toggleSelection(layerId);
+        return;
+      }
 
       // Detect if clicked on a text style element or a richText sublayer block
       let textStyleKey: string | null = null;
@@ -1932,6 +1939,17 @@ const CenterCanvas = React.memo(function CenterCanvas({
     onReorder: handleLayerReorder,
     onLayerSelect: setSelectedLayerId,
     onFreeformCommit: handleCanvasLayerUpdate,
+  });
+
+  useCanvasMarquee({
+    iframeElement: canvasIframeElement,
+    zoom,
+    layers,
+    disabled: isTextEditing || isPreviewMode,
+    isPanGestureActive,
+    onSelect: (ids) => {
+      useEditorStore.getState().setSelectedLayerIds(ids);
+    },
   });
 
   // Calculate parent layer ID for selection overlay (one level up from selected)
@@ -2596,6 +2614,7 @@ const CenterCanvas = React.memo(function CenterCanvas({
             iframeElement={canvasIframeElement}
             containerElement={scrollContainerRef.current}
             selectedLayerId={selectedLayerId}
+            selectedLayerIds={selectedLayerIds}
             parentLayerId={parentLayerId}
             zoom={zoom}
             activeSublayerIndex={activeSublayerIndex}

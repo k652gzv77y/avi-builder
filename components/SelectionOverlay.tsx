@@ -46,6 +46,76 @@ interface HandleFrame {
 }
 
 const HIDDEN_HANDLE_FRAME: HandleFrame = { left: 0, top: 0, width: 0, height: 0, visible: false };
+const EMPTY_SELECTION: string[] = [];
+
+function placeGroupOutlines(
+  container: HTMLDivElement | null,
+  iframe: HTMLIFrameElement,
+  containerElement: HTMLElement,
+  zoom: number,
+  ids: string[],
+) {
+  if (!container) return;
+  if (ids.length < 2) {
+    container.style.display = 'none';
+    return;
+  }
+  const doc = iframe.contentDocument;
+  if (!doc) {
+    container.style.display = 'none';
+    return;
+  }
+  const scale = zoom / 100;
+  const iframeRect = iframe.getBoundingClientRect();
+  const containerRect = containerElement.getBoundingClientRect();
+  const rects: { left: number; top: number; width: number; height: number }[] = [];
+  for (const id of ids) {
+    if (!id || id === 'body') continue;
+    const escaped = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(id) : id;
+    const el = doc.querySelector(`[data-layer-id="${escaped}"]`);
+    if (!el) continue;
+    const rect = el.getBoundingClientRect();
+    if (rect.width < 1 && rect.height < 1) continue;
+    rects.push({
+      left: iframeRect.left - containerRect.left + rect.left * scale,
+      top: iframeRect.top - containerRect.top + rect.top * scale,
+      width: rect.width * scale,
+      height: rect.height * scale,
+    });
+  }
+  if (rects.length < 2) {
+    container.style.display = 'none';
+    return;
+  }
+  const minLeft = Math.min(...rects.map((rect) => rect.left));
+  const minTop = Math.min(...rects.map((rect) => rect.top));
+  const maxRight = Math.max(...rects.map((rect) => rect.left + rect.width));
+  const maxBottom = Math.max(...rects.map((rect) => rect.top + rect.height));
+  const boxes = [
+    { left: minLeft, top: minTop, width: maxRight - minLeft, height: maxBottom - minTop, bounds: true },
+    ...rects.map((rect) => ({ ...rect, bounds: false })),
+  ];
+  container.style.display = 'block';
+  while (container.children.length < boxes.length) {
+    container.appendChild(document.createElement('div'));
+  }
+  for (let index = 0; index < container.children.length; index += 1) {
+    const child = container.children[index] as HTMLElement;
+    const box = boxes[index];
+    if (!box) {
+      child.style.display = 'none';
+      continue;
+    }
+    child.className = box.bounds
+      ? 'absolute border border-[#0099ff] pointer-events-none'
+      : 'absolute outline outline-1 outline-[#0099ff]/80 pointer-events-none';
+    child.style.display = 'block';
+    child.style.left = `${box.left}px`;
+    child.style.top = `${box.top}px`;
+    child.style.width = `${box.width}px`;
+    child.style.height = `${box.height}px`;
+  }
+}
 /** Invisible grab size around the 8px handle square. */
 const HANDLE_HIT_SIZE = 20;
 
@@ -116,6 +186,8 @@ interface SelectionOverlayProps {
   containerElement: HTMLElement | null;
   /** Currently selected layer ID */
   selectedLayerId: string | null;
+  /** Every selected layer. More than one draws a group bounds. */
+  selectedLayerIds?: string[];
   /** Parent layer ID (one level up from selected) */
   parentLayerId: string | null;
   /** Current zoom level (percentage) */
@@ -132,6 +204,7 @@ export function SelectionOverlay({
   iframeElement,
   containerElement,
   selectedLayerId,
+  selectedLayerIds = EMPTY_SELECTION,
   parentLayerId,
   zoom,
   activeSublayerIndex,
@@ -166,6 +239,7 @@ export function SelectionOverlay({
       : 'outline outline-1 outline-dashed outline-[#0099ff]/70';
   // Container refs for outline groups (supports multiple instances per layer ID)
   const selectedContainerRef = useRef<HTMLDivElement>(null);
+  const groupContainerRef = useRef<HTMLDivElement>(null);
   const hoveredContainerRef = useRef<HTMLDivElement>(null);
   const parentContainerRef = useRef<HTMLDivElement>(null);
   const selectionLabelRef = useRef<HTMLDivElement>(null);
@@ -199,6 +273,7 @@ export function SelectionOverlay({
     if (hoveredContainerRef.current) hoveredContainerRef.current.style.display = 'none';
     if (parentContainerRef.current) parentContainerRef.current.style.display = 'none';
     if (selectionLabelRef.current) selectionLabelRef.current.style.display = 'none';
+    if (groupContainerRef.current) groupContainerRef.current.style.display = 'none';
     publishHandleFrame(null);
   }, [publishHandleFrame]);
 
@@ -343,6 +418,7 @@ export function SelectionOverlay({
       if (parentContainerRef.current) parentContainerRef.current.style.display = 'none';
       if (selectionLabelRef.current) selectionLabelRef.current.style.display = 'none';
       publishHandleFrame(null);
+      if (groupContainerRef.current) groupContainerRef.current.style.display = 'none';
       updateOutline(hoveredContainerRef.current, hoveredLayerIdRef.current, ctx.iframeDoc, ctx.iframeElement, ctx.containerElement, ctx.scale, HOVERED_OUTLINE_CLASS);
       return;
     }
@@ -365,7 +441,10 @@ export function SelectionOverlay({
       : (parentLayerId !== selectedLayerId ? parentLayerId : null);
     updateOutline(parentContainerRef.current, effectiveParentId, ctx.iframeDoc, ctx.iframeElement, ctx.containerElement, ctx.scale, PARENT_OUTLINE_CLASS);
 
-    const found = !skipSolidBorders && onLayerUpdateRef.current && !isDraggingRef.current
+    const multi = selectedLayerIds.length > 1;
+    placeGroupOutlines(groupContainerRef.current, ctx.iframeElement, ctx.containerElement, zoom, multi ? selectedLayerIds : EMPTY_SELECTION);
+
+    const found = !multi && !skipSolidBorders && onLayerUpdateRef.current && !isDraggingRef.current
       ? editableLayer(selectedLayerId)
       : null;
     if (
@@ -377,7 +456,7 @@ export function SelectionOverlay({
     } else {
       publishHandleFrame(null);
     }
-  }, [getOutlineContext, hideAllOutlines, selectedLayerId, parentLayerId, updateOutline, activeSublayerIndex, activeListItemIndex, SELECTED_OUTLINE_CLASS, HOVERED_OUTLINE_CLASS, PARENT_OUTLINE_CLASS, isAiLayerPicking, publishHandleFrame]);
+  }, [getOutlineContext, hideAllOutlines, selectedLayerId, selectedLayerIds, parentLayerId, updateOutline, activeSublayerIndex, activeListItemIndex, SELECTED_OUTLINE_CLASS, HOVERED_OUTLINE_CLASS, PARENT_OUTLINE_CLASS, isAiLayerPicking, publishHandleFrame, zoom]);
 
   // Initial update and updates when IDs change. Selecting a layer can reveal a
   // previously hidden ancestor (display:none → visible) in the iframe's separate
@@ -713,6 +792,7 @@ export function SelectionOverlay({
 
       {/* Selection outline container - hidden during drag */}
       <div ref={selectedContainerRef} style={{ display: 'none' }} />
+      <div ref={groupContainerRef} style={{ display: 'none' }} />
 
       <div
         ref={selectionLabelRef}

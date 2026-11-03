@@ -33,6 +33,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 
 // 4. Internal components
 import AddAttributeModal from './AddAttributeModal';
+import AlignControls from './AlignControls';
 import BackgroundsControls from './BackgroundsControls';
 import CustomAttributeRow from './CustomAttributeRow';
 import BorderControls from './BorderControls';
@@ -2159,6 +2160,8 @@ const RightSidebar = React.memo(function RightSidebar({
               title="Layout"
               hint="Fill, Fit, Fixed, Relative, Viewport"
             >
+              <AlignControls layers={allLayers} />
+
               <BreakpointContextBar layer={controlLayer} onLayerUpdate={controlUpdate} />
 
               {shouldShowControl('layout', selectedLayer) && (
