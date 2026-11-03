@@ -1,11 +1,12 @@
 'use client';
 
-import { projectsPath } from '@/lib/project-url';
-
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Label } from '@/components/ui/label';
+
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 import BuilderLoading from '@/components/BuilderLoading';
+import { interpretMigrationResponse } from '@/lib/migration-response';
+import { projectsPath } from '@/lib/project-url';
 
 interface MigrationCheckerProps {
   onComplete: () => void;
@@ -26,18 +27,12 @@ export default function MigrationChecker({ onComplete }: MigrationCheckerProps) 
       const response = await fetch(projectsPath('/api/setup/migrate'), {
         method: 'POST',
       });
+      const raw = await response.text();
+      const outcome = interpretMigrationResponse(response.status, raw);
 
-      if (!response.ok) {
-        console.error('Migration request failed');
-        console.error(await response.json());
-        onComplete();
-        return;
-      }
-
-      const result = await response.json();
-
-      if (result.error) {
-        setError(result.error);
+      if (!outcome.proceed) {
+        console.error('Migration request failed', outcome.error);
+        setError(outcome.error || 'Migration failed');
         setIsChecking(false);
         return;
       }
