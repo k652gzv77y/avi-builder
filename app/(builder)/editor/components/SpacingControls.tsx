@@ -17,9 +17,16 @@ interface SpacingControlsProps {
   layer: Layer | null;
   onLayerUpdate: (layerId: string, updates: Partial<Layer>) => void;
   activeTextStyleKey?: string | null;
+  /** Hide padding when the stack spacing inspector already edits this layer. */
+  showPadding?: boolean;
 }
 
-const SpacingControls = memo(function SpacingControls({ layer, onLayerUpdate, activeTextStyleKey }: SpacingControlsProps) {
+const SpacingControls = memo(function SpacingControls({
+  layer,
+  onLayerUpdate,
+  activeTextStyleKey,
+  showPadding = true,
+}: SpacingControlsProps) {
   const [isOpen, setIsOpen] = useState(true);
   const activeBreakpoint = useEditorStore((s) => s.activeBreakpoint);
   const activeUIState = useEditorStore((s) => s.activeUIState);
@@ -91,7 +98,7 @@ const SpacingControls = memo(function SpacingControls({ layer, onLayerUpdate, ac
 
   return (
     <SettingsPanel
-      title="Spacing"
+      title={showPadding ? 'Spacing' : 'Margin'}
       isOpen={isOpen}
       onToggle={() => setIsOpen(!isOpen)}
       action={
@@ -123,6 +130,7 @@ const SpacingControls = memo(function SpacingControls({ layer, onLayerUpdate, ac
           paddingLeft: paddingLeftInput,
         }}
         onChange={handleChange}
+        showPadding={showPadding}
       />
     </SettingsPanel>
   );

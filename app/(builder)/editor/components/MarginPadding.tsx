@@ -19,6 +19,8 @@ interface SpacingValues {
 interface MarginPaddingProps {
   values: SpacingValues;
   onChange: (property: keyof SpacingValues, value: string) => void;
+  /** Stacks edit padding in the spacing inspector, so the box can be margin-only. */
+  showPadding?: boolean;
 }
 
 type Side = 'top' | 'right' | 'bottom' | 'left';
@@ -265,7 +267,7 @@ function useModifierKeys() {
   return modifiers;
 }
 
-export default function MarginPadding({ values, onChange }: MarginPaddingProps) {
+export default function MarginPadding({ values, onChange, showPadding = true }: MarginPaddingProps) {
   const valuesRef = useRef(values);
   valuesRef.current = values;
   const onChangeRef = useRef(onChange);
@@ -395,36 +397,37 @@ export default function MarginPadding({ values, onChange }: MarginPaddingProps) 
         </span>
       </div>
 
-      {/* Padding box (inner, solid) */}
-      <div className="relative col-start-2 row-start-2 col-span-3 row-span-3">
-        <BoxEdge
-          side="top" onDrag={dragPT}
-          edgeState={getEdgeState('padding', 'top')} isDragActive={isDragActive}
-          onHoverEnter={hoverIn('padding', 'top')} onHoverLeave={hoverOut}
-          onDragStart={dragStart('padding', 'top')} onDragEnd={dragEnd}
-        />
-        <BoxEdge
-          side="right" onDrag={dragPR}
-          edgeState={getEdgeState('padding', 'right')} isDragActive={isDragActive}
-          onHoverEnter={hoverIn('padding', 'right')} onHoverLeave={hoverOut}
-          onDragStart={dragStart('padding', 'right')} onDragEnd={dragEnd}
-        />
-        <BoxEdge
-          side="bottom" onDrag={dragPB}
-          edgeState={getEdgeState('padding', 'bottom')} isDragActive={isDragActive}
-          onHoverEnter={hoverIn('padding', 'bottom')} onHoverLeave={hoverOut}
-          onDragStart={dragStart('padding', 'bottom')} onDragEnd={dragEnd}
-        />
-        <BoxEdge
-          side="left" onDrag={dragPL}
-          edgeState={getEdgeState('padding', 'left')} isDragActive={isDragActive}
-          onHoverEnter={hoverIn('padding', 'left')} onHoverLeave={hoverOut}
-          onDragStart={dragStart('padding', 'left')} onDragEnd={dragEnd}
-        />
-        <span className="absolute bottom-0 right-0 m-2 text-[9px] text-muted-foreground/60 leading-3 select-none">
-          Padding
-        </span>
-      </div>
+      {showPadding && (
+        <div className="relative col-start-2 row-start-2 col-span-3 row-span-3">
+          <BoxEdge
+            side="top" onDrag={dragPT}
+            edgeState={getEdgeState('padding', 'top')} isDragActive={isDragActive}
+            onHoverEnter={hoverIn('padding', 'top')} onHoverLeave={hoverOut}
+            onDragStart={dragStart('padding', 'top')} onDragEnd={dragEnd}
+          />
+          <BoxEdge
+            side="right" onDrag={dragPR}
+            edgeState={getEdgeState('padding', 'right')} isDragActive={isDragActive}
+            onHoverEnter={hoverIn('padding', 'right')} onHoverLeave={hoverOut}
+            onDragStart={dragStart('padding', 'right')} onDragEnd={dragEnd}
+          />
+          <BoxEdge
+            side="bottom" onDrag={dragPB}
+            edgeState={getEdgeState('padding', 'bottom')} isDragActive={isDragActive}
+            onHoverEnter={hoverIn('padding', 'bottom')} onHoverLeave={hoverOut}
+            onDragStart={dragStart('padding', 'bottom')} onDragEnd={dragEnd}
+          />
+          <BoxEdge
+            side="left" onDrag={dragPL}
+            edgeState={getEdgeState('padding', 'left')} isDragActive={isDragActive}
+            onHoverEnter={hoverIn('padding', 'left')} onHoverLeave={hoverOut}
+            onDragStart={dragStart('padding', 'left')} onDragEnd={dragEnd}
+          />
+          <span className="absolute bottom-0 right-0 m-2 text-[9px] text-muted-foreground/60 leading-3 select-none">
+            Padding
+          </span>
+        </div>
+      )}
 
       {/* Margin inputs */}
       <div className="col-start-3 row-start-1 justify-self-center self-center my-1.5 z-20">
@@ -440,24 +443,31 @@ export default function MarginPadding({ values, onChange }: MarginPaddingProps) 
         <SpacingInput value={values.marginLeft} onChange={handleML} />
       </div>
 
-      {/* Padding inputs */}
-      <div className="col-start-3 row-start-2 justify-self-center self-center mt-1.5 z-20">
-        <SpacingInput value={values.paddingTop} onChange={handlePT} />
-      </div>
-      <div className="col-start-4 row-start-3 justify-self-center self-center mr-1.5 z-20">
-        <SpacingInput value={values.paddingRight} onChange={handlePR} />
-      </div>
-      <div className="col-start-3 row-start-4 justify-self-center self-center mb-1.5 z-20">
-        <SpacingInput value={values.paddingBottom} onChange={handlePB} />
-      </div>
-      <div className="col-start-2 row-start-3 justify-self-center self-center ml-1.5 z-20">
-        <SpacingInput value={values.paddingLeft} onChange={handlePL} />
-      </div>
+      {showPadding && (
+        <>
+          <div className="col-start-3 row-start-2 justify-self-center self-center mt-1.5 z-20">
+            <SpacingInput value={values.paddingTop} onChange={handlePT} />
+          </div>
+          <div className="col-start-4 row-start-3 justify-self-center self-center mr-1.5 z-20">
+            <SpacingInput value={values.paddingRight} onChange={handlePR} />
+          </div>
+          <div className="col-start-3 row-start-4 justify-self-center self-center mb-1.5 z-20">
+            <SpacingInput value={values.paddingBottom} onChange={handlePB} />
+          </div>
+          <div className="col-start-2 row-start-3 justify-self-center self-center ml-1.5 z-20">
+            <SpacingInput value={values.paddingLeft} onChange={handlePL} />
+          </div>
+          <div className="col-start-3 row-start-3 h-full p-0.5">
+            <div className="bg-input rounded-[8px] w-full h-full min-h-4 min-w-4" />
+          </div>
+        </>
+      )}
 
-      {/* Center content block */}
-      <div className="col-start-3 row-start-3 h-full p-0.5">
-        <div className="bg-input rounded-[8px] w-full h-full min-h-4 min-w-4" />
-      </div>
+      {!showPadding && (
+        <div className="col-start-2 row-start-2 col-span-3 row-span-3 p-1.5">
+          <div className="bg-input rounded-[8px] size-full min-h-6" />
+        </div>
+      )}
     </div>
 
     </div>

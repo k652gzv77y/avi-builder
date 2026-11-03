@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import Icon from '@/components/ui/icon';
 import AlignControls from './AlignControls';
+import StackSpacingControls from './StackSpacingControls';
 import InteractionsPanel from './InteractionsPanel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -34,6 +35,8 @@ import { useComponentsStore } from '@/stores/useComponentsStore';
 import { usePagesStore } from '@/stores/usePagesStore';
 import { useEditComponent } from '@/hooks/use-edit-component';
 import { detachSpecificLayerFromComponent } from '@/lib/component-utils';
+import { findLayerWithParent } from '@/lib/layer-utils';
+import { spacingContainerKind } from '@/lib/stack-spacing';
 import { findSlotFallback, variablesForVariant } from '@/lib/component-properties';
 import { collectVariantVariableOptions, countReplicaOverrides, getComponentVariantLayers, isReplicaVariant } from '@/lib/component-variant-utils';
 import { useInteractionPreviewStore } from '@/stores/useInteractionPreviewStore';
@@ -288,6 +291,17 @@ export default function ComponentInstanceSidebar({
     });
   }, [selectedLayerId, onLayerUpdate]);
 
+  const stackSpacingTarget = useMemo(() => {
+    const ownKind = spacingContainerKind(selectedLayer);
+    if (ownKind) return { layer: selectedLayer, kind: ownKind, editsParent: false };
+    const found = findLayerWithParent(allLayers, selectedLayerId);
+    const parentKind = spacingContainerKind(found?.parent);
+    if (found?.parent && parentKind) {
+      return { layer: found.parent, kind: parentKind, editsParent: true };
+    }
+    return null;
+  }, [allLayers, selectedLayer, selectedLayerId]);
+
   return (
     <div
       className={cn(
@@ -319,6 +333,14 @@ export default function ComponentInstanceSidebar({
           className="flex-1 overflow-y-auto no-scrollbar mt-0 data-[state=inactive]:hidden"
         >
         <div className="flex flex-col divide-y divide-border">
+          {stackSpacingTarget && (
+            <StackSpacingControls
+              layer={stackSpacingTarget.layer}
+              kind={stackSpacingTarget.kind}
+              editsParent={stackSpacingTarget.editsParent}
+              onLayerUpdate={onLayerUpdate}
+            />
+          )}
           <AlignControls layers={allLayers} />
           <SettingsPanel
             title="Component instance"
