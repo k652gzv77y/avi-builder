@@ -24,6 +24,7 @@ import { useCanvasSlider } from '@/hooks/use-canvas-slider';
 import { resolveFieldFromSources } from '@/lib/cms-variables-utils';
 import { getDynamicTextContent, getImageUrlFromVariable, getVideoUrlFromVariable, getIframeUrlFromVariable, isFieldVariable, isAssetVariable, isStaticTextVariable, isDynamicTextVariable, getAssetId, getStaticTextContent, createAssetVariable, createDynamicTextVariable, resolveDesignStyles } from '@/lib/variable-utils';
 import { overlayCanvasHidden } from '@/lib/overlay-setup';
+import { overlayKindLabel, resolveOverlayKind } from '@/lib/overlay-position';
 import { getTranslatedAssetId, getTranslatedText, applyCmsTranslations, injectTranslatedText } from '@/lib/localisation-utils';
 import { isValidLinkSettings } from '@/lib/link-utils';
 import { DEFAULT_ASSETS, ASSET_CATEGORIES, isAssetOfType } from '@/lib/asset-utils';
@@ -2299,7 +2300,8 @@ const LayerItemImpl: React.FC<{
     }
 
     if (layer.overlay) {
-      elementProps['data-overlay'] = layer.overlay.placement;
+      elementProps['data-overlay'] = resolveOverlayKind(layer.overlay);
+      elementProps['data-overlay-placement'] = layer.overlay.placement;
       const hidden = overlayCanvasHidden(true, isEditMode, isSelected);
       if (isEditMode && isSelected) elementProps['data-overlay-editing'] = 'true';
       const existingStyle = (typeof elementProps.style === 'object' && elementProps.style) || {};
@@ -3754,10 +3756,10 @@ const LayerItemImpl: React.FC<{
         )}
         {isEditMode && isSelected && layer.overlay && (
           <span
-            data-overlay-badge={layer.overlay.placement}
+            data-overlay-badge={resolveOverlayKind(layer.overlay)}
             className="pointer-events-none absolute left-2 top-2 z-20 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-medium text-white"
           >
-            {layer.overlay.placement === 'fixed' ? 'Fixed overlay' : 'Relative overlay'}
+            {overlayKindLabel(resolveOverlayKind(layer.overlay))}
           </span>
         )}
 

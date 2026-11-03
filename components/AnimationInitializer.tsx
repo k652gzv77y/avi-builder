@@ -15,7 +15,7 @@ import { SplitText } from 'gsap/SplitText';
 
 import { ITEMS_INJECTED_EVENT, type ItemsInjectedDetail } from '@/components/FilterableCollection';
 import { buildGsapProps, addTweenToTimeline, createSplitTextAnimation, generateInitialAnimationCSS, getEffectiveApplyStyle, setColorVariableResolver } from '@/lib/animation-utils';
-import { listenForKeyboard, listenForTimer, prepareOverlayTargets, runInteractionActions } from '@/lib/interaction-runtime';
+import { closeOpenOverlays, listenForKeyboard, listenForTimer, prepareOverlayTargets, runInteractionActions } from '@/lib/interaction-runtime';
 import { actionsOnHoverLeave } from '@/lib/interactions-framer';
 import { BREAKPOINT_VALUES, getCurrentBreakpoint } from '@/lib/breakpoint-utils';
 import { remapLayerIdsForCollectionItem } from '@/lib/collection-utils';
@@ -815,6 +815,7 @@ export default function AnimationInitializer({ layers, injectInitialCSS }: Anima
     return () => {
       if (rebindTimer) clearTimeout(rebindTimer);
       remountObserver.disconnect();
+      closeOpenOverlays();
       cleanups.forEach((cleanup) => cleanup());
       // Detach played one-shots without killing their timeline (see note at
       // top of effect), then sweep any remaining triggers. Preserved

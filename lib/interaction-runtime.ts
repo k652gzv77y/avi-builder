@@ -12,7 +12,6 @@ import {
   focusAfterClose,
   keyboardShouldFire,
   overlayOpenTargets,
-  overlayPlacementStyle,
   resolveNavigateHref,
   scrollProgressThroughViewport,
   scrollToPlan,
@@ -20,9 +19,31 @@ import {
   variableAssignment,
   variantForScrollProgress,
 } from '@/lib/interactions-framer';
+import {
+  overlayAriaRole,
+  overlayIsAnchored,
+  overlayTakesFocus,
+  overlayTrapsFocus,
+  overlayUsesBackdrop,
+  placeAnchoredOverlay,
+  placeModalOverlay,
+  placeSheetOverlay,
+  pointerZoneForDismiss,
+  resolveOverlayKind,
+  trapFocusIndex,
+} from '@/lib/overlay-position';
 import { useGlobalsStore } from '@/stores/useGlobalsStore';
 import { useInteractionPreviewStore } from '@/stores/useInteractionPreviewStore';
-import type { InteractionAction, KeyboardPhase, KeyboardTrigger, Layer, LayerInteraction, TimerTrigger } from '@/types';
+import type {
+  InteractionAction,
+  KeyboardPhase,
+  KeyboardTrigger,
+  Layer,
+  LayerInteraction,
+  OverlayAnchor,
+  OverlayKind,
+  TimerTrigger,
+} from '@/types';
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -39,11 +60,24 @@ export interface ActionRunOptions {
 interface OverlaySession {
   overlay: HTMLElement;
   trigger: HTMLElement | null;
+  backdrop: HTMLElement | null;
   restoreFocus: boolean;
   cleanup: () => void;
 }
 
 const sessions = new Map<string, OverlaySession>();
+
+interface OverlayFrame {
+  top: number;
+  left: number;
+}
+
+interface MeasuredBox {
+  top: number;
+  left: number;
+  width: number;
+  height: number;
+}
 
 function cssEscape(value: string): string {
   if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') return CSS.escape(value);
@@ -62,30 +96,148 @@ function applySetVariant(doc: Document, targetLayerId: string, variantId: string
   element?.setAttribute('data-interaction-variant', variantId);
 }
 
-function pointerHit(
+function isEventNode(value: EventTarget | null): value is Node {
+  if (!value || typeof value !== 'object') return false;
+  if (typeof Node === 'function' && value instanceof Node) return true;
+  return 'nodeType' in value;
+}
+
+function pointerZone(
   target: EventTarget | null,
   overlay: HTMLElement,
   trigger: HTMLElement | null,
-): 'overlay' | 'trigger' | 'outside' {
-  if (!(target instanceof Node)) return 'outside';
+  backdrop: HTMLElement | null,
+): 'overlay' | 'trigger' | 'backdrop' | 'outside' {
+  if (!isEventNode(target)) return 'outside';
   if (overlay.contains(target)) return 'overlay';
   if (trigger && (trigger === target || trigger.contains(target))) return 'trigger';
+  if (backdrop && (backdrop === target || backdrop.contains(target))) return 'backdrop';
   return 'outside';
+}
+
+function clearOverlayChrome(overlay: HTMLElement): void {
+  overlay.style.display = 'none';
+  overlay.style.removeProperty('visibility');
+  overlay.style.removeProperty('position');
+  overlay.style.removeProperty('top');
+  overlay.style.removeProperty('left');
+  overlay.style.removeProperty('right');
+  overlay.style.removeProperty('bottom');
+  overlay.style.removeProperty('margin');
+  overlay.style.removeProperty('transform');
+  overlay.style.removeProperty('z-index');
+  overlay.removeAttribute('data-overlay-open');
+  if (overlay.dataset.overlayRoleAdded === 'true') {
+    overlay.removeAttribute('role');
+    overlay.removeAttribute('aria-modal');
+    delete overlay.dataset.overlayRoleAdded;
+  }
 }
 
 export function closeOverlay(targetLayerId: string): void {
   const session = sessions.get(targetLayerId);
   if (!session) return;
   session.cleanup();
-  session.overlay.style.display = 'none';
-  session.overlay.removeAttribute('data-overlay-open');
-  if (session.overlay.dataset.overlayRoleAdded === 'true') {
-    session.overlay.removeAttribute('role');
-    session.overlay.removeAttribute('aria-modal');
-    delete session.overlay.dataset.overlayRoleAdded;
-  }
+  session.backdrop?.remove();
+  clearOverlayChrome(session.overlay);
   sessions.delete(targetLayerId);
   if (session.restoreFocus) session.trigger?.focus();
+}
+
+/** Close every overlay this document opened. Used when preview rebinds. */
+export function closeOpenOverlays(): void {
+  for (const layerId of [...sessions.keys()]) closeOverlay(layerId);
+}
+
+function viewportOf(doc: Document): { width: number; height: number } {
+  const view = doc.defaultView;
+  return {
+    width: view?.innerWidth ?? doc.documentElement.clientWidth ?? 0,
+    height: view?.innerHeight ?? doc.documentElement.clientHeight ?? 0,
+  };
+}
+
+function boxOf(element: HTMLElement): MeasuredBox {
+  const rect = element.getBoundingClientRect();
+  return { top: rect.top, left: rect.left, width: rect.width, height: rect.height };
+}
+
+function overlaySize(overlay: HTMLElement): { width: number; height: number } {
+  const width = overlay.offsetWidth || overlay.getBoundingClientRect().width;
+  const height = overlay.offsetHeight || overlay.getBoundingClientRect().height;
+  return {
+    width: width > 0 ? width : 240,
+    height: height > 0 ? height : 80,
+  };
+}
+
+function resolveAnchorElement(
+  doc: Document,
+  action: Extract<InteractionAction, { type: 'overlay' }>,
+  trigger: HTMLElement | null,
+): HTMLElement | null {
+  if (action.anchorLayerId && action.anchorLayerId !== action.targetLayerId) {
+    const chosen = findLayer(doc, action.anchorLayerId);
+    if (chosen) return chosen;
+  }
+  return trigger;
+}
+
+function frameForOverlay(
+  kind: OverlayKind,
+  overlay: HTMLElement,
+  anchor: HTMLElement | null,
+  side: OverlayAnchor,
+  viewport: { width: number; height: number },
+): OverlayFrame {
+  const size = overlaySize(overlay);
+  if (kind === 'sheet') return placeSheetOverlay({ overlay: size, viewport });
+  if (overlayIsAnchored(kind) && anchor) {
+    return placeAnchoredOverlay({
+      anchor: boxOf(anchor),
+      overlay: size,
+      viewport,
+      side,
+    });
+  }
+  return placeModalOverlay({ overlay: size, viewport });
+}
+
+function applyOverlayFrame(overlay: HTMLElement, frame: OverlayFrame): void {
+  overlay.style.position = 'fixed';
+  overlay.style.top = `${frame.top}px`;
+  overlay.style.left = `${frame.left}px`;
+  overlay.style.right = 'auto';
+  overlay.style.bottom = 'auto';
+  overlay.style.margin = '0px';
+  overlay.style.transform = 'none';
+  overlay.style.zIndex = '70';
+  overlay.style.display = 'flex';
+  overlay.style.visibility = 'visible';
+}
+
+function createBackdrop(doc: Document, overlay: HTMLElement, layerId: string): HTMLElement {
+  const backdrop = doc.createElement('div');
+  backdrop.setAttribute('data-overlay-backdrop', layerId);
+  backdrop.setAttribute('aria-hidden', 'true');
+  backdrop.style.position = 'fixed';
+  backdrop.style.inset = '0px';
+  backdrop.style.background = 'rgba(15, 15, 15, 0.45)';
+  backdrop.style.zIndex = '60';
+  const parent = overlay.parentElement;
+  if (parent) parent.insertBefore(backdrop, overlay);
+  else doc.body.appendChild(backdrop);
+  return backdrop;
+}
+
+function focusableElements(overlay: HTMLElement): HTMLElement[] {
+  const view = overlay.ownerDocument.defaultView;
+  return [...overlay.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((element) => {
+    if (element.getAttribute('aria-hidden') === 'true') return false;
+    const style = view?.getComputedStyle(element);
+    if (!style) return true;
+    return style.display !== 'none' && style.visibility !== 'hidden';
+  });
 }
 
 function openOverlay(
@@ -97,49 +249,82 @@ function openOverlay(
   if (!overlay) return;
   closeOverlay(action.targetLayerId);
 
-  const rect = trigger?.getBoundingClientRect();
-  const style = overlayPlacementStyle(
-    action.placement,
-    rect ? { bottom: rect.bottom, left: rect.left } : undefined,
-  );
-  for (const [key, value] of Object.entries(style)) {
-    overlay.style.setProperty(cssProperty(key), value);
-  }
-  overlay.setAttribute('data-overlay-open', action.placement);
-  overlay.setAttribute('role', 'dialog');
-  if (action.placement === 'fixed') overlay.setAttribute('aria-modal', 'true');
+  const kind = resolveOverlayKind(action);
+  const anchored = overlayIsAnchored(kind);
+  const anchor = anchored ? resolveAnchorElement(doc, action, trigger) : null;
+  const side = action.anchor ?? 'bottom';
+
+  overlay.style.display = 'flex';
+  overlay.style.visibility = 'hidden';
+  overlay.style.position = 'fixed';
+
+  const backdrop = overlayUsesBackdrop(kind) ? createBackdrop(doc, overlay, action.targetLayerId) : null;
+  const place = () => {
+    applyOverlayFrame(overlay, frameForOverlay(kind, overlay, anchor, side, viewportOf(doc)));
+  };
+  place();
+
+  overlay.setAttribute('data-overlay-open', kind);
+  overlay.setAttribute('role', overlayAriaRole(kind));
+  if (overlayUsesBackdrop(kind)) overlay.setAttribute('aria-modal', 'true');
+  else overlay.removeAttribute('aria-modal');
   overlay.dataset.overlayRoleAdded = 'true';
 
-  if (!overlay.hasAttribute('tabindex')) overlay.setAttribute('tabindex', '-1');
-  const focusable = overlay.querySelector<HTMLElement>(FOCUSABLE);
-  (focusable ?? overlay).focus();
+  const takesFocus = overlayTakesFocus(kind);
+  if (takesFocus) {
+    if (!overlay.hasAttribute('tabindex')) overlay.setAttribute('tabindex', '-1');
+    const focusable = focusableElements(overlay)[0];
+    (focusable ?? overlay).focus();
+  }
 
   const onKey = (event: KeyboardEvent) => {
     if (dismissOnEscape(action.dismiss, event.key)) {
       event.preventDefault();
+      // Overlay dismiss wins over a Keyboard event bound to Escape.
+      event.stopImmediatePropagation();
+      closeOverlay(action.targetLayerId);
+      return;
+    }
+    if (event.key !== 'Tab' || !overlayTrapsFocus(kind)) return;
+    const items = focusableElements(overlay);
+    if (items.length === 0) {
+      event.preventDefault();
+      overlay.focus();
+      return;
+    }
+    const active = overlay.ownerDocument.activeElement as HTMLElement | null;
+    const index = active ? items.indexOf(active) : -1;
+    const next = trapFocusIndex(index === -1 ? null : index, items.length, event.shiftKey);
+    if (next === null) return;
+    event.preventDefault();
+    items[next]?.focus();
+  };
+  const onPointer = (event: Event) => {
+    const zone = pointerZone(event.target, overlay, trigger, backdrop);
+    if (dismissOnPointer(action.dismiss, pointerZoneForDismiss(zone))) {
       closeOverlay(action.targetLayerId);
     }
   };
-  const onPointer = (event: Event) => {
-    const hit = pointerHit(event.target, overlay, trigger);
-    if (dismissOnPointer(action.dismiss, hit)) closeOverlay(action.targetLayerId);
-  };
-  doc.addEventListener('keydown', onKey);
+  const view = doc.defaultView;
+  doc.addEventListener('keydown', onKey, true);
   doc.addEventListener('pointerdown', onPointer, true);
+  doc.addEventListener('scroll', place, true);
+  view?.addEventListener('resize', place);
+  view?.addEventListener('scroll', place, true);
 
   sessions.set(action.targetLayerId, {
     overlay,
     trigger,
-    restoreFocus: focusAfterClose(action.dismiss),
+    backdrop,
+    restoreFocus: takesFocus && focusAfterClose(action.dismiss),
     cleanup: () => {
-      doc.removeEventListener('keydown', onKey);
+      doc.removeEventListener('keydown', onKey, true);
       doc.removeEventListener('pointerdown', onPointer, true);
+      doc.removeEventListener('scroll', place, true);
+      view?.removeEventListener('resize', place);
+      view?.removeEventListener('scroll', place, true);
     },
   });
-}
-
-function cssProperty(key: string): string {
-  return key.replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`);
 }
 
 function applyScrollTo(
@@ -473,6 +658,6 @@ export function bindInteractionActions(
 
   return () => {
     cleanups.forEach(cleanup => cleanup());
-    for (const layerId of [...sessions.keys()]) closeOverlay(layerId);
+    closeOpenOverlays();
   };
 }

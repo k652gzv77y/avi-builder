@@ -94,11 +94,12 @@ or materially below Framer's workflow.
 - [x] HTML embeds and head/body code injection
 - [~] Tap, Hover, Press, Keyboard, and Timer can be authored with Navigate, Set Variant, Open Overlay, Scroll to, and Set Variable. Drag and the rest of Framer's interaction model are still open
 - [~] Layer event panel: Tap, Hover (mouse enter), Press (pointer down), Keyboard (key down or key up, with Shift, Cmd, Alt, and Ctrl), and Timer (delay, and repeat with an interval) can be added, edited, and deleted on a layer, including a component instance. Appear, Scroll, and Load remain animation events. Drag and viewport leave are not offered
-- [~] Actions: Navigate to a page or URL, Set Variant, Open/Close Overlay, Scroll to a layer or the top or bottom of the page, and Set Variable (project variable and value) are stored on the event and run in preview for Tap, Hover, Press, Keyboard, and Timer. Play media, submit form, and run code are not offered
+- [~] Actions: Navigate to a page or URL, Set Variant, Open/Close Overlay (modal, popover, and tooltip chrome; sheet and menu are partial), Scroll to a layer or the top or bottom of the page, and Set Variable (project variable and value) are stored on the event and run in preview for Tap, Hover, Press, Keyboard, and Timer. Play media, submit form, and run code are not offered
 - [ ] Transition editor with spring parameters, easing curves, delay, duration, and stagger
 - [ ] Scroll transforms, parallax, sticky sections, and scroll-linked animation timeline
 - [ ] Drag gestures with constraints, snap points, momentum, and drag-to-variant behavior
-- [ ] Overlay system: modal, sheet, popover, tooltip, menu, anchor positioning, close rules
+- [x] Overlay system: modal dialog (centered card, backdrop, focus trap) and anchored popover and tooltip (flip and clamp, optional anchor layer) with Escape, outside click, return focus, and Close Overlay. Works from Tap, Hover, Press, Keyboard, and Timer in preview and on published pages
+- [~] Sheet (bottom panel, no drag-to-dismiss) and menu (anchored like a popover, no arrow-key item navigation) share that overlay plumbing
 - [ ] Shared-layout animations between pages and component states
 - [ ] Lottie and Rive controls with property bindings
 - [ ] First-class Code Components with TypeScript, property controls, preview, error UI, and versioning
@@ -160,7 +161,7 @@ Mark the items you want from this set first:
 - [ ] Component property controls and instance overrides
 - [ ] Variant property matrix and interactive variants
 - [ ] Variables/bindings picker and computed variables
-- [~] Layer event/action panel: Tap, Hover, Press, Keyboard, or Timer to Navigate, Set Variant, Open Overlay, Scroll to, or Set Variable. The full overlay system is still open
+- [~] Layer event/action panel: Tap, Hover, Press, Keyboard, or Timer to Navigate, Set Variant, Open Overlay, Scroll to, or Set Variable. Modal, popover, and tooltip overlays can be created from the event. Sheet and menu are partial
 - [x] Framer-style responsive sizing and breakpoint inspector
 - [ ] Code Components and layer overrides
 - [ ] Design-token modes/themes and style preset browser
