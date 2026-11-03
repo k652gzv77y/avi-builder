@@ -10,17 +10,14 @@
  * each page stores its own generated_css so design changes are page-scoped.
  */
 
-import { readFile } from 'node:fs/promises';
-import { join, dirname } from 'node:path';
-import { compile } from 'tailwindcss';
 import type { Layer, Component } from '@/types';
 import { DEFAULT_TEXT_STYLES } from '@/lib/text-format-utils';
-import { TAILWIND_CUSTOM_VARIANTS } from '@/lib/tailwind-custom-variants';
 import { getAllDraftLayers, getDraftLayers, getEmbeddedComponentIdsForCollections } from '@/lib/repositories/pageLayersRepository';
 import { getAllComponents } from '@/lib/repositories/componentRepository';
 import { collectComponentIds } from '@/lib/component-utils';
 import { collectGestureCandidateClasses } from '@/lib/component-variant-utils';
 import { setSetting } from '@/lib/repositories/settingsRepository';
+import { getBundledTailwindCompiler } from '@/lib/server/tailwind-stylesheets';
 import { getSupabaseAdmin } from '@/lib/supabase-server';
 
 /**
@@ -76,33 +73,18 @@ function extractClassesFromLayers(layers: Layer[]): Set<string> {
   return classes;
 }
 
-let compilerCache: { build: (candidates: string[]) => string } | null = null;
-
 /**
  * Get or create a cached Tailwind compiler instance.
  * The compiler only needs to be created once since we always
  * use the same Tailwind config (the default).
+ *
+ * Stylesheet text comes from the build-time bundle. Reading
+ * `node_modules/tailwindcss/index.css` here throws ENOENT on Cloudflare
+ * Workers (that file is not in the worker filesystem) and the CSS routes
+ * return 500.
  */
 async function getCompiler() {
-  if (compilerCache) return compilerCache;
-
-  const twPath = join(process.cwd(), 'node_modules/tailwindcss/index.css');
-  const baseInput = await readFile(twPath, 'utf-8');
-  // Register custom variants (current:, disabled:) so user classes like
-  // `current:opacity-100` on slider bullets compile — mirrors the client
-  // generator and app/globals.css.
-  const input = `${baseInput}\n${TAILWIND_CUSTOM_VARIANTS}\n`;
-
-  compilerCache = await compile(input, {
-    base: process.cwd(),
-    async loadStylesheet(id: string, base: string) {
-      const fullPath = join(dirname(base), id);
-      const content = await readFile(fullPath, 'utf-8');
-      return { path: fullPath, content, base: dirname(fullPath) };
-    },
-  });
-
-  return compilerCache;
+  return getBundledTailwindCompiler();
 }
 
 /**
