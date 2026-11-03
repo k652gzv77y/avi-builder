@@ -8,7 +8,9 @@ import {
   isFreeformDraggable,
   movedBox,
   nudgeFreeformLayer,
+  pointerToWindowPoint,
   resizedBox,
+  screenDeltaToCanvas,
   snapTranslation,
   type FreeformBox,
 } from '@/lib/canvas-freeform';
@@ -167,6 +169,97 @@ test('resize writes a fixed box and clears the opposite pins', () => {
   assert.match(String(next.classes), /h-\[60px\]/);
   assert.doesNotMatch(String(next.classes), /right-\[/);
   assert.doesNotMatch(String(next.classes), /w-full/);
+});
+
+test('every resize handle moves only the edges it owns', () => {
+  const start = box({ left: 40, top: 30, width: 120, height: 50 });
+  const drag = screenDeltaToCanvas(0, 0, 32, 24, 100);
+  assert.deepEqual(drag, { dx: 32, dy: 24 });
+  // At 50% zoom the same screen movement is twice as many canvas pixels.
+  assert.deepEqual(screenDeltaToCanvas(0, 0, 30, 20, 50), { dx: 60, dy: 40 });
+
+  const se = resizedBox(start, 'se', drag.dx, drag.dy);
+  assert.equal(se.left, 40);
+  assert.equal(se.top, 30);
+  assert.equal(se.width, 152);
+  assert.equal(se.height, 74);
+
+  const nw = resizedBox(start, 'nw', 32, 24);
+  assert.equal(nw.left, 72);
+  assert.equal(nw.top, 54);
+  assert.equal(nw.width, 88);
+  assert.equal(nw.height, 26);
+
+  const ne = resizedBox(start, 'ne', 10, -8);
+  assert.equal(ne.left, 40);
+  assert.equal(ne.top, 22);
+  assert.equal(ne.width, 130);
+  assert.equal(ne.height, 58);
+
+  const sw = resizedBox(start, 'sw', -6, 12);
+  assert.equal(sw.left, 34);
+  assert.equal(sw.top, 30);
+  assert.equal(sw.width, 126);
+  assert.equal(sw.height, 62);
+
+  const east = resizedBox(start, 'e', 25, 40);
+  assert.equal(east.left, 40);
+  assert.equal(east.top, 30);
+  assert.equal(east.width, 145);
+  assert.equal(east.height, 50);
+
+  const south = resizedBox(start, 's', 25, 18);
+  assert.equal(south.width, 120);
+  assert.equal(south.height, 68);
+  assert.equal(south.top, 30);
+
+  const north = resizedBox(start, 'n', 0, -10);
+  assert.equal(north.top, 20);
+  assert.equal(north.height, 60);
+  assert.equal(north.left, 40);
+  assert.equal(north.width, 120);
+
+  const west = resizedBox(start, 'w', -15, 9);
+  assert.equal(west.left, 25);
+  assert.equal(west.width, 135);
+  assert.equal(west.top, 30);
+  assert.equal(west.height, 50);
+});
+
+test('a corner resize persists the new width and height', () => {
+  const absolute = layer({
+    id: 'frame',
+    classes: 'absolute left-[40px] top-[30px] w-[120px] h-[50px]',
+    design: {
+      positioning: { isActive: true, position: 'absolute', left: '40px', top: '30px' },
+      sizing: { isActive: true, width: '120px', height: '50px' },
+    },
+  });
+  const delta = screenDeltaToCanvas(100, 200, 132, 240, 100);
+  const nextBox = resizedBox(
+    box({ left: 40, top: 30, width: 120, height: 50 }),
+    'se',
+    delta.dx,
+    delta.dy,
+  );
+  const next = applyFreeformBox(absolute, nextBox, 'resize');
+  assert.equal(next.design?.positioning?.left, '40px');
+  assert.equal(next.design?.positioning?.top, '30px');
+  assert.equal(next.design?.sizing?.width, '152px');
+  assert.equal(next.design?.sizing?.height, '90px');
+  assert.match(String(next.classes), /w-\[152px\]/);
+  assert.match(String(next.classes), /h-\[90px\]/);
+});
+
+test('iframe resize events are scaled into window pixels', () => {
+  assert.deepEqual(
+    pointerToWindowPoint(80, 40, true, { left: 100, top: 50 }, 50),
+    { x: 140, y: 70 },
+  );
+  assert.deepEqual(
+    pointerToWindowPoint(10, 12, false, { left: 100, top: 50 }, 50),
+    { x: 10, y: 12 },
+  );
 });
 
 test('resize cannot collapse the box through the opposite edge', () => {
