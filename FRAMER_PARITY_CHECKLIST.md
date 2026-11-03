@@ -21,7 +21,8 @@ or materially below Framer's workflow.
 - [ ] Page transitions and route-level animation controls
 - [ ] Canvas comments, pins, threads, mentions, and resolution state
 - [ ] Canvas sections for organizing long pages
-- [ ] Figma-style multi-select alignment/distribution/spacing inspector
+- [x] Shift/Cmd-click and marquee multi-select, plus align and distribute for free-form layers
+- [ ] Spacing inspector and alignment for stack or grid children
 - [ ] Copy/paste styles and copy/paste responsive properties between layers
 - [ ] Keyboard shortcut reference and command palette for all editor actions
 

@@ -5,6 +5,7 @@ import React, { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Empty, EmptyDescription, EmptyMedia, EmptyTitle } from '@/components/ui/empty';
 import Icon from '@/components/ui/icon';
+import AlignControls from './AlignControls';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   DropdownMenu,
@@ -300,6 +301,7 @@ export default function ComponentInstanceSidebar({
         <hr className="mt-4" />
 
         <div className="flex flex-col divide-y divide-border overflow-y-auto no-scrollbar">
+          <AlignControls layers={allLayers} />
           <SettingsPanel
             title="Component instance"
             isOpen={true}
