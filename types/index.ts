@@ -682,6 +682,16 @@ export interface Layer {
    */
   controlBindings?: Partial<Record<ControlBindingKey, string>>;
   /**
+   * This frame is a component slot. Its children are the fallback shown when
+   * an instance does not replace the slot. The id points at a `slot` variable.
+   */
+  slotVariableId?: string;
+  /**
+   * Repeat this frame's children once per item of an `array` variable.
+   * Bindings inside the template use `variableId.fieldId`.
+   */
+  repeatVariableId?: string;
+  /**
    * Binds a stack property to a CMS field or a Fetch. Resolved at render
    * from the current collection item or the fetch value. Separate from
    * `stackBindings`, which point at component variables.
@@ -701,6 +711,9 @@ export interface Layer {
     boolean?: Record<string, BooleanPropertyValue>;
     enum?: Record<string, EnumPropertyValue>;
     color?: Record<string, ColorPropertyValue>;
+    array?: Record<string, ArrayPropertyValue>;
+    object?: Record<string, ObjectPropertyValue>;
+    slot?: Record<string, SlotPropertyValue>;
     variableLinks?: Record<string, string>; // childVariableId → parentVariableId (pass-through from nested component to parent)
   };
 
@@ -926,7 +939,7 @@ export interface BlockTemplate {
 }
 
 // Component Variable Types (ComponentVariableValue defined after text variable types)
-export type ComponentVariableType = 'text' | 'rich_text' | 'image' | 'link' | 'audio' | 'video' | 'icon' | 'variant' | 'stack' | 'number' | 'boolean' | 'enum' | 'color';
+export type ComponentVariableType = 'text' | 'rich_text' | 'image' | 'link' | 'audio' | 'video' | 'icon' | 'variant' | 'stack' | 'number' | 'boolean' | 'enum' | 'color' | 'array' | 'object' | 'slot';
 
 /** Visual-component controls that bind to a layer property (visibility, fill, opacity, text). */
 export type ComponentPropertyType = 'number' | 'boolean' | 'enum' | 'color';
@@ -935,6 +948,20 @@ export type ComponentPropertyType = 'number' | 'boolean' | 'enum' | 'color';
 export interface EnumOption {
   id: string;
   label: string;
+}
+
+/** Field types inside an array item or an object control. */
+export type StructuredFieldType = 'text' | 'number' | 'boolean' | 'enum' | 'color';
+
+/** One field in an array item or an object control. */
+export interface StructuredField {
+  id: string;
+  name: string;
+  type: StructuredFieldType;
+  options?: EnumOption[];
+  min?: number;
+  max?: number;
+  step?: number;
 }
 
 export interface ComponentVariable {
@@ -951,6 +978,8 @@ export interface ComponentVariable {
   min?: number;
   max?: number;
   step?: number;
+  /** Item shape for an `array`, or the shape of an `object`. */
+  fields?: StructuredField[];
 }
 
 /**
@@ -1808,8 +1837,44 @@ export interface ColorPropertyValue {
   value: string;
 }
 
+/** Plain text field inside an array item or an object control. */
+export interface TextPropertyValue {
+  type: 'text';
+  value: string;
+}
+
+/** A scalar stored on an array item or an object field. */
+export type ScalarPropertyValue = TextPropertyValue | NumberPropertyValue | BooleanPropertyValue | EnumPropertyValue | ColorPropertyValue;
+
+/** Object component property. Keys are `StructuredField.id`. */
+export interface ObjectPropertyValue {
+  type: 'object';
+  value: Record<string, ScalarPropertyValue>;
+}
+
+/** One row in an array component property. */
+export interface ArrayItemValue {
+  id: string;
+  value: Record<string, ScalarPropertyValue>;
+}
+
+/** Array component property. Each item uses the variable's `fields`. */
+export interface ArrayPropertyValue {
+  type: 'array';
+  items: ArrayItemValue[];
+}
+
+/**
+ * Slot override. `layers` replaces the slot frame's fallback children.
+ * An empty list hides the fallback. No override (the key is absent) shows it.
+ */
+export interface SlotPropertyValue {
+  type: 'slot';
+  layers: Layer[];
+}
+
 // Component variable value type (text, image, link, audio, video, icon, variant, and property controls)
-export type ComponentVariableValue = DynamicTextVariable | DynamicRichTextVariable | ImageSettingsValue | LinkSettingsValue | AudioSettingsValue | VideoSettingsValue | IconSettingsValue | VariantSettingsValue | StackVariableValue | NumberPropertyValue | BooleanPropertyValue | EnumPropertyValue | ColorPropertyValue;
+export type ComponentVariableValue = DynamicTextVariable | DynamicRichTextVariable | ImageSettingsValue | LinkSettingsValue | AudioSettingsValue | VideoSettingsValue | IconSettingsValue | VariantSettingsValue | StackVariableValue | NumberPropertyValue | BooleanPropertyValue | EnumPropertyValue | ColorPropertyValue | TextPropertyValue | ObjectPropertyValue | ArrayPropertyValue | SlotPropertyValue;
 
 // Pagination Layer Definition (partial Layer for styling pagination controls)
 export interface PaginationLayerConfig {

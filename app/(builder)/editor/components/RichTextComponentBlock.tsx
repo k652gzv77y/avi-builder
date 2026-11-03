@@ -19,6 +19,8 @@ import { cn } from '@/lib/utils';
 import { useComponentsStore } from '@/stores/useComponentsStore';
 import { useEditorStore } from '@/stores/useEditorStore';
 import { isCircularComponentReference } from '@/lib/component-utils';
+import { findSlotFallback } from '@/lib/component-properties';
+import { getComponentVariantLayers } from '@/lib/component-variant-utils';
 import ComponentVariableOverrides from './ComponentVariableOverrides';
 import RichTextEditor from './RichTextEditor';
 import ExpandableRichTextEditor from './ExpandableRichTextEditor';
@@ -161,6 +163,9 @@ export default function RichTextComponentBlock({
             collections={collections}
             isInsideCollectionLayer={isInsideCollectionLayer}
             columns={2}
+            getSlotFallback={(variableId) => (
+              component ? (findSlotFallback(getComponentVariantLayers(component), variableId) ?? []) : []
+            )}
             renderTextOverride={(variable, value, onChange, onClear) =>
               variable.type === 'rich_text' ? (
                 <ExpandableRichTextEditor

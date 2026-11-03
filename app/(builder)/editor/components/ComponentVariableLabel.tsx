@@ -25,6 +25,9 @@ export const VARIABLE_TYPE_ICONS: Record<string, IconProps['name']> = {
   boolean: 'checkbox',
   enum: 'listUnordered',
   color: 'color',
+  array: 'listOrdered',
+  object: 'box',
+  slot: 'layers',
 };
 
 interface ComponentVariableLabelProps {

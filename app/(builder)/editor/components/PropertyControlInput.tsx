@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * Inspector control for a number, boolean, enum, or color component property.
+ * Inspector control for a text, number, boolean, enum, or color component property.
  * Used for the component default and for an instance override.
  */
 
@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { clampNumber, isBooleanPropertyValue, isColorPropertyValue, isEnumPropertyValue, isNumberPropertyValue } from '@/lib/component-properties';
+import { clampNumber, isBooleanPropertyValue, isColorPropertyValue, isEnumPropertyValue, isNumberPropertyValue, isTextPropertyValue } from '@/lib/component-properties';
 import { removeSpaces } from '@/lib/utils';
 import type { ComponentVariable, ComponentVariableValue } from '@/types';
 import ColorPicker from './ColorPicker';
@@ -26,6 +26,17 @@ interface PropertyControlInputProps {
 }
 
 export default function PropertyControlInput({ variable, value, onChange }: PropertyControlInputProps) {
+  if (variable.type === 'text') {
+    const current = isTextPropertyValue(value) ? value.value : '';
+    return (
+      <Input
+        value={current}
+        aria-label={variable.name}
+        onChange={(event) => onChange({ type: 'text', value: event.target.value })}
+      />
+    );
+  }
+
   if (variable.type === 'boolean') {
     const checked = isBooleanPropertyValue(value) ? value.value : true;
     return (

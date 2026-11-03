@@ -18,11 +18,14 @@ import { isStackVariableValue, stackValuesEqual } from '@/lib/component-bindings
 import {
   clearPropertyOverride,
   isPropertyOverridden,
+  isSlotPropertyValue,
   overrideCategory,
   propertyValuesEqual,
   readPropertyValue,
 } from '@/lib/component-properties';
 import PropertyControlInput from './PropertyControlInput';
+import StructuredPropertyEditor from './structured-property-editor';
+import SlotContentEditor from './slot-content-editor';
 import ImageSettings from './ImageSettings';
 import LinkSettings from './LinkSettings';
 import AudioSettings from './AudioSettings';
@@ -93,6 +96,8 @@ interface ComponentVariableOverridesProps {
    *  to produce these — see `collectVariantVariableOptions`. Required for the
    *  variant override case to render a Select. */
   getVariantVariableOptions?: (variableId: string) => VariantVariableOption[];
+  /** Fallback layers for a slot variable, from the primary component. */
+  getSlotFallback?: (variableId: string) => Layer[];
 }
 
 export default function ComponentVariableOverrides({
@@ -112,6 +117,7 @@ export default function ComponentVariableOverrides({
   onCreateOverrideVariable,
   onManageVariables,
   getVariantVariableOptions,
+  getSlotFallback,
 }: ComponentVariableOverridesProps) {
   const getTextOverrideCategory = useCallback(
     (variableId: string): 'text' | 'rich_text' => {
@@ -422,6 +428,47 @@ export default function ComponentVariableOverrides({
             </div>
           </div>
         );
+      case 'array':
+      case 'object':
+      case 'slot': {
+        const current = readPropertyValue(variable, componentOverrides);
+        const commit = (next: ComponentVariableValue) => {
+          if (variable.type !== 'slot' && propertyValuesEqual(next, variable.default_value)) {
+            onOverridesChange(clearPropertyOverride(componentOverrides, variable));
+            return;
+          }
+          handleTypedChange(overrideCategory(variable), variable.id, next);
+        };
+        return (
+          <div
+            key={variable.id}
+            className="grid grid-cols-3 gap-2 items-start"
+          >
+            {label}
+            <div className="col-span-2">
+              {variable.type === 'slot' ? (
+                <SlotContentEditor
+                  value={isSlotPropertyValue(current) && isPropertyOverridden(variable, componentOverrides) ? current : undefined}
+                  fallback={getSlotFallback?.(variable.id) ?? []}
+                  onChange={(next) => {
+                    if (!next) {
+                      onOverridesChange(clearPropertyOverride(componentOverrides, variable));
+                      return;
+                    }
+                    commit(next);
+                  }}
+                />
+              ) : (
+                <StructuredPropertyEditor
+                  variable={variable}
+                  value={current}
+                  onValueChange={commit}
+                />
+              )}
+            </div>
+          </div>
+        );
+      }
       case 'number':
       case 'boolean':
       case 'enum':

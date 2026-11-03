@@ -119,7 +119,7 @@ import { detachSpecificLayerFromComponent } from '@/lib/component-utils';
 import { convertContentToValue, parseValueToContent } from '@/lib/cms-variables-utils';
 import { defaultPaginationCountDoc, defaultPaginationInfoDoc } from '@/lib/pagination-text-utils';
 import { createTextComponentVariableValue } from '@/lib/variable-utils';
-import { boundTextForValue } from '@/lib/component-properties';
+import { boundTextForValue, controlBindingChoices, previewTextForBinding } from '@/lib/component-properties';
 import { getRichTextValue, extractPlainTextFromTiptap, getSoleCmsFieldBinding } from '@/lib/tiptap-utils';
 import { DEFAULT_TEXT_STYLES, getTextStyle, getTiptapTextContent } from '@/lib/text-format-utils';
 import { buildFieldGroupsForLayer, getFieldIcon, hasBoundCollectionSource, isMultipleAssetField, MULTI_ASSET_COLLECTION_ID, SIMPLE_TEXT_FIELD_TYPES } from '@/lib/collection-field-utils';
@@ -2611,11 +2611,21 @@ const RightSidebar = React.memo(function RightSidebar({
                   ? v.type === 'rich_text'
                   : (!v.type || v.type === 'text' || v.type === 'enum' || v.type === 'number')
               );
-              const textControl = allComponentVariables.find(v => (
-                v.id === selectedLayer.controlBindings?.text && (v.type === 'enum' || v.type === 'number')
-              ));
-              const linkedVariableId = textControl?.id ?? selectedLayer.variables?.text?.id;
-              const linkedVariable = textControl ?? componentVariables.find(v => v.id === linkedVariableId);
+              const fieldVariables: ComponentVariable[] = isRichText
+                ? []
+                : controlBindingChoices('text', allComponentVariables)
+                  .filter((choice) => choice.id.includes('.'))
+                  .map((choice) => ({ id: choice.id, name: choice.name, type: 'text' as const }));
+              const textBindingId = selectedLayer.controlBindings?.text;
+              const linkedField = fieldVariables.find((variable) => variable.id === textBindingId);
+              const textControl = !linkedField
+                ? allComponentVariables.find(v => (
+                  v.id === textBindingId && (v.type === 'enum' || v.type === 'number')
+                ))
+                : undefined;
+              const linkedVariableId = linkedField?.id ?? textControl?.id ?? selectedLayer.variables?.text?.id;
+              const linkedVariable = linkedField ?? textControl ?? componentVariables.find(v => v.id === linkedVariableId);
+              const pickerVariables = isRichText ? componentVariables : [...componentVariables, ...fieldVariables];
 
               const clearTextControl = () => {
                 if (!selectedLayer.controlBindings?.text) return selectedLayer.controlBindings;
@@ -2627,6 +2637,17 @@ const RightSidebar = React.memo(function RightSidebar({
               // Handle linking a layer to a variable
               const handleLinkVariable = (variableId: string) => {
                 if (!selectedLayerId) return;
+                if (variableId.includes('.')) {
+                  const content = previewTextForBinding(allComponentVariables, variableId) ?? '';
+                  handleLayerUpdate(selectedLayerId, {
+                    controlBindings: { ...(selectedLayer.controlBindings ?? {}), text: variableId },
+                    variables: {
+                      ...selectedLayer.variables,
+                      text: { type: 'dynamic_text', data: { content } },
+                    },
+                  });
+                  return;
+                }
                 const variable = allComponentVariables.find(v => v.id === variableId);
                 if (variable?.type === 'enum' || variable?.type === 'number') {
                   const content = variable.default_value
@@ -2692,7 +2713,7 @@ const RightSidebar = React.memo(function RightSidebar({
               // Handle unlinking a layer from a variable
               const handleUnlinkVariable = () => {
                 if (!selectedLayerId) return;
-                if (textControl) {
+                if (textControl || linkedField) {
                   handleLayerUpdate(selectedLayerId, { controlBindings: clearTextControl() });
                   return;
                 }
@@ -2720,7 +2741,7 @@ const RightSidebar = React.memo(function RightSidebar({
                         <ComponentVariableLabel
                           label="Content"
                           isEditingComponent={!!editingComponentId}
-                          variables={componentVariables}
+                          variables={pickerVariables}
                           linkedVariableId={linkedVariableId ?? (contentBinding?.kind === 'fetch' ? contentBinding.id : cmsLinkedItem?.id)}
                           linkedName={linkedVariable ? undefined : contentBinding?.name}
                           onUnlink={contentBinding && !linkedVariable ? handleUnlinkContentBinding : undefined}
@@ -2754,7 +2775,7 @@ const RightSidebar = React.memo(function RightSidebar({
                           asChild
                           variant="purple"
                           className="justify-between!"
-                          onClick={() => openVariablesDialog(linkedVariable.id)}
+                          onClick={() => openVariablesDialog(linkedVariable.id.includes('.') ? linkedVariable.id.split('.')[0] : linkedVariable.id)}
                         >
                           <div>
                             <span className="flex items-center gap-1.5">

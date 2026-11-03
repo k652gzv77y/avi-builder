@@ -25,6 +25,7 @@ import {
 import { removeSpaces } from '@/lib/utils';
 import { useStackBindings } from '@/hooks/use-stack-bindings';
 import { useControlBindings } from '@/hooks/use-control-bindings';
+import StructureBindingControls from './structure-binding-controls';
 import { Switch } from '@/components/ui/switch';
 import type { Layer } from '@/types';
 
@@ -278,6 +279,13 @@ const LayoutControls = memo(function LayoutControls({ layer, onLayerUpdate }: La
       </header>
 
       <div className="flex flex-col gap-2">
+
+          {layer && layer.id !== 'body' && editingComponentId && (
+            <StructureBindingControls
+              layer={layer}
+              onLayerUpdate={onLayerUpdate}
+            />
+          )}
 
           {layer && layer.id !== 'body' && editingComponentId && (
             <div className="grid grid-cols-3 items-center">
