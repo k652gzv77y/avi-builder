@@ -8,6 +8,7 @@ import {
   projectSlugForHostname,
   redirectLocation,
 } from '@/lib/domain-routing';
+import { publicLayoutAssetPath } from '@/lib/layout-asset-path';
 import { PROJECT_SLUG_HEADER, RESERVED_PROJECT_SLUGS } from '@/lib/project-url';
 import { readWorkspaceGraph } from '@/lib/repositories/workspaceRepository';
 import { resolveRole } from '@/lib/roles';
@@ -85,6 +86,10 @@ function getBuilderPath(pathname: string, hostname: string): string | null {
   if (rest === '/preview' || rest.startsWith('/preview/')) {
     return `/ycode${rest}`;
   }
+  // Template images are files in public/ycode/layouts/assets. Sending them
+  // through /editor makes Next return the editor 404 document.
+  const layoutAsset = publicLayoutAssetPath(pathname);
+  if (layoutAsset) return layoutAsset;
   return rest ? `/editor${rest}` : '/editor';
 }
 
@@ -262,6 +267,13 @@ async function verifyApiAuth(request: NextRequest): Promise<AuthGate> {
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const layoutAsset = publicLayoutAssetPath(pathname);
+  if (layoutAsset) {
+    const url = request.nextUrl.clone();
+    url.pathname = layoutAsset;
+    return NextResponse.rewrite(url);
+  }
+
   const hostname = getRequestHostname(request);
   const previewHost = parsePreviewHostname(hostname);
   const onBuilder = isBuilderHost(hostname);
@@ -325,7 +337,9 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL(projectSlug ? `/projects/${projectSlug}` : PROJECTS_ROOT, request.url));
   }
 
-  if (!onBuilder && (pathname.startsWith('/projects') || pathname.startsWith('/ycode') || pathname.endsWith('/welcome'))) {
+  // Layout images are files under public/ycode/layouts/assets. A rewrite
+  // lands on that path; do not bounce it to the site root.
+  if (!onBuilder && !pathname.startsWith('/ycode/layouts/assets/') && (pathname.startsWith('/projects') || pathname.startsWith('/ycode') || pathname.endsWith('/welcome'))) {
     return NextResponse.redirect(new URL('/', request.url));
   }
 
