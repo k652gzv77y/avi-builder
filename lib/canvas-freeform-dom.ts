@@ -15,8 +15,12 @@ import {
   collectSnapLines,
   type FreeformBox,
   type SnapGuide,
+  type SnapLabeler,
+  type SnapSample,
   type SnapTargets,
 } from '@/lib/canvas-freeform';
+import { readShowCanvasGuides } from '@/lib/canvas-guide-visibility';
+import { getActiveSnapGuides, setActiveSnapGuides } from '@/lib/canvas-snap-session';
 
 const PREVIEW_PROPS = ['transform', 'left', 'top', 'right', 'bottom', 'width', 'height', 'position'] as const;
 const GUIDE_ATTR = 'data-canvas-snap-guides';
@@ -132,12 +136,29 @@ function directLayerSiblings(el: HTMLElement): HTMLElement[] {
   return siblings;
 }
 
-export function siblingSnapTargets(el: HTMLElement): SnapTargets {
+function labeledSample(
+  candidate: HTMLElement,
+  dragged: HTMLElement,
+  role: 'parent' | 'sibling',
+  labelFor?: SnapLabeler,
+): SnapSample | null {
+  const measured = measureInSnapSpace(candidate, dragged);
+  if (!measured) return null;
+  const layerId = candidate.getAttribute('data-layer-id') || '';
+  const name = labelFor?.(layerId)?.trim();
+  return {
+    ...measured,
+    role,
+    name: name || undefined,
+  };
+}
+
+export function siblingSnapTargets(el: HTMLElement, labelFor?: SnapLabeler): SnapTargets {
   const box = readFreeformBox(el);
   const space = usesViewportSpace(el) ? null : (el.offsetParent as HTMLElement | null);
-  const samples: SnapBox[] = [];
+  const samples: SnapSample[] = [];
   for (const sibling of directLayerSiblings(el)) {
-    const measured = measureInSnapSpace(sibling, el);
+    const measured = labeledSample(sibling, el, 'sibling', labelFor);
     if (measured) samples.push(measured);
   }
 
@@ -150,7 +171,7 @@ export function siblingSnapTargets(el: HTMLElement): SnapTargets {
     && parentLayer !== space
     && parentLayer.getAttribute('data-layer-id') !== 'body'
   ) {
-    const measured = measureInSnapSpace(parentLayer, el);
+    const measured = labeledSample(parentLayer, el, 'parent', labelFor);
     if (measured) samples.push(measured);
   }
 
@@ -221,6 +242,7 @@ export function scheduleFreeformRelease(el: HTMLElement) {
 }
 
 const GUIDE_COLOR = '#ff2bd6';
+let lastGuideElement: HTMLElement | null = null;
 
 function guideStyle(el: HTMLElement, guide: SnapGuide): string {
   const root = el.ownerDocument.documentElement;
@@ -238,12 +260,18 @@ function guideStyle(el: HTMLElement, guide: SnapGuide): string {
   return `position:fixed;top:${origin.y + guide.at}px;left:${origin.x}px;height:1px;width:${space.clientWidth}px;background:${GUIDE_COLOR};pointer-events:none;`;
 }
 
-export function paintSnapGuides(el: HTMLElement, guides: SnapGuide[]) {
-  const doc = el.ownerDocument;
-  if (guides.length === 0) {
-    clearSnapGuides(el);
-    return;
+export function removeSnapGuideNodes(el: HTMLElement | null) {
+  const doc = el?.ownerDocument;
+  if (doc) {
+    doc.documentElement.querySelector(`:scope > [${GUIDE_ATTR}]`)?.remove();
   }
+  if (!el) return;
+  const parent = (el.offsetParent as HTMLElement | null) ?? el.ownerDocument.body;
+  parent?.querySelector?.(`:scope > [${GUIDE_ATTR}]`)?.remove();
+}
+
+function paintSnapGuideNodes(el: HTMLElement, guides: SnapGuide[]) {
+  const doc = el.ownerDocument;
   let host = doc.documentElement.querySelector(`:scope > [${GUIDE_ATTR}]`) as HTMLElement | null;
   if (!host) {
     host = doc.createElement('div');
@@ -260,14 +288,37 @@ export function paintSnapGuides(el: HTMLElement, guides: SnapGuide[]) {
   host.replaceChildren(...lines);
 }
 
-export function clearSnapGuides(el: HTMLElement | null) {
-  const doc = el?.ownerDocument;
-  if (doc) {
-    doc.documentElement.querySelector(`:scope > [${GUIDE_ATTR}]`)?.remove();
+export function paintSnapGuides(el: HTMLElement, guides: SnapGuide[]) {
+  // Record the snap before the visibility check so the inspector can list
+  // guides while the canvas lines are hidden.
+  lastGuideElement = el;
+  setActiveSnapGuides(guides);
+  if (guides.length === 0 || !readShowCanvasGuides()) {
+    removeSnapGuideNodes(el);
+    return;
   }
-  if (!el) return;
-  const parent = (el.offsetParent as HTMLElement | null) ?? el.ownerDocument.body;
-  parent?.querySelector?.(`:scope > [${GUIDE_ATTR}]`)?.remove();
+  paintSnapGuideNodes(el, guides);
+}
+
+/** Apply the current show/hide choice to lines already snapped this gesture. */
+export function syncCanvasSnapGuideVisibility() {
+  const el = lastGuideElement;
+  if (!el?.isConnected) {
+    lastGuideElement = null;
+    return;
+  }
+  const guides = getActiveSnapGuides();
+  if (guides.length === 0 || !readShowCanvasGuides()) {
+    removeSnapGuideNodes(el);
+    return;
+  }
+  paintSnapGuideNodes(el, guides);
+}
+
+export function clearSnapGuides(el: HTMLElement | null) {
+  if (!el || lastGuideElement === el) lastGuideElement = null;
+  setActiveSnapGuides([]);
+  removeSnapGuideNodes(el);
 }
 
 function toCss(value: string): string {

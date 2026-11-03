@@ -79,6 +79,7 @@ import PositionControls from './PositionControls';
 import TransformControls from './TransformControls';
 import TransitionControls from './TransitionControls';
 import SettingsPanel from './SettingsPanel';
+import { SmartGuidesPanel } from './smart-guides-panel';
 import SizingControls from './SizingControls';
 import SpacingControls from './SpacingControls';
 import StackSpacingControls from './StackSpacingControls';
@@ -2149,6 +2150,13 @@ const RightSidebar = React.memo(function RightSidebar({
         </div>
 
         <hr className="mt-2" />
+
+        <div className="shrink-0">
+          <SmartGuidesPanel
+            layer={selectedLayer}
+            parent={selectedLayerParent}
+          />
+        </div>
 
         {/* Design tab — Layout, Style, Effects, then Interactions. */}
         <TabsContent value="design" className="flex-1 flex flex-col data-[state=inactive]:hidden mt-0 overflow-hidden">

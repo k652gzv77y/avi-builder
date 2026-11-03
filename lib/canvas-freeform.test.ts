@@ -298,7 +298,11 @@ test('move snaps to parent center, sibling edges, and sibling centers within 5px
 
   const toSiblingCenter = snapTranslation(box({ left: 10, top: 80, width: 30 }), 171, 0, wide);
   assert.equal(toSiblingCenter.dx, 175);
-  assert.deepEqual(toSiblingCenter.guides, [{ axis: 'x', at: 200 }]);
+  assert.deepEqual(toSiblingCenter.guides, [{
+    axis: 'x',
+    at: 200,
+    targets: [{ role: 'sibling', edge: 'center' }],
+  }]);
 
   const toParentCenter = snapTranslation(box({ top: 128, height: 40 }), 0, 0, targets);
   assert.equal(toParentCenter.dy, 2);
@@ -322,11 +326,18 @@ test('a shared correction draws every aligned guide and an opposite tie does not
   assert.deepEqual(bothEdges.guides.map((guide) => guide.at).sort((a, b) => a - b), [0, 50, 100]);
 
   const tie = snapTranslation(box({ left: 10, width: 20 }), -5, 0, {
-    x: [0, 30],
+    x: [
+      { at: 0, target: { role: 'parent', edge: 'left' } },
+      { at: 30, target: { role: 'parent', edge: 'right' } },
+    ],
     y: [],
   });
   assert.equal(tie.dx, -10);
-  assert.deepEqual(tie.guides, [{ axis: 'x', at: 0 }]);
+  assert.deepEqual(tie.guides, [{
+    axis: 'x',
+    at: 0,
+    targets: [{ role: 'parent', edge: 'left' }],
+  }]);
 });
 
 test('resize snaps the moving edge and refuses a snap that would collapse it', () => {

@@ -28,15 +28,43 @@ export interface FreeformBox {
   parentHeight: number;
 }
 
+export type SnapGuideEdge = 'left' | 'right' | 'top' | 'bottom' | 'center';
+
+/** Which edge the snap line belongs to. The canvas and the guides panel share this. */
+export interface SnapGuideTarget {
+  role: 'parent' | 'sibling';
+  /** Sibling or measured parent-layer label. Omitted for the containing block. */
+  name?: string;
+  edge: SnapGuideEdge;
+}
+
 export interface SnapGuide {
   axis: 'x' | 'y';
   at: number;
+  targets: SnapGuideTarget[];
+}
+
+export interface SnapLine {
+  at: number;
+  target: SnapGuideTarget;
 }
 
 export interface SnapTargets {
-  x: number[];
-  y: number[];
+  x: SnapLine[];
+  y: SnapLine[];
 }
+
+export interface SnapSample {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  name?: string;
+  role?: 'parent' | 'sibling';
+}
+
+/** Resolves a canvas layer id to the label shown in the guides panel. */
+export type SnapLabeler = (layerId: string) => string | undefined;
 
 const MIN_SIZE = 1;
 export const FREEFORM_SNAP_THRESHOLD = 5;
@@ -129,47 +157,88 @@ export function constrainAxis(dx: number, dy: number, enabled: boolean): { dx: n
   return { dx: 0, dy };
 }
 
+function sameGuideTarget(a: SnapGuideTarget, b: SnapGuideTarget): boolean {
+  return a.role === b.role && a.edge === b.edge && (a.name ?? '') === (b.name ?? '');
+}
+
+function pushSnapLine(lines: SnapLine[], at: number, target: SnapGuideTarget) {
+  if (!Number.isFinite(at)) return;
+  const existing = lines.find((line) => Math.abs(line.at - at) < 0.01 && sameGuideTarget(line.target, target));
+  if (existing) return;
+  lines.push({ at, target });
+}
+
 export function collectSnapLines(
-  siblings: Array<Pick<FreeformBox, 'left' | 'top' | 'width' | 'height'>>,
+  siblings: SnapSample[],
   parentWidth: number,
   parentHeight: number,
 ): SnapTargets {
-  const x = [0, parentWidth / 2, parentWidth];
-  const y = [0, parentHeight / 2, parentHeight];
+  const x: SnapLine[] = [];
+  const y: SnapLine[] = [];
+  pushSnapLine(x, 0, { role: 'parent', edge: 'left' });
+  pushSnapLine(x, parentWidth / 2, { role: 'parent', edge: 'center' });
+  pushSnapLine(x, parentWidth, { role: 'parent', edge: 'right' });
+  pushSnapLine(y, 0, { role: 'parent', edge: 'top' });
+  pushSnapLine(y, parentHeight / 2, { role: 'parent', edge: 'center' });
+  pushSnapLine(y, parentHeight, { role: 'parent', edge: 'bottom' });
   for (const sibling of siblings) {
-    x.push(sibling.left, sibling.left + sibling.width / 2, sibling.left + sibling.width);
-    y.push(sibling.top, sibling.top + sibling.height / 2, sibling.top + sibling.height);
+    const role = sibling.role ?? 'sibling';
+    const name = sibling.name?.trim() || undefined;
+    const target = (edge: SnapGuideEdge): SnapGuideTarget => (
+      name ? { role, name, edge } : { role, edge }
+    );
+    pushSnapLine(x, sibling.left, target('left'));
+    pushSnapLine(x, sibling.left + sibling.width / 2, target('center'));
+    pushSnapLine(x, sibling.left + sibling.width, target('right'));
+    pushSnapLine(y, sibling.top, target('top'));
+    pushSnapLine(y, sibling.top + sibling.height / 2, target('center'));
+    pushSnapLine(y, sibling.top + sibling.height, target('bottom'));
   }
   return { x, y };
 }
 
+interface AxisHit {
+  at: number;
+  targets: SnapGuideTarget[];
+}
+
 interface AxisSnap {
   delta: number;
-  ats: number[];
+  hits: AxisHit[];
+}
+
+function addAxisHit(hits: AxisHit[], at: number, target: SnapGuideTarget) {
+  const existing = hits.find((hit) => Math.abs(hit.at - at) < 0.01);
+  if (!existing) {
+    hits.push({ at, targets: [target] });
+    return;
+  }
+  if (!existing.targets.some((item) => sameGuideTarget(item, target))) {
+    existing.targets.push(target);
+  }
 }
 
 /**
  * Closest line within the threshold wins. Other lines that need the same
  * correction (left edge on the parent and right edge on a sibling) stay
  * visible. An opposite correction at the same distance is ignored so the
- * box is never pulled both ways.
+ * box is never pulled both ways. Targets that share a line are kept together
+ * so one painted guide can name every edge it matches.
  */
-function snapAxis(edges: number[], lines: number[], threshold: number): AxisSnap | null {
+function snapAxis(edges: number[], lines: SnapLine[], threshold: number): AxisSnap | null {
   let best: AxisSnap | null = null;
   for (const line of lines) {
-    if (!Number.isFinite(line)) continue;
+    if (!Number.isFinite(line.at)) continue;
     for (const edge of edges) {
-      const delta = line - edge;
+      const delta = line.at - edge;
       const distance = Math.abs(delta);
       if (distance > threshold) continue;
       if (!best || distance < Math.abs(best.delta) - 0.001) {
-        best = { delta, ats: [line] };
+        best = { delta, hits: [{ at: line.at, targets: [line.target] }] };
         continue;
       }
       const sameCorrection = Math.abs(distance - Math.abs(best.delta)) <= 0.001 && delta * best.delta >= 0;
-      if (sameCorrection && !best.ats.some((at) => Math.abs(at - line) < 0.01)) {
-        best.ats.push(line);
-      }
+      if (sameCorrection) addAxisHit(best.hits, line.at, line.target);
     }
   }
   return best;
@@ -177,7 +246,7 @@ function snapAxis(edges: number[], lines: number[], threshold: number): AxisSnap
 
 function guidesFor(axis: 'x' | 'y', snap: AxisSnap | null): SnapGuide[] {
   if (!snap) return [];
-  return snap.ats.map((at) => ({ axis, at }));
+  return snap.hits.map((hit) => ({ axis, at: hit.at, targets: hit.targets }));
 }
 
 export function snapTranslation(

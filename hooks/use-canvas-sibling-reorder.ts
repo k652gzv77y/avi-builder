@@ -34,6 +34,9 @@ import {
   movedBox,
   respectShiftLock,
   snapTranslation,
+  type FreeformBox,
+  type SnapLabeler,
+  type SnapTargets,
 } from '@/lib/canvas-freeform';
 import {
   cancelFreeformPreview,
@@ -45,7 +48,7 @@ import {
   siblingSnapTargets,
   translateFreeform,
 } from '@/lib/canvas-freeform-dom';
-import type { FreeformBox, SnapTargets } from '@/lib/canvas-freeform';
+import { snapLabelerFor } from '@/lib/snap-guide-labels';
 import type { Layer } from '@/types';
 
 // Minimum pixel movement required to trigger hit-testing
@@ -131,6 +134,7 @@ function beginFreeformSession(
   startIframeY: number,
   iframe: HTMLIFrameElement,
   zoom: number,
+  labelFor?: SnapLabeler,
 ): FreeformSession | null {
   const box = readFreeformBox(element);
   if (box.width <= 0 && box.height <= 0) return null;
@@ -140,7 +144,7 @@ function beginFreeformSession(
     layer,
     element,
     box,
-    targets: siblingSnapTargets(element),
+    targets: siblingSnapTargets(element, labelFor),
     startIframeX,
     startIframeY,
     startWindowX: iframeRect.left + startIframeX * scale,
@@ -411,7 +415,15 @@ export function useCanvasSiblingReorder({
           if (found && element && currentIframe && isFreeformDraggable(found.layer, found.parent)) {
             const iframeStart = potentialDragIframePosRef.current;
             const session = iframeStart
-              ? beginFreeformSession(element, found.layer, iframeStart.x, iframeStart.y, currentIframe, zoomRef.current)
+              ? beginFreeformSession(
+                element,
+                found.layer,
+                iframeStart.x,
+                iframeStart.y,
+                currentIframe,
+                zoomRef.current,
+                snapLabelerFor(currentLayers),
+              )
               : null;
             if (session) {
               if (onLayerSelectRef.current && dragLayerId !== selectedLayerIdRef.current) {
