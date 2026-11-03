@@ -10,6 +10,7 @@ import {
   overlayTakesFocus,
   overlayTrapsFocus,
   overlayUsesBackdrop,
+  nextMenuItemIndex,
   placeAnchoredOverlay,
   placeModalOverlay,
   placeSheetOverlay,
@@ -38,19 +39,49 @@ test('modal centers and pins to the margin when it is larger than the screen', (
   });
 });
 
-test('sheet sits on the bottom edge and clamps a wide panel', () => {
+test('sheet sits flush on the bottom and clamps a wide or tall panel', () => {
   const fitted = placeSheetOverlay({
     overlay: { width: 200, height: 80 },
     viewport,
   });
-  assert.deepEqual(fitted, { top: 212, left: 100 });
+  assert.deepEqual(fitted, { top: 220, left: 100 });
 
   const wide = placeSheetOverlay({
     overlay: { width: 500, height: 80 },
     viewport,
   });
-  assert.equal(wide.left, OVERLAY_VIEWPORT_MARGIN);
-  assert.equal(wide.top, 212);
+  assert.equal(wide.left, 0);
+  assert.equal(wide.top, 220);
+  assert.equal(wide.maxWidth, viewport.width);
+
+  const full = placeSheetOverlay({
+    overlay: { width: viewport.width, height: 80 },
+    viewport,
+  });
+  assert.equal(full.left, 0);
+  assert.equal(full.maxWidth, undefined);
+
+  const tall = placeSheetOverlay({
+    overlay: { width: 200, height: 500 },
+    viewport,
+  });
+  assert.equal(tall.top, 0);
+  assert.equal(tall.left, 100);
+  assert.equal(tall.maxHeight, viewport.height);
+});
+
+test('menu arrow keys wrap and ignore typeahead and horizontal keys', () => {
+  assert.equal(nextMenuItemIndex('ArrowDown', -1, 3), 0);
+  assert.equal(nextMenuItemIndex('ArrowDown', 0, 3), 1);
+  assert.equal(nextMenuItemIndex('ArrowDown', 2, 3), 0);
+  assert.equal(nextMenuItemIndex('ArrowUp', 0, 3), 2);
+  assert.equal(nextMenuItemIndex('ArrowUp', -1, 3), 2);
+  assert.equal(nextMenuItemIndex('Home', 2, 3), 0);
+  assert.equal(nextMenuItemIndex('End', 0, 3), 2);
+  assert.equal(nextMenuItemIndex('ArrowLeft', 1, 3), null);
+  assert.equal(nextMenuItemIndex('ArrowRight', 1, 3), null);
+  assert.equal(nextMenuItemIndex('a', 0, 3), null);
+  assert.equal(nextMenuItemIndex('ArrowDown', 0, 0), null);
 });
 
 test('anchored overlay prefers the requested side when it fits', () => {

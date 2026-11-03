@@ -15,6 +15,7 @@ import {
   placementForKind,
   resolveOverlayKind,
 } from '@/lib/overlay-position';
+import { getTiptapTextContent } from '@/lib/text-format-utils';
 import type {
   Layer,
   LayerInteraction,
@@ -39,16 +40,79 @@ function readOverlayRequest(
   return { placement: placementForKind(value), kind: value };
 }
 
+const MENU_ITEM_LABELS = ['Edit', 'Duplicate', 'Delete'] as const;
+
+/** One row in a menu. Child layers of a menu overlay are the items. */
+export function createMenuItemLayer(id: string, label: string): Layer {
+  return {
+    id,
+    name: 'button',
+    customName: label,
+    classes: [
+      'flex',
+      'w-[100%]',
+      'items-center',
+      'justify-start',
+      'rounded-[6px]',
+      'bg-transparent',
+      'px-[10px]',
+      'py-[8px]',
+      'text-left',
+      'text-[13px]',
+      'text-[#171717]',
+      'hover:bg-[#f4f4f5]',
+    ],
+    attributes: { type: 'button', role: 'menuitem' },
+    design: {
+      layout: {
+        isActive: true,
+        display: 'Flex',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'flex-start',
+      },
+      sizing: { isActive: true, width: '100%' },
+      spacing: {
+        isActive: true,
+        paddingTop: '8px',
+        paddingRight: '10px',
+        paddingBottom: '8px',
+        paddingLeft: '10px',
+      },
+      typography: { isActive: true, fontSize: '13px', color: '#171717' },
+      backgrounds: { isActive: true, backgroundColor: 'transparent' },
+    },
+    children: [{
+      id: `${id}-label`,
+      name: 'text',
+      customName: 'Label',
+      classes: [],
+      settings: { tag: 'span' },
+      restrictions: { editText: true },
+      variables: {
+        text: {
+          type: 'dynamic_rich_text',
+          data: { content: getTiptapTextContent(label) },
+        },
+      },
+    }],
+  };
+}
+
 export function createOverlayLayer(
   id: string,
   placementOrKind: OverlayPlacement | OverlayKind = 'modal',
 ): Layer {
   const { placement, kind } = readOverlayRequest(placementOrKind);
-  const width = kind === 'tooltip' ? '180px' : kind === 'sheet' ? '420px' : kind === 'modal' ? '320px' : '240px';
-  const padding = kind === 'tooltip' ? '8px' : kind === 'modal' || kind === 'sheet' ? '24px' : '12px';
-  const gap = kind === 'tooltip' ? '4px' : '12px';
+  const width = kind === 'tooltip' ? '180px' : kind === 'sheet' ? '100%' : kind === 'menu' ? '220px' : kind === 'modal' ? '320px' : '240px';
+  const padding = kind === 'tooltip' ? '8px' : kind === 'menu' ? '4px' : kind === 'modal' || kind === 'sheet' ? '24px' : '12px';
+  const gap = kind === 'tooltip' ? '4px' : kind === 'menu' ? '2px' : '12px';
   const minHeight = kind === 'modal' ? '180px' : kind === 'sheet' ? '160px' : undefined;
+  const maxHeight = kind === 'sheet' ? '85vh' : kind === 'menu' ? '70vh' : undefined;
   const anchored = placement === 'relative';
+  const radius = kind === 'sheet'
+    ? ['rounded-tl-[16px]', 'rounded-tr-[16px]', 'rounded-bl-[0px]', 'rounded-br-[0px]']
+    : [kind === 'tooltip' ? 'rounded-[6px]' : kind === 'menu' ? 'rounded-[10px]' : 'rounded-[12px]'];
   return {
     id,
     name: 'div',
@@ -60,10 +124,17 @@ export function createOverlayLayer(
       `gap-[${gap}]`,
       `w-[${width}]`,
       ...(minHeight ? [`min-h-[${minHeight}]`] : []),
+      ...(maxHeight ? [`max-h-[${maxHeight}]`] : []),
+      ...(kind === 'sheet' || kind === 'menu' ? ['overflow-y-auto'] : []),
+      ...(kind === 'sheet' ? ['shadow-[0_-12px_40px_rgba(15,15,15,0.16)]'] : []),
+      ...(kind === 'menu' ? ['shadow-[0_12px_32px_rgba(15,15,15,0.16)]'] : []),
       'bg-white',
-      kind === 'tooltip' ? 'rounded-[6px]' : 'rounded-[12px]',
+      ...radius,
       `p-[${padding}]`,
     ],
+    // Child layers are the menu items. The open path marks a direct child
+    // that has no role as a menuitem.
+    ...(kind === 'menu' ? { attributes: { 'data-overlay-slot': 'items' } } : {}),
     overlay: {
       placement,
       kind,
@@ -82,6 +153,8 @@ export function createOverlayLayer(
         isActive: true,
         width,
         ...(minHeight ? { minHeight } : {}),
+        ...(maxHeight ? { maxHeight } : {}),
+        ...(kind === 'sheet' || kind === 'menu' ? { overflow: 'y-auto' as const } : {}),
       },
       spacing: {
         isActive: true,
@@ -90,9 +163,21 @@ export function createOverlayLayer(
         paddingBottom: padding,
         paddingLeft: padding,
       },
+      ...(kind === 'sheet' ? {
+        borders: {
+          isActive: true,
+          borderRadiusMode: 'individual' as const,
+          borderTopLeftRadius: '16px',
+          borderTopRightRadius: '16px',
+          borderBottomLeftRadius: '0px',
+          borderBottomRightRadius: '0px',
+        },
+      } : {}),
       backgrounds: { isActive: true, backgroundColor: '#ffffff' },
     },
-    children: [],
+    children: kind === 'menu'
+      ? MENU_ITEM_LABELS.map((label, index) => createMenuItemLayer(`${id}-item-${index + 1}`, label))
+      : [],
   };
 }
 

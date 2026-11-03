@@ -30,6 +30,9 @@ import {
   variantForScrollProgress,
 } from '@/lib/interactions-framer';
 import {
+  SHEET_SHADOW,
+  SHEET_TOP_RADIUS,
+  nextMenuItemIndex,
   overlayAriaRole,
   overlayIsAnchored,
   overlayTakesFocus,
@@ -41,6 +44,7 @@ import {
   pointerZoneForDismiss,
   resolveOverlayKind,
   trapFocusIndex,
+  type SheetPlacement,
 } from '@/lib/overlay-position';
 import {
   motionSpec,
@@ -110,6 +114,8 @@ const sessions = new Map<string, OverlaySession>();
 interface OverlayFrame {
   top: number;
   left: number;
+  maxWidth?: number;
+  maxHeight?: number;
 }
 
 interface MeasuredBox {
@@ -306,6 +312,52 @@ function pointerZone(
   return 'outside';
 }
 
+function isDomElement(value: unknown): value is HTMLElement {
+  return !!value && typeof value === 'object' && 'nodeType' in value
+    && (value as { nodeType?: number }).nodeType === 1
+    && typeof (value as HTMLElement).getAttribute === 'function';
+}
+
+function childElements(parent: HTMLElement): HTMLElement[] {
+  const list: HTMLElement[] = [];
+  const nodes = parent.children;
+  for (let index = 0; index < nodes.length; index += 1) {
+    const node = nodes[index];
+    if (isDomElement(node)) list.push(node);
+  }
+  return list;
+}
+
+function clearFlaggedStyle(overlay: HTMLElement, flag: string, property: string): void {
+  if (overlay.dataset[flag] !== 'true') return;
+  overlay.style.removeProperty(property);
+  delete overlay.dataset[flag];
+}
+
+function removeOverlayChromeNodes(overlay: HTMLElement): void {
+  for (const child of childElements(overlay)) {
+    if (child.getAttribute('data-overlay-chrome')) child.remove();
+  }
+}
+
+function clearSheetPresentation(overlay: HTMLElement): void {
+  if (overlay.dataset.overlayRadius === 'top') {
+    overlay.style.removeProperty('border-top-left-radius');
+    overlay.style.removeProperty('border-top-right-radius');
+    delete overlay.dataset.overlayRadius;
+  }
+  if (overlay.dataset.overlaySheet === 'true') {
+    overlay.style.removeProperty('border-bottom-left-radius');
+    overlay.style.removeProperty('border-bottom-right-radius');
+    delete overlay.dataset.overlaySheet;
+  }
+  clearFlaggedStyle(overlay, 'overlayShadow', 'box-shadow');
+  clearFlaggedStyle(overlay, 'overlayScroll', 'overflow-y');
+  clearFlaggedStyle(overlay, 'overlaySpan', 'max-width');
+  clearFlaggedStyle(overlay, 'overlayCap', 'max-height');
+  removeOverlayChromeNodes(overlay);
+}
+
 function clearOverlayChrome(overlay: HTMLElement): void {
   overlay.style.display = 'none';
   overlay.style.removeProperty('visibility');
@@ -318,6 +370,8 @@ function clearOverlayChrome(overlay: HTMLElement): void {
   overlay.style.removeProperty('transform');
   overlay.style.removeProperty('z-index');
   overlay.style.removeProperty('opacity');
+  clearSheetPresentation(overlay);
+  overlay.removeAttribute('aria-orientation');
   overlay.removeAttribute('data-overlay-open');
   if (overlay.dataset.overlayRoleAdded === 'true') {
     overlay.removeAttribute('role');
@@ -410,6 +464,18 @@ function resolveAnchorElement(
   return trigger;
 }
 
+/** Measure a sheet without the viewport cap this runtime added on a previous frame. */
+function sheetSize(overlay: HTMLElement): { width: number; height: number } {
+  const cap = overlay.dataset.overlayCap === 'true' ? overlay.style.maxHeight : '';
+  const span = overlay.dataset.overlaySpan === 'true' ? overlay.style.maxWidth : '';
+  if (cap) overlay.style.removeProperty('max-height');
+  if (span) overlay.style.removeProperty('max-width');
+  const size = overlaySize(overlay);
+  if (cap) overlay.style.maxHeight = cap;
+  if (span) overlay.style.maxWidth = span;
+  return size;
+}
+
 function frameForOverlay(
   kind: OverlayKind,
   overlay: HTMLElement,
@@ -417,8 +483,8 @@ function frameForOverlay(
   side: OverlayAnchor,
   viewport: { width: number; height: number },
 ): OverlayFrame {
+  if (kind === 'sheet') return placeSheetOverlay({ overlay: sheetSize(overlay), viewport });
   const size = overlaySize(overlay);
-  if (kind === 'sheet') return placeSheetOverlay({ overlay: size, viewport });
   if (overlayIsAnchored(kind) && anchor) {
     return placeAnchoredOverlay({
       anchor: boxOf(anchor),
@@ -430,17 +496,101 @@ function frameForOverlay(
   return placeModalOverlay({ overlay: size, viewport });
 }
 
-function applyOverlayFrame(overlay: HTMLElement, frame: OverlayFrame): void {
+function applyOverlayFrame(overlay: HTMLElement, frame: OverlayFrame, pinBottom: boolean): void {
   overlay.style.position = 'fixed';
-  overlay.style.top = `${frame.top}px`;
+  overlay.style.top = pinBottom ? 'auto' : `${frame.top}px`;
   overlay.style.left = `${frame.left}px`;
   overlay.style.right = 'auto';
-  overlay.style.bottom = 'auto';
+  overlay.style.bottom = pinBottom ? '0px' : 'auto';
   overlay.style.margin = '0px';
   overlay.style.transform = 'none';
   overlay.style.zIndex = '70';
   overlay.style.display = 'flex';
   overlay.style.visibility = 'visible';
+}
+
+function applySheetLimits(overlay: HTMLElement, frame: SheetPlacement): void {
+  if (frame.maxWidth != null) {
+    overlay.style.maxWidth = `${frame.maxWidth}px`;
+    overlay.dataset.overlaySpan = 'true';
+  } else if (overlay.dataset.overlaySpan === 'true') {
+    overlay.style.removeProperty('max-width');
+    delete overlay.dataset.overlaySpan;
+  }
+  if (frame.maxHeight != null) {
+    overlay.style.maxHeight = `${frame.maxHeight}px`;
+    overlay.dataset.overlayCap = 'true';
+  } else if (overlay.dataset.overlayCap === 'true') {
+    overlay.style.removeProperty('max-height');
+    delete overlay.dataset.overlayCap;
+  }
+}
+
+function ensureSheetHandle(overlay: HTMLElement): void {
+  if (childElements(overlay).some(child => child.getAttribute('data-overlay-chrome') === 'sheet-handle')) return;
+  const handle = overlay.ownerDocument.createElement('div');
+  handle.setAttribute('data-overlay-chrome', 'sheet-handle');
+  handle.setAttribute('aria-hidden', 'true');
+  handle.style.position = 'absolute';
+  handle.style.top = '8px';
+  handle.style.left = '50%';
+  handle.style.width = '36px';
+  handle.style.height = '4px';
+  handle.style.marginLeft = '-18px';
+  handle.style.borderRadius = '999px';
+  handle.style.background = 'rgba(15, 15, 15, 0.28)';
+  handle.style.pointerEvents = 'none';
+  overlay.insertBefore(handle, overlay.firstChild);
+}
+
+function applySheetChrome(overlay: HTMLElement): void {
+  const view = overlay.ownerDocument.defaultView;
+  const computed = view && typeof view.getComputedStyle === 'function'
+    ? view.getComputedStyle(overlay)
+    : null;
+  const topRadius = computed?.borderTopLeftRadius;
+  if (!topRadius || topRadius === '0px') {
+    overlay.style.borderTopLeftRadius = SHEET_TOP_RADIUS;
+    overlay.style.borderTopRightRadius = SHEET_TOP_RADIUS;
+    overlay.dataset.overlayRadius = 'top';
+  }
+  overlay.style.borderBottomLeftRadius = '0px';
+  overlay.style.borderBottomRightRadius = '0px';
+  overlay.dataset.overlaySheet = 'true';
+  if (!overlay.style.boxShadow) {
+    overlay.style.boxShadow = SHEET_SHADOW;
+    overlay.dataset.overlayShadow = 'true';
+  }
+  if (!overlay.style.overflowY) {
+    overlay.style.overflowY = 'auto';
+    overlay.dataset.overlayScroll = 'true';
+  }
+  ensureSheetHandle(overlay);
+}
+
+/** Direct children are the menu slot. A child with no role becomes an item. */
+function markMenuItems(overlay: HTMLElement): void {
+  for (const child of childElements(overlay)) {
+    if (child.getAttribute('data-overlay-chrome')) continue;
+    if (child.getAttribute('role') === 'separator') continue;
+    if (child.getAttribute('data-menu-separator') === 'true') continue;
+    if (!child.getAttribute('role')) child.setAttribute('role', 'menuitem');
+  }
+}
+
+function menuItems(overlay: HTMLElement): HTMLElement[] {
+  if (typeof overlay.querySelectorAll === 'function') {
+    const found: HTMLElement[] = [];
+    const nodes = overlay.querySelectorAll('[role="menuitem"]');
+    for (let index = 0; index < nodes.length; index += 1) {
+      const node = nodes[index];
+      if (isDomElement(node)) found.push(node);
+    }
+    if (found.length > 0) return found;
+  }
+  return childElements(overlay).filter(child => (
+    child.getAttribute('role') === 'menuitem' && !child.getAttribute('data-overlay-chrome')
+  ));
 }
 
 function createBackdrop(doc: Document, overlay: HTMLElement, layerId: string): HTMLElement {
@@ -487,9 +637,19 @@ function openOverlay(
 
   const backdrop = overlayUsesBackdrop(kind) ? createBackdrop(doc, overlay, action.targetLayerId) : null;
   const place = () => {
-    applyOverlayFrame(overlay, frameForOverlay(kind, overlay, anchor, side, viewportOf(doc)));
+    const frame = frameForOverlay(kind, overlay, anchor, side, viewportOf(doc));
+    applyOverlayFrame(overlay, frame, kind === 'sheet');
+    if (kind === 'sheet') {
+      applySheetLimits(overlay, frame);
+      applySheetChrome(overlay);
+    }
   };
   place();
+
+  if (kind === 'menu') {
+    markMenuItems(overlay);
+    overlay.setAttribute('aria-orientation', 'vertical');
+  }
 
   overlay.setAttribute('data-overlay-open', kind);
   overlay.setAttribute('role', overlayAriaRole(kind));
@@ -500,7 +660,8 @@ function openOverlay(
   const takesFocus = overlayTakesFocus(kind);
   if (takesFocus) {
     if (!overlay.hasAttribute('tabindex')) overlay.setAttribute('tabindex', '-1');
-    const focusable = focusableElements(overlay)[0];
+    const menuFirst = kind === 'menu' ? menuItems(overlay)[0] : undefined;
+    const focusable = menuFirst ?? focusableElements(overlay)[0];
     (focusable ?? overlay).focus();
   }
 
@@ -511,6 +672,25 @@ function openOverlay(
       event.stopImmediatePropagation();
       closeOverlay(action.targetLayerId);
       return;
+    }
+    if (kind === 'menu') {
+      const items = menuItems(overlay);
+      const active = overlay.ownerDocument.activeElement;
+      const index = isDomElement(active) ? items.indexOf(active) : -1;
+      const next = nextMenuItemIndex(event.key, index, items.length);
+      if (next !== null) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        items[next]?.focus();
+        return;
+      }
+      if ((event.key === 'Enter' || event.key === ' ') && isDomElement(active) && active.getAttribute('role') === 'menuitem') {
+        const tag = active.tagName?.toUpperCase();
+        if (tag !== 'BUTTON' && tag !== 'A' && typeof active.click === 'function') {
+          event.preventDefault();
+          active.click();
+        }
+      }
     }
     if (event.key !== 'Tab' || !overlayTrapsFocus(kind)) return;
     const items = focusableElements(overlay);

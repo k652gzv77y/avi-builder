@@ -40,11 +40,41 @@ class FakeStyle {
   set inset(value: string) { this.values.inset = value; }
   get background() { return this.values.background ?? ''; }
   set background(value: string) { this.values.background = value; }
+  get width() { return this.values.width ?? ''; }
+  set width(value: string) { this.values.width = value; }
+  get height() { return this.values.height ?? ''; }
+  set height(value: string) { this.values.height = value; }
+  get maxWidth() { return this.values.maxWidth ?? ''; }
+  set maxWidth(value: string) { this.values.maxWidth = value; }
+  get maxHeight() { return this.values.maxHeight ?? ''; }
+  set maxHeight(value: string) { this.values.maxHeight = value; }
+  get padding() { return this.values.padding ?? ''; }
+  set padding(value: string) { this.values.padding = value; }
+  get overflowY() { return this.values.overflowY ?? ''; }
+  set overflowY(value: string) { this.values.overflowY = value; }
+  get boxShadow() { return this.values.boxShadow ?? ''; }
+  set boxShadow(value: string) { this.values.boxShadow = value; }
+  get borderTopLeftRadius() { return this.values.borderTopLeftRadius ?? ''; }
+  set borderTopLeftRadius(value: string) { this.values.borderTopLeftRadius = value; }
+  get borderTopRightRadius() { return this.values.borderTopRightRadius ?? ''; }
+  set borderTopRightRadius(value: string) { this.values.borderTopRightRadius = value; }
+  get borderBottomLeftRadius() { return this.values.borderBottomLeftRadius ?? ''; }
+  set borderBottomLeftRadius(value: string) { this.values.borderBottomLeftRadius = value; }
+  get borderBottomRightRadius() { return this.values.borderBottomRightRadius ?? ''; }
+  set borderBottomRightRadius(value: string) { this.values.borderBottomRightRadius = value; }
+  get marginLeft() { return this.values.marginLeft ?? ''; }
+  set marginLeft(value: string) { this.values.marginLeft = value; }
+  get borderRadius() { return this.values.borderRadius ?? ''; }
+  set borderRadius(value: string) { this.values.borderRadius = value; }
+  get pointerEvents() { return this.values.pointerEvents ?? ''; }
+  set pointerEvents(value: string) { this.values.pointerEvents = value; }
 
   removeProperty(name: string) {
     delete this.values[name];
     const camel = name.replace(/-([a-z])/g, (_, letter: string) => letter.toUpperCase());
     delete this.values[camel];
+    delete (this as unknown as Record<string, unknown>)[name];
+    delete (this as unknown as Record<string, unknown>)[camel];
   }
 }
 
@@ -296,16 +326,154 @@ test('an anchored popover flips above the trigger and stays open when the trigge
   closeOpenOverlays();
 });
 
-test('a sheet sits on the bottom edge over a backdrop', () => {
+test('a sheet sits flush on the bottom, keeps height and padding, and closes like a modal', () => {
   const doc = new FakeDocument();
   const trigger = layer(doc, 'button', { top: 20, left: 20, width: 80, height: 32 });
-  const overlay = layer(doc, 'sheet', { top: 0, left: 0, width: 200, height: 80 });
+  const overlay = layer(doc, 'sheet', { top: 0, left: 0, width: 400, height: 160 });
+  overlay.style.height = '160px';
+  overlay.style.padding = '24px';
+  overlay.style.maxHeight = '85vh';
   open(doc, createOverlayAction('open', 'open', 'sheet', 'fixed', 'sheet'), trigger);
 
-  assert.equal(overlay.style.top, '212px');
-  assert.equal(overlay.style.left, '100px');
+  assert.equal(overlay.getAttribute('data-overlay-open'), 'sheet');
+  assert.equal(overlay.getAttribute('role'), 'dialog');
   assert.equal(overlay.getAttribute('aria-modal'), 'true');
-  assert.ok(doc.body.children.some(child => child.getAttribute('data-overlay-backdrop') === 'sheet'));
+  assert.equal(overlay.style.top, 'auto');
+  assert.equal(overlay.style.bottom, '0px');
+  assert.equal(overlay.style.left, '0px');
+  assert.equal(overlay.style.height, '160px');
+  assert.equal(overlay.style.padding, '24px');
+  assert.equal(overlay.style.maxHeight, '85vh');
+  assert.equal(overlay.style.borderTopLeftRadius, '16px');
+  assert.equal(overlay.style.borderBottomLeftRadius, '0px');
+  assert.equal(overlay.style.borderBottomRightRadius, '0px');
+  assert.equal(overlay.style.overflowY, 'auto');
+  assert.ok(overlay.style.boxShadow.length > 0);
+  const handle = overlay.children.find(child => child.getAttribute('data-overlay-chrome') === 'sheet-handle');
+  assert.ok(handle);
+  assert.equal(handle.getAttribute('aria-hidden'), 'true');
+  assert.equal(doc.activeElement, overlay);
+  const backdrop = doc.body.children.find(child => child.getAttribute('data-overlay-backdrop') === 'sheet');
+  assert.ok(backdrop);
+
+  const escape = { key: 'Escape', prevented: false, preventDefault() { this.prevented = true; }, stopImmediatePropagation() {} };
+  doc.emit('keydown', escape);
+  assert.equal(escape.prevented, true);
+  assert.equal(overlay.style.display, 'none');
+  assert.equal(overlay.style.borderBottomLeftRadius ?? '', '');
+  assert.equal(overlay.children.some(child => child.getAttribute('data-overlay-chrome') === 'sheet-handle'), false);
+  assert.equal(doc.body.children.includes(backdrop), false);
+  assert.equal(doc.activeElement, trigger);
+
+  open(doc, createOverlayAction('open', 'open', 'sheet', 'fixed', 'sheet'), trigger);
+  const backdropAgain = doc.body.children.find(child => child.getAttribute('data-overlay-backdrop') === 'sheet');
+  assert.ok(backdropAgain);
+  doc.emit('pointerdown', { target: backdropAgain });
+  assert.equal(overlay.style.display, 'none');
+
+  open(doc, createOverlayAction('open', 'open', 'sheet', 'fixed', 'sheet'), trigger);
+  open(doc, createOverlayAction('close', 'close', 'sheet'), trigger);
+  assert.equal(overlay.style.display, 'none');
+  assert.equal(doc.body.children.some(child => child.getAttribute('data-overlay-backdrop') === 'sheet'), false);
+  closeOpenOverlays();
+});
+
+test('a tall sheet is capped to the viewport and a narrow one stays centered', () => {
+  const doc = new FakeDocument();
+  const trigger = layer(doc, 'button', { top: 20, left: 20, width: 80, height: 32 });
+  const tall = layer(doc, 'tall', { top: 0, left: 0, width: 200, height: 500 });
+  open(doc, createOverlayAction('open', 'open', 'tall', 'fixed', 'sheet'), trigger);
+  assert.equal(tall.style.bottom, '0px');
+  assert.equal(tall.style.top, 'auto');
+  assert.equal(tall.style.left, '100px');
+  assert.equal(tall.style.maxHeight, '300px');
+  assert.equal(tall.style.overflowY, 'auto');
+  closeOpenOverlays();
+
+  const narrow = layer(doc, 'narrow', { top: 0, left: 0, width: 200, height: 80 });
+  open(doc, createOverlayAction('open', 'open', 'narrow', 'fixed', 'sheet'), trigger);
+  assert.equal(narrow.style.left, '100px');
+  assert.equal(narrow.style.bottom, '0px');
+  assert.equal(narrow.style.maxHeight ?? '', '');
+  closeOpenOverlays();
+});
+
+test('a menu flips like a popover, moves with arrow keys, and returns focus', () => {
+  const doc = new FakeDocument();
+  const trigger = layer(doc, 'button', { top: 250, left: 30, width: 40, height: 30 });
+  const overlay = layer(doc, 'menu', { top: 0, left: 0, width: 100, height: 80 });
+  const first = new FakeElement(doc, { top: 0, left: 0, width: 80, height: 24 });
+  const second = new FakeElement(doc, { top: 24, left: 0, width: 80, height: 24 });
+  first.setAttribute('role', 'menuitem');
+  second.setAttribute('role', 'menuitem');
+  overlay.appendChild(first);
+  overlay.appendChild(second);
+  const action = createOverlayAction('open', 'open', 'menu', 'relative', 'menu');
+  action.anchor = 'bottom';
+  action.transition = tweenTransition();
+  open(doc, action, trigger);
+
+  assert.equal(overlay.getAttribute('data-overlay-open'), 'menu');
+  assert.equal(overlay.getAttribute('role'), 'menu');
+  assert.equal(overlay.getAttribute('aria-orientation'), 'vertical');
+  assert.equal(overlay.hasAttribute('aria-modal'), false);
+  assert.equal(overlay.style.top, '162px');
+  assert.equal(overlay.style.left, '30px');
+  assert.equal(overlay.style.bottom, 'auto');
+  assert.equal(doc.body.children.some(child => child.hasAttribute('data-overlay-backdrop')), false);
+  assert.equal(doc.activeElement, first);
+  assert.equal(overlay.animations.length, 1);
+  closeOpenOverlays();
+  action.transition = undefined;
+  open(doc, action, trigger);
+  assert.equal(doc.activeElement, first);
+
+  const down = { key: 'ArrowDown', prevented: false, preventDefault() { this.prevented = true; }, stopImmediatePropagation() {} };
+  doc.emit('keydown', down);
+  assert.equal(down.prevented, true);
+  assert.equal(doc.activeElement, second);
+
+  const up = { key: 'ArrowUp', prevented: false, preventDefault() { this.prevented = true; }, stopImmediatePropagation() {} };
+  doc.emit('keydown', up);
+  assert.equal(doc.activeElement, first);
+
+  const end = { key: 'End', prevented: false, preventDefault() { this.prevented = true; }, stopImmediatePropagation() {} };
+  doc.emit('keydown', end);
+  assert.equal(doc.activeElement, second);
+
+  const typed = { key: 'e', prevented: false, preventDefault() { this.prevented = true; }, stopImmediatePropagation() {} };
+  doc.emit('keydown', typed);
+  assert.equal(typed.prevented, false);
+  assert.equal(doc.activeElement, second);
+
+  doc.emit('pointerdown', { target: first });
+  assert.equal(overlay.getAttribute('data-overlay-open'), 'menu');
+
+  const escape = { key: 'Escape', prevented: false, preventDefault() { this.prevented = true; }, stopImmediatePropagation() {} };
+  doc.emit('keydown', escape);
+  assert.equal(overlay.style.display, 'none');
+  assert.equal(overlay.hasAttribute('aria-orientation'), false);
+  assert.equal(doc.activeElement, trigger);
+
+  open(doc, action, trigger);
+  doc.emit('pointerdown', { target: doc.body });
+  assert.equal(overlay.style.display, 'none');
+
+  open(doc, action, trigger);
+  open(doc, createOverlayAction('close', 'close', 'menu'), trigger);
+  assert.equal(overlay.style.display, 'none');
+  closeOpenOverlays();
+});
+
+test('a menu marks a direct child with no role as an item', () => {
+  const doc = new FakeDocument();
+  const trigger = layer(doc, 'button', { top: 40, left: 16, width: 80, height: 24 });
+  const overlay = layer(doc, 'menu', { top: 0, left: 0, width: 120, height: 40 });
+  const row = new FakeElement(doc, { top: 0, left: 0, width: 100, height: 20 });
+  overlay.appendChild(row);
+  open(doc, createOverlayAction('open', 'open', 'menu', 'relative', 'menu'), trigger);
+  assert.equal(row.getAttribute('role'), 'menuitem');
+  assert.equal(doc.activeElement, row);
   closeOpenOverlays();
 });
 
