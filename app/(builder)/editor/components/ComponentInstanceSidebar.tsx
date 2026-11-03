@@ -29,6 +29,7 @@ import ComponentVariablesDialog from './ComponentVariablesDialog';
 import RichTextEditor from './RichTextEditor';
 import ExpandableRichTextEditor from './ExpandableRichTextEditor';
 import SettingsPanel from './SettingsPanel';
+import { SmartGuidesPanel } from './smart-guides-panel';
 
 import { useEditorStore } from '@/stores/useEditorStore';
 import { useComponentsStore } from '@/stores/useComponentsStore';
@@ -291,16 +292,20 @@ export default function ComponentInstanceSidebar({
     });
   }, [selectedLayerId, onLayerUpdate]);
 
+  const selectedParent = useMemo(
+    () => findLayerWithParent(allLayers, selectedLayerId)?.parent ?? null,
+    [allLayers, selectedLayerId],
+  );
+
   const stackSpacingTarget = useMemo(() => {
     const ownKind = spacingContainerKind(selectedLayer);
     if (ownKind) return { layer: selectedLayer, kind: ownKind, editsParent: false };
-    const found = findLayerWithParent(allLayers, selectedLayerId);
-    const parentKind = spacingContainerKind(found?.parent);
-    if (found?.parent && parentKind) {
-      return { layer: found.parent, kind: parentKind, editsParent: true };
+    const parentKind = spacingContainerKind(selectedParent);
+    if (selectedParent && parentKind) {
+      return { layer: selectedParent, kind: parentKind, editsParent: true };
     }
     return null;
-  }, [allLayers, selectedLayer, selectedLayerId]);
+  }, [selectedLayer, selectedParent]);
 
   return (
     <div
@@ -327,6 +332,13 @@ export default function ComponentInstanceSidebar({
         </div>
 
         <hr className="mt-4" />
+
+        <div className="shrink-0">
+          <SmartGuidesPanel
+            layer={selectedLayer}
+            parent={selectedParent}
+          />
+        </div>
 
         <TabsContent
           value="design"

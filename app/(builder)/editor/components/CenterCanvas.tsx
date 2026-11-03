@@ -36,6 +36,7 @@ import {
 import { useCanvasPan } from '@/hooks/use-canvas-pan';
 import { useEditorUrl } from '@/hooks/use-editor-url';
 import { useEditComponent } from '@/hooks/use-edit-component';
+import { useShowCanvasGuides } from '@/hooks/use-show-canvas-guides';
 import { useShowCanvasRulers } from '@/hooks/use-show-canvas-rulers';
 import { useZoom } from '@/hooks/use-zoom';
 import { useUndoRedo } from '@/hooks/use-undo-redo';
@@ -140,6 +141,8 @@ interface ViewportZoomControlsProps {
   onAutofit: () => void;
   showRulers?: boolean;
   onShowRulersChange?: (show: boolean) => void;
+  showGuides?: boolean;
+  onShowGuidesChange?: (show: boolean) => void;
 }
 
 /** Shared zoom dropdown used in both the canvas and preview toolbars. */
@@ -152,6 +155,8 @@ function ViewportZoomControls({
   onAutofit,
   showRulers,
   onShowRulersChange,
+  showGuides,
+  onShowGuidesChange,
 }: ViewportZoomControlsProps) {
   return (
     <div className="flex justify-center gap-2">
@@ -172,7 +177,7 @@ function ViewportZoomControls({
           sideOffset={4}
           avoidCollisions={false}
           collisionPadding={0}
-          className={cn('max-h-75!', onShowRulersChange ? 'w-44' : 'w-38')}
+          className={cn('max-h-75!', (onShowRulersChange || onShowGuidesChange) ? 'w-44' : 'w-38')}
           // Don't return focus to the trigger on close, otherwise pressing Space
           // (the pan shortcut) re-activates the focused button and reopens this menu.
           onCloseAutoFocus={(e) => e.preventDefault()}
@@ -198,16 +203,27 @@ function ViewportZoomControls({
             Fit width
             <DropdownMenuShortcut>⌘2</DropdownMenuShortcut>
           </DropdownMenuItem>
-          {onShowRulersChange && (
+          {(onShowRulersChange || onShowGuidesChange) && (
             <>
               <DropdownMenuSeparator />
-              <DropdownMenuCheckboxItem
-                checked={showRulers === true}
-                onCheckedChange={(checked) => onShowRulersChange(checked === true)}
-              >
-                Show rulers
-                <DropdownMenuShortcut>⇧R</DropdownMenuShortcut>
-              </DropdownMenuCheckboxItem>
+              {onShowRulersChange && (
+                <DropdownMenuCheckboxItem
+                  checked={showRulers === true}
+                  onCheckedChange={(checked) => onShowRulersChange(checked === true)}
+                >
+                  Show rulers
+                  <DropdownMenuShortcut>⇧R</DropdownMenuShortcut>
+                </DropdownMenuCheckboxItem>
+              )}
+              {onShowGuidesChange && (
+                <DropdownMenuCheckboxItem
+                  checked={showGuides === true}
+                  onCheckedChange={(checked) => onShowGuidesChange(checked === true)}
+                >
+                  Show guides
+                  <DropdownMenuShortcut>⇧G</DropdownMenuShortcut>
+                </DropdownMenuCheckboxItem>
+              )}
             </>
           )}
         </DropdownMenuContent>
@@ -608,6 +624,7 @@ const CenterCanvas = React.memo(function CenterCanvas({
   const { canEditStructure } = useRole();
   const selectedLayerId = useEditorStore((state) => state.selectedLayerId);
   const { show: showRulers, setShow: setShowRulers } = useShowCanvasRulers();
+  const { show: showGuides, setShow: setShowGuides } = useShowCanvasGuides();
 
   const [showAddBlockPanel, setShowAddBlockPanel] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -2328,6 +2345,8 @@ const CenterCanvas = React.memo(function CenterCanvas({
               onAutofit={autofit}
               showRulers={showRulers}
               onShowRulersChange={setShowRulers}
+              showGuides={showGuides}
+              onShowGuidesChange={setShowGuides}
             />
             <Button
               size="sm"

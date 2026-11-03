@@ -38,6 +38,7 @@ import {
   scheduleFreeformRelease,
   siblingSnapTargets,
 } from '@/lib/canvas-freeform-dom';
+import { snapLabelerFor } from '@/lib/snap-guide-labels';
 import type { Layer } from '@/types';
 
 interface HandleFrame {
@@ -693,7 +694,7 @@ export function SelectionOverlay({
     event.stopPropagation();
 
     const box = readFreeformBox(target);
-    const snapTargets = siblingSnapTargets(target);
+    const snapTargets = siblingSnapTargets(target, snapLabelerFor(currentEditorLayers()));
     const startX = event.clientX;
     const startY = event.clientY;
     const position = readLayerPosition(found.layer) === 'fixed' ? 'fixed' : 'absolute';
