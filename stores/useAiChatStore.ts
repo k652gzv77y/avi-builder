@@ -6,6 +6,7 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 import { DEFAULT_AGENT_MODEL } from '@/lib/agent/models';
+import { isUnsavedAiChatResponse } from '@/lib/ai-chat-lookup';
 import { aiChatsApi } from '@/lib/api';
 import { syncLayerAssets } from '@/lib/canvas-asset-sync';
 import { findAddedLayerIds } from '@/lib/layer-utils';
@@ -564,10 +565,10 @@ export const useAiChatStore = create<AiChatStore>()(
             messages: messages.map(stripMessageForStorage),
           });
           if (result.error) {
-            console.error('Failed to save AI chat:', result.error);
+            console.error('Failed to save AI chat:', currentChatId, result.error);
           }
         } catch (error) {
-          console.error('Failed to save AI chat:', error);
+          console.error('Failed to save AI chat:', currentChatId, error);
         }
       };
 
@@ -636,18 +637,33 @@ export const useAiChatStore = create<AiChatStore>()(
 
             if (shouldRestoreActive && summaryIds.has(state.currentChatId)) {
               const activeId = state.currentChatId;
-              const chat = await aiChatsApi.getById(activeId).catch(() => null);
-              const restored = (chat?.data?.messages ?? []) as ChatMessage[];
-              if (restored.length > 0) {
-                set((s) =>
-                  // Re-check nothing changed while the transcript was in flight.
-                  s.currentChatId === activeId && s.messages.length === 0
-                    ? {
-                      messages: restored,
-                      chats: s.chats.map((c) => (c.id === activeId ? { ...c, messages: restored } : c)),
-                    }
-                    : {},
-                );
+              // Isolated from the list fetch: a missing transcript must not
+              // fail the history load or print a not-found error.
+              try {
+                const chat = await aiChatsApi.getById(activeId);
+                // A 404 means the row disappeared between the summary list and
+                // this read (or was never written). Keep the empty local chat.
+                if (isUnsavedAiChatResponse(chat)) return;
+
+                if (chat.error || !chat.data) {
+                  console.error('Failed to restore AI chat:', chat.error ?? 'No data');
+                  return;
+                }
+
+                const restored = (chat.data.messages ?? []) as ChatMessage[];
+                if (restored.length > 0) {
+                  set((s) =>
+                    // Re-check nothing changed while the transcript was in flight.
+                    s.currentChatId === activeId && s.messages.length === 0
+                      ? {
+                        messages: restored,
+                        chats: s.chats.map((c) => (c.id === activeId ? { ...c, messages: restored } : c)),
+                      }
+                      : {},
+                  );
+                }
+              } catch (error) {
+                console.error('Failed to restore AI chat:', error);
               }
             }
           } catch (error) {
@@ -692,6 +708,11 @@ export const useAiChatStore = create<AiChatStore>()(
           set({ chats, currentChatId: id, messages: [], error: null, sessionUsage: EMPTY_USAGE, loadingChatId: id });
           try {
             const result = await aiChatsApi.getById(id);
+            // No row yet (client-minted id, failed save, or deleted). Leave the
+            // empty chat in place instead of flashing a load error.
+            if (isUnsavedAiChatResponse(result)) {
+              return;
+            }
             if (result.error || !result.data) {
               set((s) => (s.currentChatId === id ? { error: result.error ?? 'Failed to load chat' } : {}));
               return;

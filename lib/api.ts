@@ -39,13 +39,14 @@ async function apiRequest<T>(
     try {
       const json = await response.json();
       if (json.error) {
-        return { error: json.error };
+        return { error: json.error, status: response.status };
       }
     } catch {
       // If parsing fails, fall back to status text
     }
     return {
       error: `HTTP ${response.status}: ${response.statusText}`,
+      status: response.status,
     };
   }
 
@@ -852,7 +853,11 @@ export const aiChatsApi = {
     return apiRequest<AiChatSummary[]>(projectsPath('/api/ai/chats'));
   },
 
-  /** Get one chat including its full transcript. */
+  /**
+   * Get one chat including its full transcript.
+   * A 404 (`status`) means the id was never saved or has been removed — not a
+   * failed request. Callers should keep the empty local chat.
+   */
   async getById(id: string): Promise<ApiResponse<AiChat>> {
     return apiRequest<AiChat>(projectsPath(`/api/ai/chats/${id}`));
   },

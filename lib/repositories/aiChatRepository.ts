@@ -13,6 +13,7 @@
  *   upsert code path (one round-trip per completed turn, never per token).
  */
 
+import { isAbsentAiChatError, isAbsentAiChatId } from '@/lib/ai-chat-lookup';
 import { getSupabaseAdmin } from '@/lib/supabase-server';
 import type { AiChat, AiChatSummary, UpsertAiChatData } from '@/types';
 
@@ -36,8 +37,19 @@ export async function getAllAiChatSummaries(tenantId?: string): Promise<AiChatSu
   return data || [];
 }
 
-/** Fetch a single chat including its full transcript. */
+/**
+ * Fetch a single chat including its full transcript.
+ * Returns null when the id was never saved or is not a uuid. Callers map that
+ * to a not-found response instead of a server error.
+ */
 export async function getAiChatById(id: string, tenantId?: string): Promise<AiChat | null> {
+  // Skip the query for non-uuids. Postgres would otherwise raise 22P02
+  // (`invalid input syntax for type uuid`) and the route would return 500
+  // for an id that simply has no row.
+  if (isAbsentAiChatId(id)) {
+    return null;
+  }
+
   const client = await getSupabaseAdmin(tenantId);
 
   if (!client) {
@@ -51,7 +63,7 @@ export async function getAiChatById(id: string, tenantId?: string): Promise<AiCh
     .single();
 
   if (error) {
-    if (error.code === 'PGRST116') {
+    if (isAbsentAiChatError(error.code)) {
       return null;
     }
     throw new Error(`Failed to fetch AI chat: ${error.message}`);

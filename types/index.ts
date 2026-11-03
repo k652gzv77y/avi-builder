@@ -1174,6 +1174,8 @@ export interface ApiResponse<T> {
   data?: T;
   error?: string;
   message?: string;
+  /** HTTP status of a failed response. Absent on success. */
+  status?: number;
 }
 
 export interface PaginatedResponse<T> {
