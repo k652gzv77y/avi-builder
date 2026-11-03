@@ -27,6 +27,7 @@ import { HTML_TO_REACT_ATTRS } from '@/lib/parse-head-html';
 import { SWIPER_CLASS_MAP, SWIPER_DATA_ATTR_MAP } from '@/lib/slider-constants';
 import { getSliderPresizeVars } from '@/lib/slider-utils';
 import { getDynamicTextContent, getImageUrlFromVariable, getVideoUrlFromVariable, getIframeUrlFromVariable, isFieldVariable, isAssetVariable, isStaticTextVariable, isDynamicTextVariable, getStaticTextContent, getAssetId, resolveDesignStyles } from '@/lib/variable-utils';
+import { applyStyleBindings } from '@/lib/project-variable-picker';
 import { getTranslatedAssetId, getTranslatedText } from '@/lib/locale-runtime';
 import { resolveOverlayKind } from '@/lib/overlay-position';
 import { isValidLinkSettings, generateLinkHref, resolveLinkAttrs, isLinkAtCollectionBoundary, isLinkToCurrentPage, type LinkResolutionContext } from '@/lib/link-utils';
@@ -383,7 +384,6 @@ const LayerItem: React.FC<{
   lcpCandidateLayerId,
   passwordProtection,
 }) => {
-  const classesString = getClassesString(layer);
   const collectionLayerItemId = layer._collectionItemId || collectionItemId;
   const baseCollectionLayerData = layer._collectionItemValues || collectionItemData;
   // Merge site-wide globals into the collection data map so global-source
@@ -391,6 +391,10 @@ const LayerItem: React.FC<{
   const collectionLayerData = React.useMemo(
     () => mergeGlobalsIntoFieldData(baseCollectionLayerData, globalsData),
     [baseCollectionLayerData, globalsData]
+  );
+  const classesString = useMemo(
+    () => getClassesString(applyStyleBindings(layer, globalsData ?? collectionLayerData)),
+    [layer, globalsData, collectionLayerData],
   );
   const effectiveLayerDataMap = React.useMemo(() => ({
     ...layerDataMap,

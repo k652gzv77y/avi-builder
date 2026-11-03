@@ -66,6 +66,12 @@ interface VariableItemSheetProps {
   itemId: string | null;
   folders: string[];
   modes: VariableMode[];
+  /** Preset for a new variable opened from a property picker. */
+  initialType?: GlobalVariableType;
+  initialValue?: string;
+  /** Hide the type menu so a number property cannot create a text variable. */
+  lockType?: boolean;
+  onCreated?: (id: string) => void;
 }
 
 function typeLabel(type: string): string {
@@ -120,6 +126,10 @@ export default function VariableItemSheet({
   itemId,
   folders,
   modes,
+  initialType,
+  initialValue,
+  lockType = false,
+  onCreated,
 }: VariableItemSheetProps) {
   const { globals, createGlobal, updateGlobal, deleteGlobal } = useGlobalsStore();
   const {
@@ -186,16 +196,21 @@ export default function VariableItemSheet({
       return;
     }
     const values: Record<string, string> = {};
+    const emptyType = initialType ?? defaultType;
     for (const mode of modes) {
-      values[mode.id] = isColorCollection ? '#808080' : '';
+      if (mode.id === DEFAULT_MODE_ID) {
+        values[mode.id] = initialValue
+          ?? (isColorCollection || emptyType === 'color' ? '#808080' : emptyType === 'number' ? '0' : '');
+      } else {
+        values[mode.id] = isColorCollection ? '#808080' : '';
+      }
     }
-    const emptyType = defaultType;
     setName('');
     setFolder(null);
     setType(emptyType);
     setModeValues(values);
     setSnapshot(JSON.stringify({ name: '', folder: null, type: emptyType, values }));
-  }, [color, global, modes, colorModeValues, isColorCollection, defaultType]);
+  }, [color, global, modes, colorModeValues, isColorCollection, defaultType, initialType, initialValue]);
 
   useEffect(() => {
     if (!open) return;
@@ -236,7 +251,10 @@ export default function VariableItemSheet({
           await persistColorModes(color.id, modeValues);
         } else {
           const created = await createColorVariable(fullName, defaultValue);
-          if (created) await persistColorModes(created.id, modeValues);
+          if (created) {
+            await persistColorModes(created.id, modeValues);
+            onCreated?.(created.id);
+          }
         }
       } else {
         const extra: Record<string, string | null> = {};
@@ -257,7 +275,8 @@ export default function VariableItemSheet({
         if (global) {
           await updateGlobal(global.id, payload);
         } else {
-          await createGlobal({ ...payload, order: globals.length });
+          const created = await createGlobal({ ...payload, order: globals.length });
+          if (created) onCreated?.(created.id);
         }
       }
       setSnapshot(currentSnapshot);
@@ -403,7 +422,7 @@ export default function VariableItemSheet({
               </Select>
             </div>
 
-            {collectionId === 'site' && (
+            {collectionId === 'site' && !lockType && (
               <div className="flex flex-col gap-2">
                 <Label>Type</Label>
                 <Select value={type} onValueChange={(value) => setType(value as GlobalVariableType)}>

@@ -273,6 +273,9 @@ export default function ColorPropertyField({
     };
   }, [hasColorFields, currentBinding, getBinding, handleBind, handleUnbind, handleGradientSync, handleSwitchToSolid, renderFieldSelector]);
 
+  const solidBinding = getBinding(null);
+  const showBoundLabel = solidBinding.isBound && !value.includes('gradient(');
+
   return (
     <ColorPicker
       value={value}
@@ -282,6 +285,7 @@ export default function ColorPropertyField({
       placeholder={placeholder}
       solidOnly={solidOnly}
       binding={binding}
+      boundLabel={showBoundLabel ? (solidBinding.fieldName || 'Variable') : undefined}
       onClear={handleClearAll}
       imageTab={imageTab}
       onImageActivate={onImageActivate}

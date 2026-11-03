@@ -23,8 +23,16 @@ import type { FieldGroup, FieldSourceType } from '@/lib/collection-field-utils';
 import type { BackgroundImageSourceType } from './BackgroundImageSettings';
 import BackgroundImageSettings from './BackgroundImageSettings';
 import ColorPropertyField from './ColorPropertyField';
-import { StackPropertyLabel } from './BindingsPicker';
+import ProjectVariablePicker, { useProjectVariableCatalog } from './ProjectVariablePicker';
 import { useControlBindings } from '@/hooks/use-control-bindings';
+import {
+  boundProjectVariableId,
+  colorTokenValue,
+  designColorVariablesPatch,
+  globalColorField,
+  literalColorSeed,
+  type ProjectVariableOption,
+} from '@/lib/project-variable-picker';
 
 interface BackgroundsControlsProps {
   layer: Layer | null;
@@ -94,6 +102,10 @@ const BackgroundsControls = memo(function BackgroundsControls({ layer, onLayerUp
   const solidColor = getDesignProperty('backgrounds', 'backgroundColor') || '';
   const gradientValue = bgGradientVars?.[bgImgVarName] || '';
   const backgroundColor = gradientValue || solidColor;
+  const fillBinding = bindingFor('fill');
+  const fillCatalog = useProjectVariableCatalog('fill');
+  const fillBoundId = boundProjectVariableId('fill', layer, solidColor);
+  const fillBound = fillCatalog.find(item => item.id === fillBoundId);
 
   // Get the background image variable from the layer
   const bgImageVariable = layer?.variables?.backgroundImage?.src;
@@ -225,7 +237,7 @@ const BackgroundsControls = memo(function BackgroundsControls({ layer, onLayerUp
    * Solid colors → normal backgroundColor class (bg-[#hex]).
    * Gradients → bgGradientVars + background-image CSS variable class (shares slot with image).
    */
-  const handleBackgroundColorChange = useCallback((value: string, immediate = false) => {
+  const handleBackgroundColorChange = useCallback((value: string, immediate = false, sync = true) => {
     if (!layer) return;
     const sanitized = removeSpaces(value) || null;
     const isGradient = sanitized?.includes('gradient(');
@@ -277,10 +289,30 @@ const BackgroundsControls = memo(function BackgroundsControls({ layer, onLayerUp
         (immediate ? updateDesignProperty : debouncedUpdateDesignProperty)('backgrounds', 'backgroundColor', sanitized);
       }
     }
-    if (sanitized && !sanitized.includes('gradient(')) {
+    if (sync && sanitized && !sanitized.includes('gradient(')) {
       syncValue('fill', { type: 'color', value: sanitized });
     }
   }, [layer, onLayerUpdate, updateDesignProperty, debouncedUpdateDesignProperty, activeBreakpoint, activeUIState, syncValue]);
+
+  const handleBindFill = (option: ProjectVariableOption) => {
+    if (!layer) return;
+    if (option.kind === 'color') {
+      handleBackgroundColorChange(colorTokenValue(option.sourceId), true, false);
+      onLayerUpdate(layer.id, designColorVariablesPatch(layer, 'backgroundColor', undefined));
+    } else {
+      handleBackgroundColorChange(literalColorSeed(option.value), true, false);
+      onLayerUpdate(layer.id, designColorVariablesPatch(layer, 'backgroundColor', globalColorField(option.sourceId)));
+    }
+    if (fillBinding?.linkedId) fillBinding.onUnlink?.();
+  };
+
+  const handleUnbindFill = () => {
+    if (!layer) return;
+    if (fillBound?.kind === 'color') {
+      handleBackgroundColorChange(literalColorSeed(fillBound.value), true, false);
+    }
+    onLayerUpdate(layer.id, designColorVariablesPatch(layer, 'backgroundColor', undefined));
+  };
 
   /**
    * Update the background image URL.
@@ -519,7 +551,18 @@ const BackgroundsControls = memo(function BackgroundsControls({ layer, onLayerUp
 
       <div className="flex flex-col gap-2">
         <div className="grid grid-cols-3">
-          <StackPropertyLabel binding={bindingFor('fill')} fallback="Color" />
+          <ProjectVariablePicker
+            label="Color"
+            property="fill"
+            boundId={fillBoundId}
+            onSelect={handleBindFill}
+            onUnbind={handleUnbindFill}
+            sources={fillBinding?.sources}
+            linkedSourceId={fillBoundId ? undefined : fillBinding?.linkedId}
+            linkedSourceName={fillBoundId ? undefined : fillBinding?.linkedName}
+            onUnlink={fillBinding?.onUnlink}
+            createValue={solidColor}
+          />
           <div className="col-span-2 *:w-full">
             <ColorPropertyField
               value={backgroundColor}

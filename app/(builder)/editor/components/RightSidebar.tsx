@@ -147,6 +147,7 @@ import {
   readContentBinding,
   isFetchPreview,
 } from '@/lib/cms-framer';
+import type { ProjectVariableOption } from '@/lib/project-variable-picker';
 import { useCmsBindingSources } from '@/hooks/use-cms-binding-sources';
 import { getInverseReferenceFields } from '@/lib/collection-utils';
 
@@ -2735,6 +2736,25 @@ const RightSidebar = React.memo(function RightSidebar({
                 setBoundText(emptyRichText().data.content);
               };
 
+              const handleSelectProject = (option: ProjectVariableOption) => {
+                if (!selectedLayerId || !selectedLayer) return;
+                const content = fieldBindingDoc(
+                  { id: option.sourceId, name: option.leaf, type: option.type },
+                  'global',
+                );
+                handleLayerUpdate(selectedLayerId, {
+                  controlBindings: clearTextControl(),
+                  variables: {
+                    ...selectedLayer.variables,
+                    text: { type: 'dynamic_rich_text', data: { content } },
+                  },
+                });
+              };
+
+              const projectTextBound = !linkedVariable
+                && contentBinding?.kind === 'cms'
+                && contentBinding.source === 'global';
+
               // Handle unlinking a layer from a variable
               const handleUnlinkVariable = () => {
                 if (!selectedLayerId) return;
@@ -2768,8 +2788,13 @@ const RightSidebar = React.memo(function RightSidebar({
                           isEditingComponent={!!editingComponentId}
                           variables={pickerVariables}
                           linkedVariableId={linkedVariableId ?? (contentBinding?.kind === 'fetch' ? contentBinding.id : cmsLinkedItem?.id)}
-                          linkedName={linkedVariable ? undefined : contentBinding?.name}
-                          onUnlink={contentBinding && !linkedVariable ? handleUnlinkContentBinding : undefined}
+                          linkedName={linkedVariable || projectTextBound ? undefined : contentBinding?.name}
+                          onUnlink={linkedVariable ? handleUnlinkVariable : contentBinding ? handleUnlinkContentBinding : undefined}
+                          projectProperty="text"
+                          allowRichText={isRichText}
+                          projectBoundId={projectTextBound ? `global:${contentBinding?.id}` : undefined}
+                          projectBoundName={projectTextBound ? contentBinding?.name : undefined}
+                          onSelectProject={handleSelectProject}
                           cmsItems={cmsItems}
                           onSelectCms={handleSelectCms}
                           fetchItems={fetchItems}

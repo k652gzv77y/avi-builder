@@ -17,6 +17,9 @@ import type { PageData } from '@/lib/page-fetcher'
 import { buildSlugPath, buildLocalizedSlugPath } from '@/lib/page-utils'
 import { getTranslatableKey } from '@/lib/locale-runtime'
 import { getValuesByFieldId } from '@/lib/repositories/collectionItemValueRepository'
+import { getAllGlobalVariables } from '@/lib/repositories/globalVariableRepository'
+import { buildGlobalsValueMap } from '@/lib/collection-field-utils'
+import { applyStyleBindingsToTree } from '@/lib/project-variable-picker'
 import { resolveCustomCodePlaceholders } from '@/lib/resolve-cms-variables'
 
 import type { Locale, Page, PageFolder, Translation } from '@/types'
@@ -168,7 +171,12 @@ async function renderResolved(
   ctx: LocaleContext,
 ): Promise<ResolvedPage | null> {
   if (!data.pageLayers?.layers) return null
-  const layers = data.pageLayers.layers
+  let layers = data.pageLayers.layers
+  try {
+    layers = applyStyleBindingsToTree(layers, buildGlobalsValueMap(await getAllGlobalVariables(true)))
+  } catch (error) {
+    console.error('[static-export] Failed to resolve variable bindings:', error)
+  }
   const bodyHtml = renderPageBody(layers, {
     pages,
     folders,

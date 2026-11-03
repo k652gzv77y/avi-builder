@@ -904,6 +904,19 @@ export interface Layer {
   };
 }
 
+/** Numeric design properties that can follow a project number variable. */
+export type StyleBindingKey = 'opacity' | 'width' | 'height';
+
+/**
+ * Points a design property at a project variable. The stored design value
+ * stays the literal fallback. Renderers resolve `globalId` on top of it.
+ */
+export interface StyleVariableBinding {
+  globalId: string;
+  /** Design value restored when the author unbinds. */
+  literal?: string | null;
+}
+
 export interface LayerVariables {
   // Collection data
   collection?: CollectionVariable;
@@ -943,6 +956,9 @@ export interface LayerVariables {
     textDecorationColor?: DesignColorVariable;
     placeholderColor?: DesignColorVariable;
   };
+
+  /** Opacity, width, and height bound to project number variables. */
+  style?: Partial<Record<StyleBindingKey, StyleVariableBinding>>;
 }
 
 /** A gradient stop with optional CMS field binding */

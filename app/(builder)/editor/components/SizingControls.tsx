@@ -17,6 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { OverrideReset } from './BreakpointOverride';
+import ProjectVariablePicker, { BoundVariableValue, useProjectVariableCatalog } from './ProjectVariablePicker';
 import SettingsPanel from './SettingsPanel';
 import { useDesignSync } from '@/hooks/use-design-sync';
 import { useControlledInputs } from '@/hooks/use-controlled-input';
@@ -35,6 +36,11 @@ import {
   type SizingAxis,
   type SizingMode,
 } from '@/lib/layout-model';
+import {
+  boundProjectVariableId,
+  styleBindingPatch,
+  type ProjectVariableOption,
+} from '@/lib/project-variable-picker';
 import type { Layer } from '@/types';
 
 interface SizingControlsProps {
@@ -142,6 +148,25 @@ const SizingControls = memo(function SizingControls({ layer, onLayerUpdate }: Si
     if (axis === 'width') setWidthInput(field);
     else setHeightInput(field);
     updateDesignProperty('sizing', axis, next);
+  };
+
+  const sizeCatalog = useProjectVariableCatalog('width');
+  const widthBoundId = boundProjectVariableId('width', layer);
+  const heightBoundId = boundProjectVariableId('height', layer);
+  const widthBound = sizeCatalog.find(item => item.id === widthBoundId);
+  const heightBound = sizeCatalog.find(item => item.id === heightBoundId);
+
+  const handleBindSize = (axis: SizingAxis, option: ProjectVariableOption) => {
+    if (!layer || option.kind !== 'global') return;
+    onLayerUpdate(layer.id, styleBindingPatch(layer, axis, {
+      globalId: option.sourceId,
+      literal: axis === 'width' ? width : height,
+    }));
+  };
+
+  const handleUnbindSize = (axis: SizingAxis) => {
+    if (!layer) return;
+    onLayerUpdate(layer.id, styleBindingPatch(layer, axis, undefined));
   };
 
   const renderSizingMode = (
@@ -494,7 +519,14 @@ const SizingControls = memo(function SizingControls({ layer, onLayerUpdate }: Si
 
       <div className="grid grid-cols-3 items-start">
         <div className="flex h-8 items-center gap-1">
-          <Label variant="muted">Width</Label>
+          <ProjectVariablePicker
+            label="Width"
+            property="width"
+            boundId={widthBoundId}
+            onSelect={(option) => handleBindSize('width', option)}
+            onUnbind={() => handleUnbindSize('width')}
+            createValue={width}
+          />
           <OverrideReset
             isOverride={widthOverride}
             propertyLabel="width"
@@ -502,7 +534,11 @@ const SizingControls = memo(function SizingControls({ layer, onLayerUpdate }: Si
           />
         </div>
         <div className="col-span-2 flex flex-col gap-2">
-          {renderSizingMode('width', widthMode, widthInput)}
+          {widthBound ? (
+            <BoundVariableValue name={widthBound.leaf} onUnbind={() => handleUnbindSize('width')} />
+          ) : (
+            renderSizingMode('width', widthMode, widthInput)
+          )}
           <div className="grid grid-cols-2 gap-2">
             <div className="w-full group relative">
               <ButtonGroup className="w-full">
@@ -578,7 +614,14 @@ const SizingControls = memo(function SizingControls({ layer, onLayerUpdate }: Si
 
       <div className="grid grid-cols-3 items-start">
         <div className="flex h-8 items-center gap-1">
-          <Label variant="muted">Height</Label>
+          <ProjectVariablePicker
+            label="Height"
+            property="height"
+            boundId={heightBoundId}
+            onSelect={(option) => handleBindSize('height', option)}
+            onUnbind={() => handleUnbindSize('height')}
+            createValue={height}
+          />
           <OverrideReset
             isOverride={heightOverride}
             propertyLabel="height"
@@ -586,7 +629,11 @@ const SizingControls = memo(function SizingControls({ layer, onLayerUpdate }: Si
           />
         </div>
         <div className="col-span-2 flex flex-col gap-2">
-          {renderSizingMode('height', heightMode, heightInput)}
+          {heightBound ? (
+            <BoundVariableValue name={heightBound.leaf} onUnbind={() => handleUnbindSize('height')} />
+          ) : (
+            renderSizingMode('height', heightMode, heightInput)
+          )}
           <div className="grid grid-cols-2 gap-2">
             <div className="w-full group relative">
               <ButtonGroup className="w-full">

@@ -17,6 +17,14 @@ import { useEditorStore } from '@/stores/useEditorStore';
 import { useFontsStore } from '@/stores/useFontsStore';
 import { extractMeasurementValue } from '@/lib/measurement-utils';
 import { removeSpaces } from '@/lib/utils';
+import {
+  boundProjectVariableId,
+  colorTokenValue,
+  designColorVariablesPatch,
+  globalColorField,
+  literalColorSeed,
+  type ProjectVariableOption,
+} from '@/lib/project-variable-picker';
 import { getFontAvailableWeights, FONT_WEIGHTS } from '@/lib/font-utils';
 import { buildBgImgVarName } from '@/lib/tailwind-class-mapper';
 import { isTextContentLayer } from '@/lib/layer-utils';
@@ -24,6 +32,7 @@ import { DEFAULT_TEXT_SHADOW_VALUE } from '@/lib/text-shadow-utils';
 import type { Collection, CollectionField, Layer } from '@/types';
 import type { FieldGroup } from '@/lib/collection-field-utils';
 import ColorPropertyField from './ColorPropertyField';
+import ProjectVariablePicker, { useProjectVariableCatalog } from './ProjectVariablePicker';
 import FontPicker from './FontPicker';
 import TextBackgroundImageTab from './TextBackgroundImageTab';
 import type { TextBackgroundImageTabHandle } from './TextBackgroundImageTab';
@@ -60,6 +69,9 @@ const TypographyControls = memo(function TypographyControls({ layer, onLayerUpda
   const letterSpacing = getDesignProperty('typography', 'letterSpacing') || '';
   const lineHeight = getDesignProperty('typography', 'lineHeight') || '';
   const color = getDesignProperty('typography', 'color') || '';
+  const colorCatalog = useProjectVariableCatalog('color');
+  const colorBoundId = boundProjectVariableId('color', layer, color);
+  const colorBound = colorCatalog.find(item => item.id === colorBoundId);
   const textTransform = getDesignProperty('typography', 'textTransform') || 'none';
   const textDecoration = getDesignProperty('typography', 'textDecoration') || 'none';
   const textDecorationColor = getDesignProperty('typography', 'textDecorationColor') || '';
@@ -199,6 +211,25 @@ const TypographyControls = memo(function TypographyControls({ layer, onLayerUpda
   const handleColorImmediate = (value: string) => {
     const sanitized = removeSpaces(value);
     updateDesignProperty('typography', 'color', sanitized || null);
+  };
+
+  const handleBindTextColor = (option: ProjectVariableOption) => {
+    if (!layer) return;
+    if (option.kind === 'color') {
+      handleColorImmediate(colorTokenValue(option.sourceId));
+      onLayerUpdate(layer.id, designColorVariablesPatch(layer, 'color', undefined));
+      return;
+    }
+    handleColorImmediate(literalColorSeed(option.value));
+    onLayerUpdate(layer.id, designColorVariablesPatch(layer, 'color', globalColorField(option.sourceId)));
+  };
+
+  const handleUnbindTextColor = () => {
+    if (!layer) return;
+    if (colorBound?.kind === 'color') {
+      handleColorImmediate(literalColorSeed(colorBound.value));
+    }
+    onLayerUpdate(layer.id, designColorVariablesPatch(layer, 'color', undefined));
   };
 
   // Add underline with defaults
@@ -442,7 +473,14 @@ const TypographyControls = memo(function TypographyControls({ layer, onLayerUpda
         )}
 
         <div className="grid grid-cols-3">
-          <Label variant="muted">Color</Label>
+          <ProjectVariablePicker
+            label="Color"
+            property="color"
+            boundId={colorBoundId}
+            onSelect={handleBindTextColor}
+            onUnbind={handleUnbindTextColor}
+            createValue={color}
+          />
           <div className="col-span-2 *:w-full">
             <ColorPropertyField
               value={color}

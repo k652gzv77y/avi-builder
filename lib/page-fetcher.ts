@@ -38,6 +38,7 @@ import { resolveInlineVariables, resolveInlineVariablesFromData } from '@/lib/in
 import { buildPaginationNumbers, getPaginationLayerKind, hasPaginationVariables, paginationTextVariableToTemplate, resolvePaginationTextVariable } from '@/lib/pagination-text-utils';
 import { formatFieldValue, resolveFieldFromSources } from '@/lib/cms-variables-utils';
 import { applyCmsRuntime, collectFetchSpecs, type FetchRuntime } from '@/lib/cms-framer';
+import { applyStyleBindings } from '@/lib/project-variable-picker';
 import { buildLayerTranslationKey, getTranslationByKey, hasValidTranslationValue, getTranslationValue, injectTranslatedText, applyCmsTranslations, translateComponentOverrides } from '@/lib/localisation-utils';
 import { formatDateFieldsInItemValues } from '@/lib/date-format-utils';
 import { getSettingByKey } from '@/lib/repositories/settingsRepository';
@@ -1562,10 +1563,10 @@ async function injectCollectionData(
     updates.children = resolvedChildren;
   }
 
-  return {
+  return applyStyleBindings({
     ...layer,
     ...updates,
-  };
+  }, enhancedValues);
 }
 
 /**
@@ -4145,10 +4146,10 @@ async function injectCollectionDataForHtml(
     updates.children = resolvedChildren;
   }
 
-  return {
+  return applyStyleBindings({
     ...layer,
     ...updates,
-  };
+  }, enhancedValues);
 }
 
 /**
