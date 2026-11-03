@@ -30,10 +30,7 @@ import { runInteractionActions } from '@/lib/interaction-runtime';
 import {
   APPEAR_PRESETS,
   actionLabel,
-  createNavigateAction,
-  createOverlayAction,
-  createScrollVariantAction,
-  createSetVariantAction,
+  createEventAction,
   flattenLayers,
   hrefForPage,
   nextScrollStop,
@@ -78,6 +75,7 @@ export default function InteractionActions({
   const showAppear = interaction.trigger === 'scroll-into-view' || interaction.trigger === 'load';
   const showScroll = interaction.trigger === 'while-scrolling';
   const showScrollAction = showScroll;
+  const isPointerEvent = interaction.trigger === 'click' || interaction.trigger === 'hover';
 
   const layers = useMemo(
     () => flattenLayers(allLayers).filter(layer => layer.id !== 'body'),
@@ -93,17 +91,7 @@ export default function InteractionActions({
   );
 
   const handleAdd = (kind: 'set-variant' | 'open-overlay' | 'close-overlay' | 'navigate' | 'scroll-variant') => {
-    const id = generateId('act');
-    const action = kind === 'set-variant'
-      ? createSetVariantAction(id)
-      : kind === 'open-overlay'
-        ? createOverlayAction(id, 'open')
-        : kind === 'close-overlay'
-          ? createOverlayAction(id, 'close')
-          : kind === 'navigate'
-            ? createNavigateAction(id)
-            : createScrollVariantAction(id);
-    onChange(upsertInteractionAction(interaction, action));
+    onChange(upsertInteractionAction(interaction, createEventAction(generateId('act'), kind)));
   };
 
   const handlePlay = (action: InteractionAction) => {
@@ -199,7 +187,39 @@ export default function InteractionActions({
         </div>
       )}
 
-      {actions.length === 0 && !showAppear && (
+      {actions.length === 0 && isPointerEvent && (
+        <div className="flex flex-col gap-1 pb-4">
+          <p className="text-xs text-muted-foreground">
+            Choose an action for this event.
+          </p>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={() => handleAdd('navigate')}
+          >
+            Navigate
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={() => handleAdd('set-variant')}
+          >
+            Set variant
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={() => handleAdd('open-overlay')}
+          >
+            Open overlay
+          </Button>
+        </div>
+      )}
+
+      {actions.length === 0 && !showAppear && !isPointerEvent && (
         <p className="text-xs text-muted-foreground pb-4">
           Add an action for this event.
         </p>

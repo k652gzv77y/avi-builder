@@ -81,12 +81,12 @@ import {
   buildFilterString,
 } from '@/lib/animation-utils';
 import type { TriggerType, PropertyType, ParsedAnimationValue } from '@/lib/animation-utils';
-import { interactionSummary, withAppearPreset, withScrollPreset } from '@/lib/interactions-framer';
+import { createLayerInteraction, interactionSummary, withAppearPreset, withScrollPreset } from '@/lib/interactions-framer';
 import { applyInteractionChange } from '@/lib/overlay-setup';
 
 // 4. Types
 import type { ApplyStyles, Layer, LayerInteraction, InteractionTimeline, InteractionTween, TweenProperties, Breakpoint, OverlayPlacement } from '@/types';
-import { BREAKPOINTS, BREAKPOINT_VALUES } from '@/lib/breakpoint-utils';
+import { BREAKPOINTS } from '@/lib/breakpoint-utils';
 import { useColorVariablesStore } from '@/stores/useColorVariablesStore';
 import { Badge } from '@/components/ui/badge';
 
@@ -879,26 +879,7 @@ export default function InteractionsPanel({
   // Add new interaction
   const handleAddInteraction = useCallback(
     (trigger: TriggerType) => {
-      let newInteraction: LayerInteraction = {
-        id: generateId('int'),
-        trigger,
-        timeline: {
-          breakpoints: [...BREAKPOINT_VALUES], // All breakpoints by default
-          repeat: 0,
-          yoyo: false,
-          // Add scroll-specific defaults
-          ...(trigger === 'scroll-into-view' && {
-            scrollStart: 'top 80%',
-            toggleActions: 'play none none none',
-          }),
-          ...(trigger === 'while-scrolling' && {
-            scrollStart: 'top bottom',
-            scrollEnd: 'bottom top',
-            scrub: 1,
-          }),
-        },
-        tweens: [], // Start with no tweens - user will add them
-      };
+      let newInteraction: LayerInteraction = createLayerInteraction(generateId('int'), trigger);
 
       if (trigger === 'scroll-into-view' || trigger === 'load') {
         newInteraction = withAppearPreset(newInteraction, triggerLayer.id, 'fade', generateId('anm'));
@@ -1219,7 +1200,11 @@ export default function InteractionsPanel({
         <div className="-my-1">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button size="xs" variant="secondary">
+              <Button
+                size="xs"
+                variant="secondary"
+                aria-label="Add event"
+              >
                 <Icon name="plus" />
               </Button>
             </DropdownMenuTrigger>
