@@ -13,7 +13,8 @@ or materially below Framer's workflow.
 - [x] Canvas selection, zoom, layer tree, and stack/flex sibling reorder with gap indicators
 - [x] Free-form drag, resize handles, and arrow-key nudge for absolute, fixed, and frame children
 - [x] Drag and resize snap to parent and sibling edges and centers, with temporary alignment guides while the gesture is active
-- [ ] Persistent rulers and a smart-guide panel
+- [x] Persistent canvas rulers in page pixels, with zoom-aware ticks, selection ranges, and a show/hide toggle
+- [ ] Smart-guide panel listing active guides
 - [x] Desktop/tablet/phone breakpoints
 - [x] Per-breakpoint layout overrides with a clear inherited-value indicator
 - [ ] Independent breakpoint creation, naming, ordering, and range editing
