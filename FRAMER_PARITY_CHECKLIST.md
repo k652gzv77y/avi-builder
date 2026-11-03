@@ -25,7 +25,7 @@ or materially below Framer's workflow.
 - [ ] Canvas sections for organizing long pages
 - [x] Shift/Cmd-click and marquee multi-select, plus align and distribute for free-form layers
 - [ ] Spacing inspector and alignment for stack or grid children
-- [ ] Copy/paste styles and copy/paste responsive properties between layers
+- [x] Copy/paste styles (fill, border, radius, shadow, opacity, blend, filters, transforms, and text typography) and paste responsive breakpoint overrides between layers
 - [ ] Keyboard shortcut reference and command palette for all editor actions
 
 ## 2. Layout and Responsive Design

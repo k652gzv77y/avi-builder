@@ -50,6 +50,7 @@ const shortcutCategories: { left: ShortcutCategory[]; right: ShortcutCategory[] 
         { name: 'Redo', keys: [{ name: '⇧' }, { name: '⌘' }, { name: 'Z' }] },
         { name: 'Copy style', keys: [{ name: '⌥' }, { name: '⌘' }, { name: 'C' }] },
         { name: 'Paste style', keys: [{ name: '⌥' }, { name: '⌘' }, { name: 'V' }] },
+        { name: 'Paste responsive', keys: [{ name: '⇧' }, { name: '⌥' }, { name: '⌘' }, { name: 'V' }] },
         { name: 'Rename', keys: [{ name: 'F2' }] },
         { name: 'Delete', keys: [{ name: '⌫' }] },
         { name: 'Select parent', keys: [{ name: 'Esc' }] },
@@ -154,7 +155,7 @@ function ShortcutCategory({ category }: { category: ShortcutCategory }) {
 }
 
 const STRUCTURAL_SHORTCUTS = new Set([
-  'Copy', 'Paste', 'Cut', 'Duplicate', 'Copy style', 'Paste style',
+  'Copy', 'Paste', 'Cut', 'Duplicate', 'Copy style', 'Paste style', 'Paste responsive',
   'Rename', 'Delete', 'Create component', 'Detach instance',
   'Show/Hide element', 'Open add elements',
 ]);

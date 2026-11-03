@@ -901,7 +901,7 @@ const Canvas = React.memo(function Canvas({
       }
 
       // Forward keyboard events to parent window for global shortcuts
-      // (copy, paste, undo, redo, copy style, paste style, etc.)
+      // (copy, paste, undo, redo, copy style, paste style, paste responsive, etc.)
       if (!isInputFocused) {
         const syntheticEvent = new KeyboardEvent('keydown', {
           key: e.key,
