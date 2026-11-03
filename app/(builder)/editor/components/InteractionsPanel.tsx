@@ -1211,6 +1211,7 @@ export default function InteractionsPanel({
             <DropdownMenuContent className="mr-4">
               <DropdownMenuItem onClick={() => handleAddInteraction('click')} disabled={usedTriggers.has('click')}>{TRIGGER_LABELS.click}</DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleAddInteraction('hover')} disabled={usedTriggers.has('hover')}>{TRIGGER_LABELS.hover}</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleAddInteraction('press')} disabled={usedTriggers.has('press')}>{TRIGGER_LABELS.press}</DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleAddInteraction('scroll-into-view')} disabled={usedTriggers.has('scroll-into-view')}>{TRIGGER_LABELS['scroll-into-view']}</DropdownMenuItem>
               <DropdownMenuItem onClick={() => handleAddInteraction('while-scrolling')} disabled={usedTriggers.has('while-scrolling')}>{TRIGGER_LABELS['while-scrolling']}</DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -1375,7 +1376,7 @@ export default function InteractionsPanel({
             </div>
 
             {/* Effect - show for triggers that support looping (load has no toggle) */}
-            {['click', 'hover', 'load'].includes(selectedInteraction.trigger) && (
+            {['click', 'hover', 'press', 'load'].includes(selectedInteraction.trigger) && (
               <div className="grid grid-cols-3 items-center">
                 <Label variant="muted">Playback</Label>
                 <div className="col-span-2">

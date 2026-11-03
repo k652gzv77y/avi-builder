@@ -685,7 +685,15 @@ function renderInlineContent(
         text: value,
         marks: node.marks || [],
       };
-      return [renderTextNode(textNode, key, textStyles, isEditMode, collectionItemData, pageCollectionItemData, undefined, layerDataMap)];
+      const text = renderTextNode(textNode, key, textStyles, isEditMode, collectionItemData, pageCollectionItemData, undefined, layerDataMap);
+      const variableData = node.attrs?.variable?.data;
+      const globalId = variableData?.source === 'global'
+        ? (variableData.global_id || variableData.field_id)
+        : '';
+      if (typeof globalId === 'string' && globalId) {
+        return [React.createElement('span', { key, 'data-global-id': globalId }, text)];
+      }
+      return [text];
     }
 
     // Handle embedded component nodes preserved during flattening (from CMS rich_text fields)

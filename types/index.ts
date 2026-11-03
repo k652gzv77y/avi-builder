@@ -403,7 +403,8 @@ export type ScrollPresetId = 'fade' | 'slide-up' | 'scale' | 'parallax';
 /**
  * One action on an interaction event.
  * Tweens remain the animation track. These actions are the event grammar:
- * set a component variant, open or close an overlay, navigate, or
+ * set a component variant, open or close an overlay, navigate,
+ * scroll to a layer or page edge, set a project variable, or
  * change variant as the layer scrolls.
  */
 export type InteractionAction =
@@ -432,6 +433,22 @@ export type InteractionAction =
     }
   | {
       id: string;
+      type: 'scroll-to';
+      /** Layer scrolls that element into view. Page scrolls to the top or bottom. */
+      target: 'layer' | 'page';
+      targetLayerId?: string;
+      position?: 'top' | 'bottom';
+    }
+  | {
+      id: string;
+      type: 'set-variable';
+      /** Project variable id (`global_variables.id`). */
+      variableId: string;
+      /** Session value. Stored as text, the same way project variables store values. */
+      value: string;
+    }
+  | {
+      id: string;
       type: 'scroll-variant';
       targetLayerId: string;
       /** Scroll progress 0–1 at which this variant becomes active. */
@@ -440,7 +457,7 @@ export type InteractionAction =
 
 export interface LayerInteraction {
   id: string;
-  trigger: 'click' | 'hover' | 'scroll-into-view' | 'while-scrolling' | 'load';
+  trigger: 'click' | 'hover' | 'press' | 'scroll-into-view' | 'while-scrolling' | 'load';
   timeline: InteractionTimeline;
   tweens: InteractionTween[];
   /** Event actions. Kept beside tweens so existing animations stay intact. */

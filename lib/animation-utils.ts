@@ -89,7 +89,7 @@ export function createSplitTextAnimation(
 }
 
 // Types
-export type TriggerType = 'click' | 'hover' | 'scroll-into-view' | 'while-scrolling' | 'load';
+export type TriggerType = LayerInteraction['trigger'];
 export type PropertyType = 'position-x' | 'position-y' | 'scale' | 'rotation' | 'skew-x' | 'skew-y' | 'opacity' | 'width' | 'height' | 'background-color' | 'display' | 'split-text' | 'blur' | 'brightness' | 'grayscale';
 
 export interface PropertyConfig {

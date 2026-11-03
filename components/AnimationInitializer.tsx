@@ -548,7 +548,7 @@ export default function AnimationInitializer({ layers, injectInitialCSS }: Anima
       // server-emitted CSS. For hover/click, paint the `from` state inline so
       // the resting appearance matches the author's intent instead of the
       // layer's CSS default.
-      if (trigger === 'hover' || trigger === 'click') {
+      if (trigger === 'hover' || trigger === 'click' || trigger === 'press') {
         if (shouldRunOnBreakpoint(interaction, currentBreakpoint)) {
           applyInitialFromState(interaction);
         }
@@ -641,6 +641,37 @@ export default function AnimationInitializer({ layers, injectInitialCSS }: Anima
           cleanupRef.current.push(() => {
             triggerElement.removeEventListener('mouseenter', handleMouseEnter);
             triggerElement.removeEventListener('mouseleave', handleMouseLeave);
+          });
+          break;
+        }
+
+        case 'press': {
+          const handleDown = () => {
+            if (!shouldRunOnBreakpoint(interaction, getCurrentBreakpoint())) return;
+            runInteractionActions(actionDocument, interaction, triggerElement, { live: true });
+            getTimeline()?.play();
+          };
+          const handleUp = () => {
+            if (!shouldRunOnBreakpoint(interaction, getCurrentBreakpoint())) return;
+            const closing = {
+              ...interaction,
+              actions: actionsOnHoverLeave(interaction.actions),
+            };
+            runInteractionActions(actionDocument, closing, triggerElement, { live: true });
+            if (interaction.timeline?.yoyo) {
+              timelinesRef.current.get(interaction.id)?.reverse();
+            }
+          };
+
+          triggerElement.addEventListener('pointerdown', handleDown);
+          triggerElement.addEventListener('pointerup', handleUp);
+          triggerElement.addEventListener('pointerleave', handleUp);
+          triggerElement.addEventListener('pointercancel', handleUp);
+          cleanupRef.current.push(() => {
+            triggerElement.removeEventListener('pointerdown', handleDown);
+            triggerElement.removeEventListener('pointerup', handleUp);
+            triggerElement.removeEventListener('pointerleave', handleUp);
+            triggerElement.removeEventListener('pointercancel', handleUp);
           });
           break;
         }

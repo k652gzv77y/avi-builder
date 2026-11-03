@@ -543,7 +543,7 @@ const VISIBILITY_BOOT_SCRIPT = `
 
 export interface ExportedInteraction {
   triggerLayerId: string
-  trigger: 'click' | 'hover' | 'load' | 'scroll-into-view' | 'while-scrolling'
+  trigger: 'click' | 'hover' | 'press' | 'load' | 'scroll-into-view' | 'while-scrolling'
   breakpoints: string[]
   yoyo: boolean
   tweens: Array<{

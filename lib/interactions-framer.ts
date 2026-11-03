@@ -1,9 +1,9 @@
 /**
  * Framer-style interaction model for Sprint 4.
  *
- * Events stay on the existing trigger field (tap, hover, appear, scroll, load).
+ * Events stay on the existing trigger field (tap, hover, press, appear, scroll, load).
  * Actions are a separate list on that event: set variant, overlay, navigate,
- * and scroll-to-variant. Tweens remain the animation track, including Appear
+ * scroll to, set variable, and scroll-to-variant. Tweens remain the animation track, including Appear
  * presets. Effects (opacity, shadow, blur) are not part of this model.
  *
  * Code overrides (lib/code-components.ts) only add a class or a data/aria
@@ -29,6 +29,7 @@ export type InteractionEvent = LayerInteraction['trigger'];
 export const EVENT_LABELS: Record<InteractionEvent, string> = {
   click: 'Tap',
   hover: 'Hover',
+  press: 'Press',
   'scroll-into-view': 'Appear',
   'while-scrolling': 'Scroll',
   load: 'Load',
@@ -37,6 +38,7 @@ export const EVENT_LABELS: Record<InteractionEvent, string> = {
 export const INTERACTION_EVENTS: InteractionEvent[] = [
   'click',
   'hover',
+  'press',
   'scroll-into-view',
   'while-scrolling',
   'load',
@@ -106,6 +108,8 @@ const ACTION_TYPES = new Set<InteractionAction['type']>([
   'set-variant',
   'overlay',
   'navigate',
+  'scroll-to',
+  'set-variable',
   'scroll-variant',
 ]);
 
@@ -114,6 +118,8 @@ export type AuthorableActionKind =
   | 'set-variant'
   | 'open-overlay'
   | 'close-overlay'
+  | 'scroll-to'
+  | 'set-variable'
   | 'scroll-variant';
 
 /** Empty event document. Appear and scroll presets are applied by the caller. */
@@ -152,6 +158,10 @@ export function createEventAction(id: string, kind: AuthorableActionKind): Inter
       return createOverlayAction(id, 'open');
     case 'close-overlay':
       return createOverlayAction(id, 'close');
+    case 'scroll-to':
+      return createScrollToAction(id);
+    case 'set-variable':
+      return createSetVariableAction(id);
     case 'scroll-variant':
       return createScrollVariantAction(id);
     default:
@@ -246,6 +256,8 @@ export type ActionEffect =
   | { type: 'navigate'; href: string | null }
   | { type: 'set-variant'; targetLayerId: string; variantId: string }
   | { type: 'overlay'; operation: 'open' | 'close'; targetLayerId: string }
+  | { type: 'scroll-to'; target: 'layer' | 'page'; targetLayerId: string; position: 'top' | 'bottom' }
+  | { type: 'set-variable'; variableId: string; value: string }
   | { type: 'scroll-variant'; targetLayerId: string; variantId: string };
 
 /** What a saved event will do when preview runs it. No DOM. */
@@ -268,6 +280,19 @@ export function actionEffects(
           type: 'overlay',
           operation: action.operation,
           targetLayerId: action.targetLayerId,
+        };
+      case 'scroll-to':
+        return {
+          type: 'scroll-to',
+          target: action.target,
+          targetLayerId: action.targetLayerId ?? '',
+          position: action.position === 'bottom' ? 'bottom' : 'top',
+        };
+      case 'set-variable':
+        return {
+          type: 'set-variable',
+          variableId: action.variableId,
+          value: action.value,
         };
       case 'scroll-variant':
         return {
@@ -293,6 +318,10 @@ export function actionLabel(action: InteractionAction): string {
       return action.operation === 'open' ? 'Open Overlay' : 'Close Overlay';
     case 'navigate':
       return 'Navigate';
+    case 'scroll-to':
+      return 'Scroll to';
+    case 'set-variable':
+      return 'Set Variable';
     case 'scroll-variant':
       return 'Scroll to Variant';
     default:
@@ -343,6 +372,46 @@ export function createNavigateAction(
   destination: 'page' | 'url' = 'page',
 ): Extract<InteractionAction, { type: 'navigate' }> {
   return { id, type: 'navigate', destination, openInNewTab: false };
+}
+
+export function createScrollToAction(
+  id: string,
+  target: 'layer' | 'page' = 'layer',
+): Extract<InteractionAction, { type: 'scroll-to' }> {
+  return {
+    id,
+    type: 'scroll-to',
+    target,
+    targetLayerId: '',
+    position: 'top',
+  };
+}
+
+export function createSetVariableAction(
+  id: string,
+  variableId = '',
+  value = '',
+): Extract<InteractionAction, { type: 'set-variable' }> {
+  return { id, type: 'set-variable', variableId, value };
+}
+
+/** Where a Scroll to action should move. A layer with no id does not scroll. */
+export function scrollToPlan(
+  action: Extract<InteractionAction, { type: 'scroll-to' }>,
+): { target: 'layer'; layerId: string } | { target: 'page'; position: 'top' | 'bottom' } | null {
+  if (action.target === 'page') {
+    return { target: 'page', position: action.position === 'bottom' ? 'bottom' : 'top' };
+  }
+  if (!action.targetLayerId || action.targetLayerId === 'body') return null;
+  return { target: 'layer', layerId: action.targetLayerId };
+}
+
+/** Project variable write. Missing id is a no-op. */
+export function variableAssignment(
+  action: Extract<InteractionAction, { type: 'set-variable' }>,
+): { variableId: string; value: string } | null {
+  if (!action.variableId) return null;
+  return { variableId: action.variableId, value: action.value ?? '' };
 }
 
 export function createScrollVariantAction(
@@ -646,6 +715,11 @@ export function remapActionTarget(
     case 'overlay':
     case 'scroll-variant':
       return { ...action, targetLayerId: mapId(action.targetLayerId) };
+    case 'scroll-to':
+      return action.targetLayerId
+        ? { ...action, targetLayerId: mapId(action.targetLayerId) }
+        : action;
+    case 'set-variable':
     case 'navigate':
       return action;
     default:
