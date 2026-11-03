@@ -574,7 +574,7 @@ const RightSidebar = React.memo(function RightSidebar({
               targetIds.add(tween.layer_id);
             });
             (interaction.actions || []).forEach(action => {
-              if (action.type !== 'navigate' && action.targetLayerId && action.targetLayerId !== 'body') {
+              if ('targetLayerId' in action && action.targetLayerId && action.targetLayerId !== 'body') {
                 targetIds.add(action.targetLayerId);
               }
             });

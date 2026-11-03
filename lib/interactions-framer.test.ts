@@ -11,7 +11,9 @@ import {
   createLayerInteraction,
   createNavigateAction,
   createOverlayAction,
+  createScrollToAction,
   createScrollVariantAction,
+  createSetVariableAction,
   createSetVariantAction,
   dismissOnEscape,
   dismissOnPointer,
@@ -28,10 +30,12 @@ import {
   removeInteractionAction,
   removeLayerInteraction,
   resolveNavigateHref,
+  scrollToPlan,
   scrollProgressThroughViewport,
   serializeLayerInteractions,
   upsertInteractionAction,
   upsertLayerInteraction,
+  variableAssignment,
   variantForScrollProgress,
   variantTargets,
   withAppearPreset,
@@ -51,6 +55,7 @@ function interaction(partial: Partial<LayerInteraction> = {}): LayerInteraction 
 test('events use Framer labels and stay on the existing trigger ids', () => {
   assert.equal(EVENT_LABELS.click, 'Tap');
   assert.equal(EVENT_LABELS.hover, 'Hover');
+  assert.equal(EVENT_LABELS.press, 'Press');
   assert.equal(EVENT_LABELS['scroll-into-view'], 'Appear');
   assert.equal(EVENT_LABELS['while-scrolling'], 'Scroll');
   assert.equal(EVENT_LABELS.load, 'Load');
@@ -351,4 +356,91 @@ test('hover set-variant and open-overlay round-trip, and hover leave closes the 
   assert.equal(empty.actions, undefined);
   assert.deepEqual(actionEffects(empty), []);
   assert.throws(() => parseLayerInteractions('{"trigger":"click"}'), /array/);
+});
+
+test('press set-variable and tap scroll-to serialize on the layer', () => {
+  const layer: Layer = { id: 'btn', name: 'button', classes: '' };
+  const withVariable = authorLayerInteraction(layer, {
+    interactionId: 'int-press',
+    trigger: 'press',
+    action: createSetVariableAction('act-var', 'var-theme', 'dark'),
+  });
+
+  assert.equal(layer.interactions, undefined);
+  const storedVariable = parseLayerInteractions(serializeLayerInteractions(withVariable.interactions));
+  assert.equal(storedVariable[0].trigger, 'press');
+  assert.equal(interactionSummary(storedVariable[0]), 'Press → Set Variable');
+  assert.deepEqual(actionEffects(storedVariable[0]), [
+    { type: 'set-variable', variableId: 'var-theme', value: 'dark' },
+  ]);
+  assert.deepEqual(
+    variableAssignment(createSetVariableAction('act-var', 'var-theme', 'dark')),
+    { variableId: 'var-theme', value: 'dark' },
+  );
+  assert.equal(variableAssignment(createSetVariableAction('empty')), null);
+
+  const edited = authorLayerInteraction(withVariable, {
+    interactionId: 'int-press',
+    trigger: 'press',
+    action: createSetVariableAction('act-var', 'var-theme', 'light'),
+  });
+  assert.equal(edited.interactions?.length, 1);
+  const editedEffect = actionEffects(edited.interactions![0])[0];
+  assert.equal(editedEffect.type, 'set-variable');
+  if (editedEffect.type === 'set-variable') assert.equal(editedEffect.value, 'light');
+  assert.equal(removeLayerInteraction(edited, 'int-press').interactions?.length, 0);
+
+  const scrollAction: InteractionAction = {
+    id: 'act-scroll',
+    type: 'scroll-to',
+    target: 'layer',
+    targetLayerId: 'pricing',
+    position: 'top',
+  };
+  const withScroll = authorLayerInteraction(layer, {
+    interactionId: 'int-scroll',
+    trigger: 'click',
+    action: scrollAction,
+  });
+  const storedScroll = parseLayerInteractions(serializeLayerInteractions(withScroll.interactions));
+  assert.equal(interactionSummary(storedScroll[0]), 'Tap → Scroll to');
+  assert.deepEqual(actionEffects(storedScroll[0]), [
+    { type: 'scroll-to', target: 'layer', targetLayerId: 'pricing', position: 'top' },
+  ]);
+  assert.deepEqual(scrollToPlan({
+    id: 'act-scroll',
+    type: 'scroll-to',
+    target: 'layer',
+    targetLayerId: 'pricing',
+  }), { target: 'layer', layerId: 'pricing' });
+  assert.equal(scrollToPlan(createScrollToAction('missing')), null);
+
+  const pageScroll = authorLayerInteraction(withScroll, {
+    interactionId: 'int-scroll',
+    trigger: 'click',
+    action: {
+      id: 'act-scroll',
+      type: 'scroll-to',
+      target: 'page',
+      position: 'bottom',
+    },
+  });
+  assert.equal(pageScroll.interactions?.[0].actions?.length, 1);
+  assert.deepEqual(actionEffects(pageScroll.interactions![0]), [
+    { type: 'scroll-to', target: 'page', targetLayerId: '', position: 'bottom' },
+  ]);
+  assert.deepEqual(scrollToPlan({
+    id: 'act-scroll',
+    type: 'scroll-to',
+    target: 'page',
+    position: 'bottom',
+  }), { target: 'page', position: 'bottom' });
+
+  const leave = actionsOnHoverLeave([
+    createSetVariableAction('act-var', 'var-theme', 'dark'),
+    createScrollToAction('act-scroll', 'layer'),
+    createOverlayAction('act-over', 'open', 'sheet'),
+  ]);
+  assert.equal(leave.length, 1);
+  assert.equal(leave[0].type, 'overlay');
 });

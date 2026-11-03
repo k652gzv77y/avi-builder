@@ -4,7 +4,7 @@
  * Event → action editor. Sits on the Interactions tab, separate from Effects.
  */
 
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -45,6 +45,7 @@ import {
 import { getLayerName } from '@/lib/layer-display-utils';
 import { generateId } from '@/lib/utils';
 import { useComponentsStore } from '@/stores/useComponentsStore';
+import { useGlobalsStore } from '@/stores/useGlobalsStore';
 import { usePagesStore } from '@/stores/usePagesStore';
 import type {
   AppearPresetId,
@@ -71,11 +72,20 @@ export default function InteractionActions({
 }: InteractionActionsProps) {
   const pages = usePagesStore(state => state.pages);
   const components = useComponentsStore(state => state.components);
+  const globals = useGlobalsStore(state => state.globals);
+  const globalsLoaded = useGlobalsStore(state => state.hasLoaded);
+  const loadGlobals = useGlobalsStore(state => state.loadGlobals);
   const actions = interaction.actions ?? [];
   const showAppear = interaction.trigger === 'scroll-into-view' || interaction.trigger === 'load';
   const showScroll = interaction.trigger === 'while-scrolling';
   const showScrollAction = showScroll;
-  const isPointerEvent = interaction.trigger === 'click' || interaction.trigger === 'hover';
+  const isPointerEvent = interaction.trigger === 'click' || interaction.trigger === 'hover' || interaction.trigger === 'press';
+
+  useEffect(() => {
+    if (!globalsLoaded) {
+      void loadGlobals();
+    }
+  }, [globalsLoaded, loadGlobals]);
 
   const layers = useMemo(
     () => flattenLayers(allLayers).filter(layer => layer.id !== 'body'),
@@ -89,8 +99,12 @@ export default function InteractionActions({
     () => pages.filter(page => !page.deleted_at),
     [pages],
   );
+  const variableChoices = useMemo(
+    () => globals.filter(item => !item.deleted_at && item.type !== 'image' && item.type !== 'rich_text'),
+    [globals],
+  );
 
-  const handleAdd = (kind: 'set-variant' | 'open-overlay' | 'close-overlay' | 'navigate' | 'scroll-variant') => {
+  const handleAdd = (kind: 'set-variant' | 'open-overlay' | 'close-overlay' | 'navigate' | 'scroll-to' | 'set-variable' | 'scroll-variant') => {
     onChange(upsertInteractionAction(interaction, createEventAction(generateId('act'), kind)));
   };
 
@@ -103,6 +117,13 @@ export default function InteractionActions({
       scrollProgress: action.type === 'scroll-variant' ? 1 : undefined,
       onNavigate: (href) => {
         toast.message(`Navigate to ${href}`);
+      },
+      onScrollTo: (label) => {
+        toast.message(`Scroll to ${label}`);
+      },
+      onSetVariable: (_variableId, value) => {
+        const name = globals.find(item => item.id === _variableId)?.name;
+        toast.message(name ? `Set ${name} to ${value}` : `Set variable to ${value}`);
       },
     });
   };
@@ -130,6 +151,12 @@ export default function InteractionActions({
             <DropdownMenuItem onClick={() => handleAdd('open-overlay')}>Open Overlay</DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleAdd('close-overlay')}>Close Overlay</DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleAdd('navigate')}>Navigate</DropdownMenuItem>
+            {isPointerEvent && (
+              <>
+                <DropdownMenuItem onClick={() => handleAdd('scroll-to')}>Scroll to</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleAdd('set-variable')}>Set variable</DropdownMenuItem>
+              </>
+            )}
             {showScrollAction && (
               <DropdownMenuItem onClick={() => handleAdd('scroll-variant')}>Scroll to Variant</DropdownMenuItem>
             )}
@@ -216,6 +243,22 @@ export default function InteractionActions({
           >
             Open overlay
           </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={() => handleAdd('scroll-to')}
+          >
+            Scroll to
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={() => handleAdd('set-variable')}
+          >
+            Set variable
+          </Button>
         </div>
       )}
 
@@ -254,6 +297,7 @@ export default function InteractionActions({
               layers={layers}
               targets={targets}
               pages={pageChoices.map(page => ({ id: page.id, name: page.name, slug: page.slug, is_index: page.is_index }))}
+              variables={variableChoices.map(item => ({ id: item.id, name: item.name }))}
               onChange={updateAction}
             />
           </div>
@@ -268,10 +312,11 @@ interface ActionFieldsProps {
   layers: Layer[];
   targets: ReturnType<typeof variantTargets>;
   pages: Array<{ id: string; name: string; slug: string; is_index: boolean }>;
+  variables: Array<{ id: string; name: string }>;
   onChange: (action: InteractionAction) => void;
 }
 
-function ActionFields({ action, layers, targets, pages, onChange }: ActionFieldsProps) {
+function ActionFields({ action, layers, targets, pages, variables, onChange }: ActionFieldsProps) {
   if (action.type === 'set-variant' || action.type === 'scroll-variant') {
     const target = targets.find(item => item.layerId === action.targetLayerId);
     return (
@@ -405,6 +450,90 @@ function ActionFields({ action, layers, targets, pages, onChange }: ActionFields
       </>
     );
   }
+
+  if (action.type === 'scroll-to') {
+    return (
+      <>
+        <Field label="To">
+          <Tabs
+            value={action.target}
+            onValueChange={(target) => onChange({
+              ...action,
+              target: target as 'layer' | 'page',
+            })}
+          >
+            <TabsList className="w-full">
+              <TabsTrigger value="layer">Layer</TabsTrigger>
+              <TabsTrigger value="page">Page</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </Field>
+        {action.target === 'layer' ? (
+          <Field label="Layer">
+            <Select
+              value={action.targetLayerId || undefined}
+              onValueChange={(targetLayerId) => onChange({ ...action, targetLayerId })}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Choose" />
+              </SelectTrigger>
+              <SelectContent>
+                {layers.map(layer => (
+                  <SelectItem key={layer.id} value={layer.id}>{getLayerName(layer)}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+        ) : (
+          <Field label="Position">
+            <Tabs
+              value={action.position === 'bottom' ? 'bottom' : 'top'}
+              onValueChange={(position) => onChange({
+                ...action,
+                position: position as 'top' | 'bottom',
+              })}
+            >
+              <TabsList className="w-full">
+                <TabsTrigger value="top">Top</TabsTrigger>
+                <TabsTrigger value="bottom">Bottom</TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </Field>
+        )}
+      </>
+    );
+  }
+
+  if (action.type === 'set-variable') {
+    return (
+      <>
+        <Field label="Variable">
+          <Select
+            value={action.variableId || undefined}
+            onValueChange={(variableId) => onChange({ ...action, variableId })}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder={variables.length === 0 ? 'No project variables' : 'Choose'} />
+            </SelectTrigger>
+            <SelectContent>
+              {variables.map(variable => (
+                <SelectItem key={variable.id} value={variable.id}>{variable.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+        <Field label="Value">
+          <Input
+            value={action.value}
+            placeholder="Value"
+            onChange={(event) => onChange({ ...action, value: event.target.value })}
+          />
+        </Field>
+      </>
+    );
+  }
+
+  if (action.type !== 'navigate') return null;
 
   return (
     <>

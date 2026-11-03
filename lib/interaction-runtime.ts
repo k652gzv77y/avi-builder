@@ -14,8 +14,11 @@ import {
   overlayPlacementStyle,
   resolveNavigateHref,
   scrollProgressThroughViewport,
+  scrollToPlan,
+  variableAssignment,
   variantForScrollProgress,
 } from '@/lib/interactions-framer';
+import { useGlobalsStore } from '@/stores/useGlobalsStore';
 import { useInteractionPreviewStore } from '@/stores/useInteractionPreviewStore';
 import type { InteractionAction, Layer, LayerInteraction } from '@/types';
 
@@ -27,6 +30,8 @@ export interface ActionRunOptions {
   /** 0–1 scroll progress. Only scroll-to-variant actions use it. */
   scrollProgress?: number;
   onNavigate?: (href: string, openInNewTab: boolean) => void;
+  onScrollTo?: (label: string) => void;
+  onSetVariable?: (variableId: string, value: string) => void;
 }
 
 interface OverlaySession {
@@ -135,6 +140,57 @@ function cssProperty(key: string): string {
   return key.replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`);
 }
 
+function applyScrollTo(
+  doc: Document,
+  action: Extract<InteractionAction, { type: 'scroll-to' }>,
+  options: ActionRunOptions,
+): void {
+  const plan = scrollToPlan(action);
+  if (!plan) return;
+  if (!options.live) {
+    const label = plan.target === 'page'
+      ? plan.position
+      : plan.layerId;
+    options.onScrollTo?.(label);
+  }
+  const view = doc.defaultView;
+  if (!view) return;
+  if (plan.target === 'page') {
+    const scroller = doc.scrollingElement || doc.documentElement;
+    const top = plan.position === 'bottom' ? scroller.scrollHeight : 0;
+    view.scrollTo({ top, behavior: 'smooth' });
+    return;
+  }
+  findLayer(doc, plan.layerId)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function applyVariableText(doc: Document, variableId: string, value: string): void {
+  const nodes = doc.querySelectorAll(`[data-global-id="${cssEscape(variableId)}"]`);
+  nodes.forEach(node => {
+    node.textContent = value;
+  });
+}
+
+function applySetVariable(
+  doc: Document,
+  action: Extract<InteractionAction, { type: 'set-variable' }>,
+  options: ActionRunOptions,
+): void {
+  const assignment = variableAssignment(action);
+  if (!assignment) return;
+  if (!options.live) options.onSetVariable?.(assignment.variableId, assignment.value);
+  applyVariableText(doc, assignment.variableId, assignment.value);
+  useGlobalsStore.setState(state => {
+    const current = state.globals.find(global => global.id === assignment.variableId);
+    if (!current || current.value === assignment.value) return state;
+    return {
+      globals: state.globals.map(global => (
+        global.id === assignment.variableId ? { ...global, value: assignment.value } : global
+      )),
+    };
+  });
+}
+
 function applyNavigate(
   doc: Document,
   action: Extract<InteractionAction, { type: 'navigate' }>,
@@ -173,6 +229,12 @@ function applyAction(
       break;
     case 'navigate':
       applyNavigate(doc, action, options);
+      break;
+    case 'scroll-to':
+      applyScrollTo(doc, action, options);
+      break;
+    case 'set-variable':
+      applySetVariable(doc, action, options);
       break;
     default:
       break;
@@ -288,6 +350,27 @@ export function bindInteractionActions(
       cleanups.push(() => {
         trigger.removeEventListener('mouseenter', handleEnter);
         trigger.removeEventListener('mouseleave', handleLeave);
+      });
+    }
+
+    if (interaction.trigger === 'press') {
+      const handleDown = () => runInteractionActions(doc, interaction, trigger, { live: true });
+      const handleUp = () => {
+        const closing: LayerInteraction = {
+          ...interaction,
+          actions: actionsOnHoverLeave(interaction.actions),
+        };
+        runInteractionActions(doc, closing, trigger, { live: true });
+      };
+      trigger.addEventListener('pointerdown', handleDown);
+      trigger.addEventListener('pointerup', handleUp);
+      trigger.addEventListener('pointerleave', handleUp);
+      trigger.addEventListener('pointercancel', handleUp);
+      cleanups.push(() => {
+        trigger.removeEventListener('pointerdown', handleDown);
+        trigger.removeEventListener('pointerup', handleUp);
+        trigger.removeEventListener('pointerleave', handleUp);
+        trigger.removeEventListener('pointercancel', handleUp);
       });
     }
 

@@ -90,9 +90,9 @@ or materially below Framer's workflow.
 
 - [x] Animation presets, animation initialization, interactions-related MCP tools, and custom code injection
 - [x] HTML embeds and head/body code injection
-- [~] Tap and Hover can be authored with Navigate, Set Variant, and Open Overlay. Press, drag, keyboard, timer, and the rest of Framer's interaction model are still open
-- [~] Layer event panel: Tap and Hover (mouse enter) can be added, edited, and deleted on a layer, including a component instance. Appear, Scroll, and Load remain animation events. Press, drag, viewport leave, keyboard, and timer are not offered
-- [~] Actions: Navigate to a page or URL, Set Variant, and Open/Close Overlay are stored on the event and run in preview. Scroll to, set variable, play media, submit form, and run code are not offered
+- [~] Tap, Hover, and Press can be authored with Navigate, Set Variant, Open Overlay, Scroll to, and Set Variable. Drag, keyboard, timer, and the rest of Framer's interaction model are still open
+- [~] Layer event panel: Tap, Hover (mouse enter), and Press (pointer down) can be added, edited, and deleted on a layer, including a component instance. Appear, Scroll, and Load remain animation events. Drag, viewport leave, keyboard, and timer are not offered
+- [~] Actions: Navigate to a page or URL, Set Variant, Open/Close Overlay, Scroll to a layer or the top or bottom of the page, and Set Variable (project variable and value) are stored on the event and run in preview. Play media, submit form, and run code are not offered
 - [ ] Transition editor with spring parameters, easing curves, delay, duration, and stagger
 - [ ] Scroll transforms, parallax, sticky sections, and scroll-linked animation timeline
 - [ ] Drag gestures with constraints, snap points, momentum, and drag-to-variant behavior
@@ -158,7 +158,7 @@ Mark the items you want from this set first:
 - [ ] Component property controls and instance overrides
 - [ ] Variant property matrix and interactive variants
 - [ ] Variables/bindings picker and computed variables
-- [~] Layer event/action panel: Tap or Hover to Navigate, Set Variant, or Open Overlay. The full overlay system is still open
+- [~] Layer event/action panel: Tap, Hover, or Press to Navigate, Set Variant, Open Overlay, Scroll to, or Set Variable. The full overlay system is still open
 - [x] Framer-style responsive sizing and breakpoint inspector
 - [ ] Code Components and layer overrides
 - [ ] Design-token modes/themes and style preset browser
