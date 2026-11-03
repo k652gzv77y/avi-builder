@@ -1,7 +1,7 @@
 /**
  * Framer-style interaction model for Sprint 4.
  *
- * Events stay on the existing trigger field (tap, hover, press, keyboard, timer, appear, scroll, load).
+ * Events stay on the existing trigger field (tap, hover, press, drag, keyboard, timer, appear, scroll, load).
  * Actions are a separate list on that event: set variant, overlay, navigate,
  * scroll to, set variable, and scroll-to-variant. Tweens remain the animation track, including Appear
  * presets. Effects (opacity, shadow, blur) are not part of this model.
@@ -11,9 +11,11 @@
  */
 
 import { BREAKPOINT_VALUES } from '@/lib/breakpoint-utils';
+import { defaultDragTrigger, readDragTrigger, readDragVariantRule } from '@/lib/drag-gesture';
 import { defaultDismissForKind, placementForKind } from '@/lib/overlay-position';
 import type {
   AppearPresetId,
+  DragVariantRule,
   InteractionAction,
   InteractionTween,
   KeyboardTrigger,
@@ -34,6 +36,7 @@ export const EVENT_LABELS: Record<InteractionEvent, string> = {
   click: 'Tap',
   hover: 'Hover',
   press: 'Press',
+  drag: 'Drag',
   key: 'Keyboard',
   timer: 'Timer',
   'scroll-into-view': 'Appear',
@@ -45,6 +48,7 @@ export const INTERACTION_EVENTS: InteractionEvent[] = [
   'click',
   'hover',
   'press',
+  'drag',
   'key',
   'timer',
   'scroll-into-view',
@@ -393,6 +397,7 @@ export function createLayerInteraction(
     tweens: [],
     ...(trigger === 'key' ? { keyboard: defaultKeyboardTrigger() } : {}),
     ...(trigger === 'timer' ? { timer: defaultTimerTrigger() } : {}),
+    ...(trigger === 'drag' ? { drag: defaultDragTrigger() } : {}),
   };
 }
 
@@ -488,10 +493,14 @@ function readInteraction(value: unknown): LayerInteraction {
       if (!isRecord(action) || typeof action.id !== 'string' || !ACTION_TYPES.has(action.type as InteractionAction['type'])) {
         throw new Error('Interaction action is not supported');
       }
+      if (action.type === 'set-variant' && action.drag !== undefined) {
+        action.drag = readDragVariantRule(action.drag);
+      }
     }
   }
   if (value.keyboard !== undefined) value.keyboard = readKeyboard(value.keyboard);
   if (value.timer !== undefined) value.timer = readTimer(value.timer);
+  if (value.drag !== undefined || value.trigger === 'drag') value.drag = readDragTrigger(value.drag);
   return value as unknown as LayerInteraction;
 }
 
@@ -655,8 +664,15 @@ export function createSetVariantAction(
   id: string,
   targetLayerId = '',
   variantId = '',
+  drag?: DragVariantRule,
 ): Extract<InteractionAction, { type: 'set-variant' }> {
-  return { id, type: 'set-variant', targetLayerId, variantId };
+  return {
+    id,
+    type: 'set-variant',
+    targetLayerId,
+    variantId,
+    ...(drag ? { drag } : {}),
+  };
 }
 
 export function createOverlayAction(

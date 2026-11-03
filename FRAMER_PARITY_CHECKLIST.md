@@ -92,13 +92,13 @@ or materially below Framer's workflow.
 
 - [x] Animation presets, animation initialization, interactions-related MCP tools, and custom code injection
 - [x] HTML embeds and head/body code injection
-- [~] Tap, Hover, Press, Keyboard, and Timer can be authored with Navigate, Set Variant, Open Overlay, Scroll to, and Set Variable. Drag and the rest of Framer's interaction model are still open
-- [~] Layer event panel: Tap, Hover (mouse enter), Press (pointer down), Keyboard (key down or key up, with Shift, Cmd, Alt, and Ctrl), and Timer (delay, and repeat with an interval) can be added, edited, and deleted on a layer, including a component instance. Appear, Scroll, and Load remain animation events. Drag and viewport leave are not offered
-- [~] Actions: Navigate to a page or URL, Set Variant, Open/Close Overlay (modal, popover, and tooltip chrome; sheet and menu are partial), Scroll to a layer or the top or bottom of the page, and Set Variable (project variable and value) are stored on the event and run in preview for Tap, Hover, Press, Keyboard, and Timer. Hover and Press Set Variant return to the previous variant when the gesture ends. Tap stays. Play media, submit form, and run code are not offered
+- [~] Tap, Hover, Press, Drag, Keyboard, and Timer can be authored with Navigate, Set Variant, Open Overlay, Scroll to, and Set Variable. Viewport leave and the rest of Framer's interaction model are still open
+- [~] Layer event panel: Tap, Hover (mouse enter), Press (pointer down), Drag (free, horizontal, vertical, or locked to the first axis; optional parent or pixel bounds; snap points; a short momentum glide), Keyboard (key down or key up, with Shift, Cmd, Alt, and Ctrl), and Timer (delay, and repeat with an interval) can be added, edited, and deleted on a layer, including a component instance. Appear, Scroll, and Load remain animation events. Viewport leave is not offered
+- [~] Actions: Navigate to a page or URL, Set Variant, Open/Close Overlay (modal, popover, and tooltip chrome; sheet and menu are partial), Scroll to a layer or the top or bottom of the page, and Set Variable (project variable and value) are stored on the event and run in preview for Tap, Hover, Press, Drag, Keyboard, and Timer. Hover and Press Set Variant return to the previous variant when the gesture ends. Tap stays. A Drag Set Variant can keep the variant after a direction and distance (like Tap) or return when the drag ends (like Hover). Other Drag actions run when the drag starts, on release, or both. Play media, submit form, and run code are not offered
 - [ ] Transition editor with spring parameters, easing curves, delay, duration, and stagger
 - [ ] Scroll transforms, parallax, sticky sections, and scroll-linked animation timeline
-- [ ] Drag gestures with constraints, snap points, momentum, and drag-to-variant behavior
-- [x] Overlay system: modal dialog (centered card, backdrop, focus trap) and anchored popover and tooltip (flip and clamp, optional anchor layer) with Escape, outside click, return focus, and Close Overlay. Works from Tap, Hover, Press, Keyboard, and Timer in preview and on published pages
+- [x] Drag gestures with axis lock, optional parent or pixel bounds, snap points, a short momentum glide on release, and drag-to-variant thresholds. The gesture runs in preview and on published pages. The design canvas still uses the pointer to select and move free-form layers
+- [x] Overlay system: modal dialog (centered card, backdrop, focus trap) and anchored popover and tooltip (flip and clamp, optional anchor layer) with Escape, outside click, return focus, and Close Overlay. Works from Tap, Hover, Press, Drag, Keyboard, and Timer in preview and on published pages
 - [~] Sheet (bottom panel, no drag-to-dismiss) and menu (anchored like a popover, no arrow-key item navigation) share that overlay plumbing
 - [ ] Shared-layout animations between pages and component states
 - [ ] Lottie and Rive controls with property bindings
@@ -161,7 +161,7 @@ Mark the items you want from this set first:
 - [x] Component property controls and instance overrides (text, number, boolean, enum, color, image, link, array, object, slot, and the existing media controls)
 - [x] Variant property matrix and interactive variants. Each variant stores property defaults. Hover, Press, and Tap switch the active variant and use those defaults
 - [ ] Variables/bindings picker and computed variables
-- [~] Layer event/action panel: Tap, Hover, Press, Keyboard, or Timer to Navigate, Set Variant, Open Overlay, Scroll to, or Set Variable. Modal, popover, and tooltip overlays can be created from the event. Sheet and menu are partial
+- [~] Layer event/action panel: Tap, Hover, Press, Drag, Keyboard, or Timer to Navigate, Set Variant, Open Overlay, Scroll to, or Set Variable. Drag can switch variants from a direction and distance. Modal, popover, and tooltip overlays can be created from the event. Sheet and menu are partial
 - [x] Framer-style responsive sizing and breakpoint inspector
 - [ ] Code Components and layer overrides
 - [ ] Design-token modes/themes and style preset browser

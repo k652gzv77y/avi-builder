@@ -5,6 +5,16 @@
  */
 
 import {
+  dragPhaseActions,
+  dragVariantChoices,
+  limitsForBounds,
+  normalizeDragTrigger,
+  plainDragVariantTargets,
+  projectDragMove,
+  settleDragOffset,
+  type DragPoint,
+} from '@/lib/drag-gesture';
+import {
   actionsForRun,
   actionsOnHoverLeave,
   dismissOnEscape,
@@ -45,6 +55,7 @@ import { useInteractionPreviewStore } from '@/stores/useInteractionPreviewStore'
 import type {
   InteractionAction,
   KeyboardPhase,
+  DragTrigger,
   KeyboardTrigger,
   Layer,
   LayerInteraction,
@@ -118,7 +129,13 @@ function commitVariant(doc: Document, layerId: string): void {
 
 function writeVariantSession(doc: Document, layerId: string, next: VariantSession, previous: VariantSession): void {
   if (next === previous) return;
-  if (activeVariantId(next) == null && next.base == null && next.hover == null && next.press == null) {
+  if (
+    activeVariantId(next) == null
+    && next.base == null
+    && next.hover == null
+    && next.press == null
+    && next.drag == null
+  ) {
     variantSessions.delete(layerId);
   } else {
     variantSessions.set(layerId, next);
@@ -132,7 +149,7 @@ export function previewVariantGesture(
   layerId: string,
   event:
     | { type: 'set'; gesture: VariantGesture; variantId: string }
-    | { type: 'end'; gesture: 'hover' | 'press' },
+    | { type: 'end'; gesture: 'hover' | 'press' | 'drag' },
 ): void {
   if (!layerId) return;
   if (event.type === 'set' && !event.variantId) return;
@@ -143,6 +160,7 @@ export function previewVariantGesture(
 /** Drop every remembered variant. Tests use this between cases. */
 export function resetInteractiveVariants(): void {
   variantSessions.clear();
+  resetDragGestures();
   useInteractionPreviewStore.getState().clearVariants();
 }
 
@@ -156,7 +174,7 @@ function applySetVariant(
   if (!targetLayerId || !variantId) return;
   if (mode === 'replace') {
     const current = variantSessions.get(targetLayerId) ?? emptyVariantSession();
-    writeVariantSession(doc, targetLayerId, { base: variantId, hover: null, press: null }, current);
+    writeVariantSession(doc, targetLayerId, { base: variantId, hover: null, press: null, drag: null }, current);
     return;
   }
   previewVariantGesture(doc, targetLayerId, { type: 'set', gesture, variantId });
@@ -659,8 +677,9 @@ export function playInteraction(
 }
 
 /**
- * End a Hover or Press. Variant actions return to the previous variant.
- * Overlays opened by the event still close.
+ * End a Hover, Press, or Drag variant.
+ * Hover and Press also close overlays this event opened.
+ * Drag leaves overlays to the drag binder, because a release can be the commit.
  */
 export function releaseInteraction(
   doc: Document,
@@ -669,18 +688,390 @@ export function releaseInteraction(
   options: { live: boolean },
 ): void {
   const gesture = variantGestureForTrigger(interaction.trigger);
-  if (gesture === 'hover' || gesture === 'press') {
+  if (gesture === 'hover' || gesture === 'press' || gesture === 'drag') {
     for (const action of interaction.actions ?? []) {
       if (action.type !== 'set-variant' || !action.targetLayerId) continue;
       previewVariantGesture(doc, action.targetLayerId, { type: 'end', gesture });
     }
   }
+  if (gesture === 'drag') return;
   const closing = actionsOnHoverLeave(interaction.actions);
   if (closing.length === 0) return;
   runInteractionActions(doc, { ...interaction, actions: closing }, trigger, {
     live: options.live,
     gesture: 'sticky',
   });
+}
+
+const dragOffsetByLayerId = new Map<string, DragPoint>();
+let dragDepth = 0;
+const dragEndListeners = new Set<() => void>();
+
+/** True while a preview or published drag has passed the slop and not yet released. */
+export function isDragGestureActive(): boolean {
+  return dragDepth > 0;
+}
+
+/**
+ * Fires when the last active drag releases.
+ * The animation binder uses this to defer a rebind that would drop the gesture.
+ */
+export function subscribeDragGestureEnd(listener: () => void): () => void {
+  dragEndListeners.add(listener);
+  return () => {
+    dragEndListeners.delete(listener);
+  };
+}
+
+function setDragActive(active: boolean): void {
+  dragDepth += active ? 1 : -1;
+  if (dragDepth < 0) dragDepth = 0;
+  if (dragDepth === 0) {
+    for (const listener of [...dragEndListeners]) listener();
+  }
+}
+
+/** Forget drag offsets. Tests call this between cases, via resetInteractiveVariants. */
+export function resetDragGestures(): void {
+  dragOffsetByLayerId.clear();
+  dragDepth = 0;
+  dragEndListeners.clear();
+}
+
+function measureDragLimits(
+  doc: Document,
+  layerId: string,
+  spec: DragTrigger,
+  offset: DragPoint,
+): ReturnType<typeof limitsForBounds> {
+  if (!spec.bounds) return { minX: null, maxX: null, minY: null, maxY: null };
+  const element = findLayer(doc, layerId);
+  if (!element) return limitsForBounds(spec.bounds, { width: 0, height: 0 }, null, { x: 0, y: 0 });
+  const rect = element.getBoundingClientRect();
+  const parentRect = element.parentElement?.getBoundingClientRect();
+  const resting = parentRect
+    ? { x: rect.left - parentRect.left - offset.x, y: rect.top - parentRect.top - offset.y }
+    : { x: 0, y: 0 };
+  return limitsForBounds(
+    spec.bounds,
+    { width: rect.width, height: rect.height },
+    parentRect ? { width: parentRect.width, height: parentRect.height } : null,
+    resting,
+  );
+}
+
+function paintDrag(doc: Document, layerId: string, point: DragPoint): void {
+  const element = findLayer(doc, layerId);
+  if (!element) return;
+  element.style.setProperty('translate', `${point.x}px ${point.y}px`);
+  element.style.setProperty('touch-action', 'none');
+  element.style.setProperty('cursor', 'grab');
+  element.setAttribute('data-drag-gesture', 'true');
+}
+
+function syncDragVariants(
+  doc: Document,
+  actions: LayerInteraction['actions'],
+  delta: DragPoint,
+  activeTargets: Set<string>,
+): Set<string> {
+  const choices = dragVariantChoices(delta, actions);
+  const next = new Set<string>();
+  for (const choice of choices) {
+    previewVariantGesture(doc, choice.targetLayerId, {
+      type: 'set',
+      gesture: 'drag',
+      variantId: choice.variantId,
+    });
+    next.add(choice.targetLayerId);
+  }
+  for (const targetLayerId of activeTargets) {
+    if (next.has(targetLayerId)) continue;
+    previewVariantGesture(doc, targetLayerId, { type: 'end', gesture: 'drag' });
+  }
+  return next;
+}
+
+function commitDragVariants(
+  doc: Document,
+  actions: LayerInteraction['actions'],
+  delta: DragPoint,
+  activeTargets: Set<string>,
+): void {
+  const choices = dragVariantChoices(delta, actions);
+  const chosen = new Set<string>();
+  for (const choice of choices) {
+    chosen.add(choice.targetLayerId);
+    if (choice.release !== 'stick') continue;
+    previewVariantGesture(doc, choice.targetLayerId, {
+      type: 'set',
+      gesture: 'sticky',
+      variantId: choice.variantId,
+    });
+  }
+  for (const targetLayerId of new Set([...activeTargets, ...chosen])) {
+    previewVariantGesture(doc, targetLayerId, { type: 'end', gesture: 'drag' });
+  }
+}
+
+function runDragPhase(
+  doc: Document,
+  interaction: LayerInteraction,
+  phase: 'move' | 'end',
+  trigger: HTMLElement | null,
+  live: boolean,
+): void {
+  const drag = normalizeDragTrigger(interaction.drag);
+  const actions = dragPhaseActions(interaction, phase);
+  if (actions.length > 0) {
+    const gesture = phase === 'move' || drag.phase === 'move' ? 'drag' as const : 'sticky' as const;
+    runInteractionActions(doc, { ...interaction, actions }, trigger, { live, gesture });
+  }
+  if (phase !== 'end') return;
+  for (const targetLayerId of plainDragVariantTargets(interaction.actions)) {
+    previewVariantGesture(doc, targetLayerId, { type: 'end', gesture: 'drag' });
+  }
+  if (drag.phase !== 'move') return;
+  const closing = actionsOnHoverLeave(interaction.actions);
+  if (closing.length === 0) return;
+  runInteractionActions(doc, { ...interaction, actions: closing }, trigger, { live, gesture: 'sticky' });
+}
+
+interface ActiveDrag {
+  pointerId: number;
+  originX: number;
+  originY: number;
+  startOffset: DragPoint;
+  offset: DragPoint;
+  locked: 'x' | 'y' | null;
+  lastX: number;
+  lastY: number;
+  lastTime: number;
+  velocity: DragPoint;
+  moved: boolean;
+  firedMove: boolean;
+  counted: boolean;
+  targets: Set<string>;
+}
+
+function readPointer(event: Event): { pointerId: number; button: number; x: number; y: number; time: number } | null {
+  if (!('clientX' in event) || typeof event.clientX !== 'number') return null;
+  if (!('clientY' in event) || typeof event.clientY !== 'number') return null;
+  const pointer = event as PointerEvent;
+  return {
+    pointerId: typeof pointer.pointerId === 'number' ? pointer.pointerId : 1,
+    button: typeof pointer.button === 'number' ? pointer.button : 0,
+    x: pointer.clientX,
+    y: pointer.clientY,
+    time: typeof pointer.timeStamp === 'number' ? pointer.timeStamp : 0,
+  };
+}
+
+/**
+ * Follow the pointer on a Drag event.
+ * Listeners stay on the document so a variant swap can replace the node.
+ * `live: false` does nothing: the design canvas uses the pointer to select
+ * and move free-form layers, and this gesture must not take that over.
+ */
+export function bindDragInteraction(
+  doc: Document,
+  layerId: string,
+  interaction: LayerInteraction,
+  options: { live: boolean; enabled?: () => boolean },
+): () => void {
+  if (!options.live || interaction.trigger !== 'drag') return () => {};
+  const spec = normalizeDragTrigger(interaction.drag);
+  let session: ActiveDrag | null = null;
+  let frame = 0;
+  let paintGeneration = 0;
+  let suppressClick = false;
+  let suppressTimer = 0;
+
+  const remember = (point: DragPoint) => {
+    dragOffsetByLayerId.set(layerId, point);
+  };
+
+  const scheduleReapply = (point: DragPoint) => {
+    if (typeof requestAnimationFrame !== 'function') return;
+    const generation = ++paintGeneration;
+    requestAnimationFrame(() => {
+      if (generation !== paintGeneration) return;
+      paintDrag(doc, layerId, dragOffsetByLayerId.get(layerId) ?? point);
+    });
+  };
+
+  const show = (point: DragPoint) => {
+    remember(point);
+    paintDrag(doc, layerId, point);
+    scheduleReapply(point);
+  };
+
+  const cancelFrame = () => {
+    if (frame && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(frame);
+    frame = 0;
+  };
+
+  const glide = (from: DragPoint, to: DragPoint) => {
+    remember(to);
+    paintGeneration += 1;
+    if ((from.x === to.x && from.y === to.y) || typeof requestAnimationFrame !== 'function') {
+      paintDrag(doc, layerId, to);
+      scheduleReapply(to);
+      return;
+    }
+    const start = typeof performance !== 'undefined' ? performance.now() : 0;
+    const step = (now: number) => {
+      const progress = Math.min(1, (now - start) / 180);
+      const eased = 1 - (1 - progress) ** 2;
+      paintDrag(doc, layerId, {
+        x: from.x + (to.x - from.x) * eased,
+        y: from.y + (to.y - from.y) * eased,
+      });
+      if (progress < 1) {
+        frame = requestAnimationFrame(step);
+        return;
+      }
+      frame = 0;
+      paintDrag(doc, layerId, to);
+      scheduleReapply(to);
+    };
+    frame = requestAnimationFrame(step);
+  };
+
+  const armClickSuppression = () => {
+    suppressClick = true;
+    if (suppressTimer) clearTimeout(suppressTimer);
+    suppressTimer = setTimeout(() => {
+      suppressClick = false;
+      suppressTimer = 0;
+    }, 400) as unknown as number;
+  };
+
+  const finish = (event: Event) => {
+    if (!session) return;
+    const point = readPointer(event);
+    if (point && point.pointerId !== session.pointerId) return;
+    const current = session;
+    session = null;
+    if (current.counted) setDragActive(false);
+    if (!current.moved) return;
+    const limits = measureDragLimits(doc, layerId, spec, current.offset);
+    const settled = settleDragOffset(spec, current.offset, current.velocity, current.locked, limits);
+    commitDragVariants(doc, interaction.actions, {
+      x: settled.x - current.startOffset.x,
+      y: settled.y - current.startOffset.y,
+    }, current.targets);
+    glide(current.offset, settled);
+    runDragPhase(doc, interaction, 'end', findLayer(doc, layerId), options.live);
+    armClickSuppression();
+  };
+
+  const onDown = (event: Event) => {
+    if (options.enabled && !options.enabled()) return;
+    if (session) return;
+    const point = readPointer(event);
+    if (!point || point.button !== 0) return;
+    if (!pointerHitsLayer(doc, layerId, event)) return;
+    cancelFrame();
+    const origin = dragOffsetByLayerId.get(layerId) ?? { x: 0, y: 0 };
+    if (origin.x !== 0 || origin.y !== 0) paintDrag(doc, layerId, origin);
+    session = {
+      pointerId: point.pointerId,
+      originX: point.x,
+      originY: point.y,
+      startOffset: origin,
+      offset: origin,
+      locked: null,
+      lastX: point.x,
+      lastY: point.y,
+      lastTime: point.time,
+      velocity: { x: 0, y: 0 },
+      moved: false,
+      firedMove: false,
+      counted: false,
+      targets: new Set(),
+    };
+  };
+
+  const onMove = (event: Event) => {
+    if (!session) return;
+    const point = readPointer(event);
+    if (!point || point.pointerId !== session.pointerId) return;
+    const elapsed = point.time - session.lastTime;
+    if (elapsed >= 80) session.velocity = { x: 0, y: 0 };
+    else if (elapsed > 0) {
+      session.velocity = {
+        x: (point.x - session.lastX) / elapsed,
+        y: (point.y - session.lastY) / elapsed,
+      };
+    }
+    session.lastX = point.x;
+    session.lastY = point.y;
+    session.lastTime = point.time;
+    const projection = projectDragMove(
+      spec,
+      session.startOffset,
+      { x: point.x - session.originX, y: point.y - session.originY },
+      session.locked,
+      measureDragLimits(doc, layerId, spec, session.offset),
+    );
+    session.locked = projection.locked;
+    if (!projection.active) return;
+    session.offset = projection.offset;
+    session.moved = true;
+    if (!session.counted) {
+      session.counted = true;
+      setDragActive(true);
+    }
+    show(projection.offset);
+    session.targets = syncDragVariants(doc, interaction.actions, projection.delta, session.targets);
+    if (!session.firedMove) {
+      session.firedMove = true;
+      runDragPhase(doc, interaction, 'move', findLayer(doc, layerId), options.live);
+    }
+    event.preventDefault?.();
+  };
+
+  const onClick = (event: Event) => {
+    if (!suppressClick) return;
+    suppressClick = false;
+    const element = findLayer(doc, layerId);
+    if (!element || !isEventNode(event.target)) return;
+    if (element !== event.target && !element.contains(event.target)) return;
+    event.preventDefault?.();
+    event.stopPropagation?.();
+  };
+
+  const prepare = () => {
+    const origin = dragOffsetByLayerId.get(layerId);
+    if (origin) paintDrag(doc, layerId, origin);
+    else {
+      const element = findLayer(doc, layerId);
+      if (!element) return;
+      element.style.setProperty('touch-action', 'none');
+      element.style.setProperty('cursor', 'grab');
+      element.setAttribute('data-drag-gesture', 'true');
+    }
+  };
+  prepare();
+
+  doc.addEventListener('pointerdown', onDown, true);
+  doc.addEventListener('pointermove', onMove, true);
+  doc.addEventListener('pointerup', finish, true);
+  doc.addEventListener('pointercancel', finish, true);
+  doc.addEventListener('click', onClick, true);
+
+  return () => {
+    cancelFrame();
+    if (session?.counted) setDragActive(false);
+    session = null;
+    if (suppressTimer) clearTimeout(suppressTimer);
+    doc.removeEventListener('pointerdown', onDown, true);
+    doc.removeEventListener('pointermove', onMove, true);
+    doc.removeEventListener('pointerup', finish, true);
+    doc.removeEventListener('pointercancel', finish, true);
+    doc.removeEventListener('click', onClick, true);
+  };
 }
 
 function variantOnly(interaction: LayerInteraction): LayerInteraction {
@@ -695,7 +1086,11 @@ function collect(layers: Layer[]): Array<{ triggerLayerId: string; interaction: 
   const walk = (list: Layer[]) => {
     for (const layer of list) {
       for (const interaction of layer.interactions ?? []) {
-        if ((interaction.actions && interaction.actions.length > 0) || interaction.trigger === 'while-scrolling') {
+        if (
+          (interaction.actions && interaction.actions.length > 0)
+          || interaction.trigger === 'while-scrolling'
+          || interaction.trigger === 'drag'
+        ) {
           found.push({ triggerLayerId: layer.id, interaction });
         }
       }
@@ -782,10 +1177,11 @@ function bindHoverPress(
 }
 
 /**
- * Bind action events. `live` is the published page: tap, hover, press, keyboard,
- * timer, appear, and load run there. The editor passes `live: false` and only
- * tracks scroll plus Hover and Press variant changes, so a shortcut does not
- * fire while editing.
+ * Bind action events. `live` is the published page: tap, hover, press, drag,
+ * keyboard, timer, appear, and load run there. The editor passes `live: false`
+ * and only tracks scroll plus Hover and Press variant changes, so a shortcut
+ * or a drag does not fire while editing. The design canvas keeps the pointer
+ * for selection and free-form move.
  */
 export function bindInteractionActions(
   doc: Document,
@@ -836,8 +1232,14 @@ export function bindInteractionActions(
 
   for (const item of items) {
     const trigger = findLayer(doc, item.triggerLayerId);
-    if (!trigger) continue;
     const { interaction } = item;
+
+    if (interaction.trigger === 'drag') {
+      cleanups.push(bindDragInteraction(doc, item.triggerLayerId, interaction, { live: true }));
+      continue;
+    }
+
+    if (!trigger) continue;
 
     if (interaction.trigger === 'click') {
       const handleClick = () => runInteractionActions(doc, interaction, trigger, { live: true });

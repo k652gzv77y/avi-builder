@@ -429,6 +429,12 @@ export type InteractionAction =
       type: 'set-variant';
       targetLayerId: string;
       variantId: string;
+      /**
+       * Drag-to-variant. Only a Drag event reads this.
+       * The variant shows once the layer travels `distance` px in `direction`.
+       * `stick` keeps it after release. `return` clears it when the drag ends.
+       */
+      drag?: DragVariantRule;
     }
   | {
       id: string;
@@ -505,9 +511,65 @@ export interface TimerTrigger {
   interval?: number;
 }
 
+/** Which axes a Drag event follows. `both` locks to the first axis that moves. */
+export type DragAxis = 'free' | 'x' | 'y' | 'both';
+
+/** When a Drag event runs actions that are not a direction threshold. */
+export type DragPhase = 'move' | 'end' | 'both';
+
+export type DragDirection = 'left' | 'right' | 'up' | 'down';
+
+/** stick keeps the variant, like Tap. return clears it when the drag ends, like Hover. */
+export type DragRelease = 'stick' | 'return';
+
+/**
+ * Limits for a Drag event, in pixels from the layer's resting position.
+ * `parent` also keeps the layer inside its parent. `px` uses only these numbers.
+ * An omitted side is open, except for the parent clamp.
+ */
+export interface DragBounds {
+  reference: 'parent' | 'px';
+  minX?: number;
+  maxX?: number;
+  minY?: number;
+  maxY?: number;
+}
+
+/** Offset from the layer's resting position. The nearest point wins on release. */
+export interface DragSnapPoint {
+  x: number;
+  y: number;
+}
+
+/** Direction threshold on a Drag Set Variant action. */
+export interface DragVariantRule {
+  direction: DragDirection;
+  /** Pixels the layer must travel in `direction` before this variant shows. */
+  distance: number;
+  release: DragRelease;
+}
+
+/**
+ * Drag event. The layer follows the pointer in preview and on published pages.
+ * The design canvas does not use this; it still moves free-form layers itself.
+ */
+export interface DragTrigger {
+  axis: DragAxis;
+  /**
+   * move runs the action list once the drag passes the slop.
+   * end runs it on release. both runs it each time.
+   * A Set Variant with a direction threshold tracks the drag either way.
+   */
+  phase?: DragPhase;
+  bounds?: DragBounds;
+  snap?: DragSnapPoint[];
+  /** Glide a short distance after release, then clamp and snap. */
+  momentum?: boolean;
+}
+
 export interface LayerInteraction {
   id: string;
-  trigger: 'click' | 'hover' | 'press' | 'key' | 'timer' | 'scroll-into-view' | 'while-scrolling' | 'load';
+  trigger: 'click' | 'hover' | 'press' | 'drag' | 'key' | 'timer' | 'scroll-into-view' | 'while-scrolling' | 'load';
   timeline: InteractionTimeline;
   tweens: InteractionTween[];
   /** Event actions. Kept beside tweens so existing animations stay intact. */
@@ -516,6 +578,8 @@ export interface LayerInteraction {
   keyboard?: KeyboardTrigger;
   /** Schedule for a Timer event. Ignored on other triggers. */
   timer?: TimerTrigger;
+  /** Constraints for a Drag event. Ignored on other triggers. */
+  drag?: DragTrigger;
   /** Appear preset last applied to this event. Absent when the tween is custom. */
   appearPreset?: AppearPresetId;
   /** Scroll preset last applied to a Scroll event. Absent when the tween is custom. */
