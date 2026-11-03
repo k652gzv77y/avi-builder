@@ -25,8 +25,8 @@ import { useClipboardStore } from '@/stores/useClipboardStore';
 import { useExternalPasteStore } from '@/stores/useExternalPasteStore';
 import { isClipboardReadGranted, readExternalDesignClipboard } from '@/lib/import/clipboard-detect';
 import { useComponentsStore } from '@/stores/useComponentsStore';
-import { canHaveChildren, canPasteIntoParent, LINK_NESTING_ERROR, findLayerById, getClassesString, regenerateInteractionIds, canCopyLayer, canDeleteLayer, regenerateIdsWithInteractionRemapping, removeLayerById, findParentAndIndex, insertLayerAfter, updateLayerProps, canConvertToCollection, isExcludedFromCollection, getCollectionVariable, getTextHeadingConversion, resetBindingsOnCollectionSourceChange } from '@/lib/layer-utils';
-import { getStyleIds } from '@/lib/layer-style-resolve';
+import { canHaveChildren, canPasteIntoParent, LINK_NESTING_ERROR, findLayerById, regenerateInteractionIds, canCopyLayer, canDeleteLayer, regenerateIdsWithInteractionRemapping, removeLayerById, findParentAndIndex, insertLayerAfter, updateLayerProps, canConvertToCollection, isExcludedFromCollection, getCollectionVariable, getTextHeadingConversion, resetBindingsOnCollectionSourceChange } from '@/lib/layer-utils';
+import { applyCopiedStyleInTree, captureLayerStyle, visibleLayerForStyleCopy } from '@/lib/style-clipboard';
 import { getLayerIcon, getLayerName } from '@/lib/layer-display-utils';
 import { cloneDeep } from 'lodash';
 import { toast } from 'sonner';
@@ -175,6 +175,7 @@ function LayerContextMenuInner({
   const externalKind = useExternalPasteStore((state) => state.kind);
   const pasteExternalAt = useExternalPasteStore((state) => state.pasteAt);
 
+  const selectedLayerIds = useEditorStore((state) => state.selectedLayerIds);
   const hasClipboard = clipboardLayer !== null;
   const hasExternal = externalKind !== null && pasteExternalAt !== null;
   const hasStyleClipboard = copiedStyle !== null;
@@ -416,33 +417,51 @@ function LayerContextMenuInner({
     useEditorStore.getState().setRenamingLayerId(layerId);
   };
 
+  const styleTargetIds = () => (
+    selectedLayerIds.includes(layerId) && selectedLayerIds.length > 1
+      ? selectedLayerIds
+      : [layerId]
+  );
+
   const handleCopyStyle = () => {
     if (!layer) return;
+    const component = layer.componentId ? getComponentById(layer.componentId) : undefined;
+    copyStyleToClipboard(captureLayerStyle(visibleLayerForStyleCopy(layer, component)));
+  };
 
-    const classes = getClassesString(layer);
-    const ids = getStyleIds(layer);
-    copyStyleToClipboard(classes, layer.design, ids[0], layer.styleOverrides, ids);
+  const pasteCopiedStyle = (mode: 'styles' | 'responsive') => {
+    const style = pasteStyleFromClipboard();
+    if (!style) return;
+    const currentLayers = isComponentContext ? getComponentLayers() : layers;
+    const next = applyCopiedStyleInTree(
+      currentLayers,
+      styleTargetIds(),
+      style,
+      mode,
+      (componentId) => getComponentById(componentId),
+    );
+    if (next === currentLayers) return;
+
+    if (isComponentContext && editingComponentId) {
+      updateComponentAndBroadcast(next);
+    } else {
+      setDraftLayers(pageId, next);
+    }
   };
 
   const handlePasteStyle = () => {
-    const style = pasteStyleFromClipboard();
-    if (!style) return;
-
-    const styleProps = {
-      classes: style.classes,
-      design: style.design,
-      styleId: style.styleIds?.[0] ?? style.styleId,
-      styleIds: style.styleIds ?? (style.styleId ? [style.styleId] : undefined),
-      styleOverrides: style.styleOverrides,
-      styleOverridesByStyle: undefined,
-    };
-
-    if (isComponentContext && editingComponentId) {
-      updateComponentAndBroadcast(updateLayerProps(getComponentLayers(), layerId, styleProps));
-    } else {
-      updateLayer(pageId, layerId, styleProps);
-    }
+    pasteCopiedStyle('styles');
   };
+
+  const handlePasteResponsive = () => {
+    pasteCopiedStyle('responsive');
+  };
+
+  const canPasteResponsive = (copiedStyle?.responsiveClasses.length ?? 0) > 0
+    && styleTargetIds().some((id) => {
+      const target = findLayerById(layers, id);
+      return !!target && !target.componentId;
+    });
 
   const handleCopyInteractions = () => {
     if (!layer || !layer.interactions || layer.interactions.length === 0) return;
@@ -884,20 +903,28 @@ function LayerContextMenuInner({
           </>
         )}
 
+        <ContextMenuSeparator />
+
+        <ContextMenuItem onClick={handleCopyStyle}>
+          Copy style
+          <ContextMenuShortcut>⌥⌘C</ContextMenuShortcut>
+        </ContextMenuItem>
+
+        <ContextMenuItem onClick={handlePasteStyle} disabled={!hasStyleClipboard}>
+          Paste style
+          <ContextMenuShortcut>⌥⌘V</ContextMenuShortcut>
+        </ContextMenuItem>
+
+        <ContextMenuItem
+          onClick={handlePasteResponsive}
+          disabled={!hasStyleClipboard || !canPasteResponsive}
+        >
+          Paste responsive
+          <ContextMenuShortcut>⇧⌥⌘V</ContextMenuShortcut>
+        </ContextMenuItem>
+
         {!isComponentInstance && (
           <>
-            <ContextMenuSeparator />
-
-            <ContextMenuItem onClick={handleCopyStyle}>
-              Copy style
-              <ContextMenuShortcut>⌥⌘C</ContextMenuShortcut>
-            </ContextMenuItem>
-
-            <ContextMenuItem onClick={handlePasteStyle} disabled={!hasStyleClipboard}>
-              Paste style
-              <ContextMenuShortcut>⌥⌘V</ContextMenuShortcut>
-            </ContextMenuItem>
-
             <ContextMenuSeparator />
 
             <ContextMenuItem onClick={handleCopyInteractions} disabled={!layer?.interactions || layer.interactions.length === 0}>

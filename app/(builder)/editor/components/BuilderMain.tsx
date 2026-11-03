@@ -90,8 +90,8 @@ import type { ExternalPastePlacement } from '@/stores/useExternalPasteStore';
 import { formatAuthError } from '@/lib/auth-flow';
 import { findHomepage } from '@/lib/page-utils';
 import { hasTextSelection } from '@/lib/utils';
-import { getStyleIds } from '@/lib/layer-style-resolve';
-import { findLayerById, findLayerWithParent, getClassesString, removeLayerById, canCopyLayer, canDeleteLayer, regenerateIdsWithInteractionRemapping, findParentAndIndex, insertLayerAfter, updateLayerProps, getLayerIndexes, removeRichTextSublayer, canPasteIntoParent, canHaveChildren, LINK_NESTING_ERROR } from '@/lib/layer-utils';
+import { findLayerById, findLayerWithParent, removeLayerById, canCopyLayer, canDeleteLayer, regenerateIdsWithInteractionRemapping, findParentAndIndex, insertLayerAfter, updateLayerProps, getLayerIndexes, removeRichTextSublayer, canPasteIntoParent, canHaveChildren, LINK_NESTING_ERROR } from '@/lib/layer-utils';
+import { applyCopiedStyleInTree, captureLayerStyle, visibleLayerForStyleCopy } from '@/lib/style-clipboard';
 import { isFreeformDraggable, nudgeFreeformLayer } from '@/lib/canvas-freeform';
 import { measureCanvasLayer } from '@/lib/canvas-freeform-dom';
 import { cloneDeep } from 'lodash';
@@ -1874,7 +1874,7 @@ export default function BuilderApp({ children }: BuilderAppProps = {} as Builder
 
         // Copy: Cmd/Ctrl + C (supports multi-select)
         // Skip when the user has a plain-text selection so native copy works.
-        if ((e.metaKey || e.ctrlKey) && e.key === 'c' && !isContentOnlyRole) {
+        if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key === 'c' && !isContentOnlyRole) {
           if (!isInputFocused && !hasTextSelection() && (currentPageId || editingComponentId)) {
             e.preventDefault();
 
@@ -2118,42 +2118,43 @@ export default function BuilderApp({ children }: BuilderAppProps = {} as Builder
           }
         }
 
-        // Copy Style: Option + Cmd + C
+        // Copy style: Option + Cmd/Ctrl + C
         // Use e.code for physical key detection (e.key produces special chars with Option)
-        if (e.altKey && e.metaKey && e.code === 'KeyC' && !isContentOnlyRole) {
+        const styleModifier = e.altKey && (e.metaKey || e.ctrlKey) && !isContentOnlyRole;
+        if (styleModifier && e.code === 'KeyC' && !e.shiftKey) {
           if (!isInputFocused && (currentPageId || editingComponentId) && selectedLayerId) {
             e.preventDefault();
             const layers = getCurrentLayers();
             const layer = findLayerById(layers, selectedLayerId);
             if (layer) {
-              const classes = getClassesString(layer);
-              const ids = getStyleIds(layer);
-              copyStyleToClipboard(classes, layer.design, ids[0], layer.styleOverrides, ids);
+              const component = layer.componentId
+                ? useComponentsStore.getState().getComponentById(layer.componentId)
+                : undefined;
+              copyStyleToClipboard(captureLayerStyle(visibleLayerForStyleCopy(layer, component)));
             }
           }
         }
 
-        // Paste Style: Option + Cmd + V
-        // Use e.code for physical key detection (e.key produces special chars with Option)
-        if (e.altKey && e.metaKey && e.code === 'KeyV' && !isContentOnlyRole) {
-          if (!isInputFocused && (currentPageId || editingComponentId) && selectedLayerId) {
+        // Paste style: Option + Cmd/Ctrl + V
+        // Paste responsive: Option + Shift + Cmd/Ctrl + V
+        if (styleModifier && e.code === 'KeyV') {
+          if (!isInputFocused && (currentPageId || editingComponentId) && (selectedLayerId || selectedLayerIds.length > 0)) {
             e.preventDefault();
             const style = pasteStyleFromClipboard();
-            if (style) {
-              const styleProps = {
-                classes: style.classes,
-                design: style.design,
-                styleId: style.styleIds?.[0] ?? style.styleId,
-                styleIds: style.styleIds ?? (style.styleId ? [style.styleId] : undefined),
-                styleOverrides: style.styleOverrides,
-                styleOverridesByStyle: undefined,
-              };
-
-              if (editingComponentId) {
-                updateCurrentLayers(updateLayerProps(getCurrentLayers(), selectedLayerId, styleProps));
-              } else if (currentPageId) {
-                updateLayer(currentPageId, selectedLayerId, styleProps);
-              }
+            const mode = e.shiftKey ? 'responsive' : 'styles';
+            if (style && (mode === 'styles' || style.responsiveClasses.length > 0)) {
+              const targetIds = selectedLayerIds.length > 0
+                ? selectedLayerIds
+                : [selectedLayerId as string];
+              const currentLayers = getCurrentLayers();
+              const next = applyCopiedStyleInTree(
+                currentLayers,
+                targetIds,
+                style,
+                mode,
+                (componentId) => useComponentsStore.getState().getComponentById(componentId),
+              );
+              if (next !== currentLayers) updateCurrentLayers(next);
             }
           }
         }

@@ -10,6 +10,7 @@
 import { create } from 'zustand';
 import type { Layer, LayerInteraction } from '../types';
 import { writeYcodeClipboard } from '@/lib/import/ycode/bundle';
+import type { CopiedLayerStyle } from '@/lib/style-clipboard';
 
 /**
  * Legacy marker for an internal copy/cut. Kept for backward compatibility: a
@@ -29,14 +30,6 @@ function claimSystemClipboard(layers: Layer[]): void {
   void writeYcodeClipboard(layers);
 }
 
-interface CopiedStyle {
-  classes: string;
-  design?: Layer['design'];
-  styleId?: string;
-  styleIds?: string[];
-  styleOverrides?: Layer['styleOverrides'];
-}
-
 interface CopiedInteractions {
   interactions: LayerInteraction[];
   sourceLayerId: string;
@@ -48,7 +41,7 @@ interface ClipboardState {
   clipboardLayers: Layer[];
   clipboardMode: 'copy' | 'cut' | null;
   sourcePageId: string | null;
-  copiedStyle: CopiedStyle | null;
+  copiedStyle: CopiedLayerStyle | null;
   copiedInteractions: CopiedInteractions | null;
 }
 
@@ -58,8 +51,8 @@ interface ClipboardActions {
   copyLayers: (layers: Layer[], pageId: string) => void;
   cutLayers: (layers: Layer[], pageId: string) => void;
   clearClipboard: () => void;
-  copyStyle: (classes: string, design?: Layer['design'], styleId?: string, styleOverrides?: Layer['styleOverrides'], styleIds?: string[]) => void;
-  pasteStyle: () => CopiedStyle | null;
+  copyStyle: (style: CopiedLayerStyle) => void;
+  pasteStyle: () => CopiedLayerStyle | null;
   clearStyle: () => void;
   copyInteractions: (interactions: LayerInteraction[], sourceLayerId: string) => void;
   pasteInteractions: () => CopiedInteractions | null;
@@ -108,15 +101,9 @@ export const useClipboardStore = create<ClipboardStore>((set, get) => ({
     });
   },
 
-  copyStyle: (classes, design, styleId, styleOverrides, styleIds) => {
+  copyStyle: (style) => {
     set({
-      copiedStyle: {
-        classes,
-        design,
-        styleId,
-        styleIds,
-        styleOverrides,
-      },
+      copiedStyle: structuredClone(style),
     });
   },
 
