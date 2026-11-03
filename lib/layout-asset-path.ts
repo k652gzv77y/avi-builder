@@ -1,23 +1,25 @@
 /**
- * Layout template images live in `public/ycode/layouts/assets`.
- * Seeded pages reference them as `/projects/:slug/layouts/assets/<file>`.
+ * Layout template files live in `public/ycode/layouts`.
+ * Seeded pages and the layout picker reference them as
+ * `/projects/:slug/layouts/assets/<file>` and
+ * `/projects/:slug/layouts/previews/<file>`.
  *
- * The project rewrite would otherwise send that URL to
- * `/editor/layouts/assets/<file>`, which is not a page. Next answers with
- * the editor 404 document, so the canvas image request fails while the
- * homepage is drawn.
+ * On Cloudflare, `public/` files are served by the ASSETS binding only when
+ * the request path matches the file. A Next rewrite to `/ycode/layouts/...`
+ * stays inside the Next server, which has no such route and returns the
+ * editor 404 document. Callers must read the file from ASSETS at the public
+ * path instead of rewriting.
  */
 
-const LAYOUT_ASSET_RE = /^(?:\/projects\/[^/]+|\/editor|\/ycode)?(\/layouts\/assets\/[^?#]+)$/;
+const LAYOUT_FILE_RE = /^(?:\/projects\/[^/]+|\/editor|\/ycode)?(\/layouts\/(?:assets|previews)\/[^?#]+)$/;
 
 /**
- * Internal path of a layout template file, or null when `pathname` is not one.
- * Already-public `/ycode/layouts/assets/...` paths return null so a rewrite
- * does not loop.
+ * Public ASSETS path for a layout file, or null when `pathname` is not one.
+ * Already-public `/ycode/layouts/...` paths return null so a lookup does not loop.
  */
 export function publicLayoutAssetPath(pathname: string): string | null {
   const path = pathname.split('?')[0]?.split('#')[0] ?? '';
-  const match = path.match(LAYOUT_ASSET_RE);
+  const match = path.match(LAYOUT_FILE_RE);
   if (!match) return null;
   const rest = match[1];
   if (rest.includes('..') || rest.includes('\\') || rest.includes('\0')) return null;

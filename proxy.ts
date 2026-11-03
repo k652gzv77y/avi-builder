@@ -9,6 +9,7 @@ import {
   redirectLocation,
 } from '@/lib/domain-routing';
 import { publicLayoutAssetPath } from '@/lib/layout-asset-path';
+import { cloudflareLayoutAssetFetcher, responseFromLayoutAsset } from '@/lib/layout-asset-response';
 import { PROJECT_SLUG_HEADER, RESERVED_PROJECT_SLUGS } from '@/lib/project-url';
 import { readWorkspaceGraph } from '@/lib/repositories/workspaceRepository';
 import { resolveRole } from '@/lib/roles';
@@ -269,6 +270,13 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const layoutAsset = publicLayoutAssetPath(pathname);
   if (layoutAsset) {
+    // OpenNext serves public/ from the ASSETS binding only when the request
+    // path is the file path. A rewrite to /ycode/layouts/... is handled by
+    // the Next server, which has no matching route and returns 404 HTML.
+    const assets = await cloudflareLayoutAssetFetcher();
+    if (assets) {
+      return responseFromLayoutAsset(request, layoutAsset, assets);
+    }
     const url = request.nextUrl.clone();
     url.pathname = layoutAsset;
     return NextResponse.rewrite(url);
@@ -337,9 +345,9 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL(projectSlug ? `/projects/${projectSlug}` : PROJECTS_ROOT, request.url));
   }
 
-  // Layout images are files under public/ycode/layouts/assets. A rewrite
-  // lands on that path; do not bounce it to the site root.
-  if (!onBuilder && !pathname.startsWith('/ycode/layouts/assets/') && (pathname.startsWith('/projects') || pathname.startsWith('/ycode') || pathname.endsWith('/welcome'))) {
+  // Layout images are files under public/ycode/layouts. A lookup lands on
+  // that path; do not bounce it to the site root.
+  if (!onBuilder && !pathname.startsWith('/ycode/layouts/') && (pathname.startsWith('/projects') || pathname.startsWith('/ycode') || pathname.endsWith('/welcome'))) {
     return NextResponse.redirect(new URL('/', request.url));
   }
 

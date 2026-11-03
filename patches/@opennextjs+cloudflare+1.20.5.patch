@@ -12,3 +12,46 @@ index 2567f7c..dc9d0a6 100644
      const transformed = {};
      const hasTopLevelBuildCondition = condition in conditionMap && conditionMap[condition] != null;
      let hasBuildCondition = hasTopLevelBuildCondition;
+diff --git a/node_modules/@opennextjs/cloudflare/dist/cli/templates/images.js b/node_modules/@opennextjs/cloudflare/dist/cli/templates/images.js
+index 5646a9a..4efc913 100644
+--- a/node_modules/@opennextjs/cloudflare/dist/cli/templates/images.js
++++ b/node_modules/@opennextjs/cloudflare/dist/cli/templates/images.js
+@@ -1,4 +1,20 @@
+ import { error, warn } from "@opennextjs/aws/adapters/logger.js";
++/**
++ * Seeded layout files are requested as /projects/:slug/layouts/(assets|previews)/<file>.
++ * They live in the ASSETS binding at /ycode/layouts/... Keep this in sync with
++ * publicLayoutAssetPath in lib/layout-asset-path.ts.
++ */
++function publicLayoutAssetPath(pathname) {
++    const path = String(pathname).split("?")[0].split("#")[0];
++    const match = path.match(/^(?:\/projects\/[^/]+|\/editor|\/ycode)?(\/layouts\/(?:assets|previews)\/[^?#]+)$/);
++    if (!match)
++        return null;
++    const rest = match[1];
++    if (rest.includes("..") || rest.includes("\\") || rest.includes("\0"))
++        return null;
++    const target = `/ycode${rest}`;
++    return target === path ? null : target;
++}
+ /**
+  * Handles requests to /_next/image(/), including image optimizations.
+  *
+@@ -26,7 +42,7 @@ export async function handleImageRequest(requestURL, requestHeaders, env) {
+                 status: 404,
+             });
+         }
+-        const absoluteURL = new URL(parseResult.url, requestURL);
++        const absoluteURL = new URL(publicLayoutAssetPath(parseResult.url) ?? parseResult.url, requestURL);
+         imageResponse = await env.ASSETS.fetch(absoluteURL);
+     }
+     else {
+@@ -169,7 +185,7 @@ export async function handleCdnCgiImageRequest(requestURL, env) {
+                 status: 404,
+             });
+         }
+-        const absoluteURL = new URL(parseResult.url, requestURL);
++        const absoluteURL = new URL(publicLayoutAssetPath(parseResult.url) ?? parseResult.url, requestURL);
+         imageResponse = await env.ASSETS.fetch(absoluteURL);
+     }
+     else {
