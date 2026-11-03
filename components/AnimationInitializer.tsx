@@ -15,8 +15,7 @@ import { SplitText } from 'gsap/SplitText';
 
 import { ITEMS_INJECTED_EVENT, type ItemsInjectedDetail } from '@/components/FilterableCollection';
 import { buildGsapProps, addTweenToTimeline, createSplitTextAnimation, generateInitialAnimationCSS, getEffectiveApplyStyle, setColorVariableResolver } from '@/lib/animation-utils';
-import { closeOpenOverlays, listenForKeyboard, listenForTimer, prepareOverlayTargets, runInteractionActions } from '@/lib/interaction-runtime';
-import { actionsOnHoverLeave } from '@/lib/interactions-framer';
+import { closeOpenOverlays, listenForKeyboard, listenForTimer, playInteraction, prepareOverlayTargets, releaseInteraction, runInteractionActions } from '@/lib/interaction-runtime';
 import { BREAKPOINT_VALUES, getCurrentBreakpoint } from '@/lib/breakpoint-utils';
 import { remapLayerIdsForCollectionItem } from '@/lib/collection-utils';
 import { useColorVariablesStore } from '@/stores/useColorVariablesStore';
@@ -617,30 +616,39 @@ export default function AnimationInitializer({ layers, injectInitialCSS }: Anima
         }
 
         case 'hover': {
-          const handleMouseEnter = () => {
-            // Check breakpoint at trigger time for interactive triggers
+          // Document listeners survive a variant swap, which replaces the node
+          // under the pointer. Enter and leave still require the pointer to
+          // cross this layer's box.
+          const crosses = (event: Event) => {
+            const current = getElement(triggerLayerId);
+            if (!current || !event.target || !(event.target instanceof Node)) return null;
+            if (current !== event.target && !current.contains(event.target)) return null;
+            const related = (event as Event & { relatedTarget?: EventTarget | null }).relatedTarget;
+            if (related instanceof Node && (current === related || current.contains(related))) return null;
+            return current;
+          };
+          const handleMouseEnter = (event: Event) => {
+            const current = crosses(event);
+            if (!current) return;
             if (!shouldRunOnBreakpoint(interaction, getCurrentBreakpoint())) return;
-            runInteractionActions(actionDocument, interaction, triggerElement, { live: true });
+            playInteraction(actionDocument, interaction, current, { live: true });
             getTimeline()?.play();
           };
-          const handleMouseLeave = () => {
-            // Check breakpoint at trigger time for interactive triggers
+          const handleMouseLeave = (event: Event) => {
+            const current = crosses(event);
+            if (!current) return;
             if (!shouldRunOnBreakpoint(interaction, getCurrentBreakpoint())) return;
-            const closing = {
-              ...interaction,
-              actions: actionsOnHoverLeave(interaction.actions),
-            };
-            runInteractionActions(actionDocument, closing, triggerElement, { live: true });
+            releaseInteraction(actionDocument, interaction, current, { live: true });
             if (interaction.timeline?.yoyo) {
               timelinesRef.current.get(interaction.id)?.reverse();
             }
           };
 
-          triggerElement.addEventListener('mouseenter', handleMouseEnter);
-          triggerElement.addEventListener('mouseleave', handleMouseLeave);
+          actionDocument.addEventListener('pointerover', handleMouseEnter, true);
+          actionDocument.addEventListener('pointerout', handleMouseLeave, true);
           cleanupRef.current.push(() => {
-            triggerElement.removeEventListener('mouseenter', handleMouseEnter);
-            triggerElement.removeEventListener('mouseleave', handleMouseLeave);
+            actionDocument.removeEventListener('pointerover', handleMouseEnter, true);
+            actionDocument.removeEventListener('pointerout', handleMouseLeave, true);
           });
           break;
         }
@@ -667,32 +675,52 @@ export default function AnimationInitializer({ layers, injectInitialCSS }: Anima
         }
 
         case 'press': {
-          const handleDown = () => {
-            if (!shouldRunOnBreakpoint(interaction, getCurrentBreakpoint())) return;
-            runInteractionActions(actionDocument, interaction, triggerElement, { live: true });
-            getTimeline()?.play();
+          let pressed = false;
+          const hits = (event: Event) => {
+            const current = getElement(triggerLayerId);
+            if (!current || !event.target || !(event.target instanceof Node)) return null;
+            if (current !== event.target && !current.contains(event.target)) return null;
+            return current;
           };
-          const handleUp = () => {
+          const finish = () => {
+            if (!pressed) return;
+            pressed = false;
+            const current = getElement(triggerLayerId);
             if (!shouldRunOnBreakpoint(interaction, getCurrentBreakpoint())) return;
-            const closing = {
-              ...interaction,
-              actions: actionsOnHoverLeave(interaction.actions),
-            };
-            runInteractionActions(actionDocument, closing, triggerElement, { live: true });
+            releaseInteraction(actionDocument, interaction, current, { live: true });
             if (interaction.timeline?.yoyo) {
               timelinesRef.current.get(interaction.id)?.reverse();
             }
           };
+          const handleDown = (event: Event) => {
+            const current = hits(event);
+            if (!current) return;
+            if ('button' in event && event.button !== 0) return;
+            if (!shouldRunOnBreakpoint(interaction, getCurrentBreakpoint())) return;
+            pressed = true;
+            playInteraction(actionDocument, interaction, current, { live: true });
+            getTimeline()?.play();
+          };
+          const handleUp = (event: Event) => {
+            if (!pressed) return;
+            if (event.type === 'pointerout') {
+              const current = getElement(triggerLayerId);
+              if (!current || !hits(event)) return;
+              const related = (event as Event & { relatedTarget?: EventTarget | null }).relatedTarget;
+              if (related instanceof Node && (current === related || current.contains(related))) return;
+            }
+            finish();
+          };
 
-          triggerElement.addEventListener('pointerdown', handleDown);
-          triggerElement.addEventListener('pointerup', handleUp);
-          triggerElement.addEventListener('pointerleave', handleUp);
-          triggerElement.addEventListener('pointercancel', handleUp);
+          actionDocument.addEventListener('pointerdown', handleDown, true);
+          actionDocument.addEventListener('pointerup', handleUp, true);
+          actionDocument.addEventListener('pointercancel', handleUp, true);
+          actionDocument.addEventListener('pointerout', handleUp, true);
           cleanupRef.current.push(() => {
-            triggerElement.removeEventListener('pointerdown', handleDown);
-            triggerElement.removeEventListener('pointerup', handleUp);
-            triggerElement.removeEventListener('pointerleave', handleUp);
-            triggerElement.removeEventListener('pointercancel', handleUp);
+            actionDocument.removeEventListener('pointerdown', handleDown, true);
+            actionDocument.removeEventListener('pointerup', handleUp, true);
+            actionDocument.removeEventListener('pointercancel', handleUp, true);
+            actionDocument.removeEventListener('pointerout', handleUp, true);
           });
           break;
         }
