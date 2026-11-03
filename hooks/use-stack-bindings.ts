@@ -17,6 +17,7 @@ import {
   type BindingSource,
 } from '@/lib/component-bindings';
 import { parseCmsBindingId } from '@/lib/cms-framer';
+import { stableList } from '@/lib/stable-list';
 import { useCmsBindingSources } from '@/hooks/use-cms-binding-sources';
 import { useComponentsStore } from '@/stores/useComponentsStore';
 import { useEditorStore } from '@/stores/useEditorStore';
@@ -41,8 +42,8 @@ export function useStackBindings({ layer, onLayerUpdate }: UseStackBindingsArgs)
   const updateTextVariable = useComponentsStore(state => state.updateTextVariable);
   const currentPageId = useEditorStore(state => state.currentPageId);
   const { cmsItems, fetchItems, openFetchCreator } = useCmsBindingSources(layer?.id ?? null);
-  const fetches = usePagesStore(state => (
-    state.pages.find(item => item.id === currentPageId)?.settings?.fetches ?? []
+  const fetches = usePagesStore(state => stableList(
+    state.pages.find(item => item.id === currentPageId)?.settings?.fetches,
   ));
 
   const syncValue = useCallback((key: StackVariableKey, raw: string) => {

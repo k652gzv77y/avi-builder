@@ -110,6 +110,7 @@ import { buildDesign } from '@/lib/import/design';
 import { cn, generateId } from '@/lib/utils';
 import { applyOverlaySetup, createOverlayLayer, syncOverlaySettings } from '@/lib/overlay-setup';
 import { sanitizeHtmlId } from '@/lib/html-utils';
+import { stableList } from '@/lib/stable-list';
 import { asLayerArray, isFieldVariable, getCollectionVariable, findParentCollectionLayer, findAllParentCollectionLayers, isTextEditable, isTextContentLayer, isRichTextLayer, isHeadingLayer, findLayerWithParent, resetBindingsOnCollectionSourceChange, isInputInsideFilter, resolveFilterInputId, getLayerIndexes, indexedFindLayerById, indexedFindLayerWithParent, indexedFindParentCollectionLayer } from '@/lib/layer-utils';
 import { detachSpecificLayerFromComponent } from '@/lib/component-utils';
 import { convertContentToValue, parseValueToContent } from '@/lib/cms-variables-utils';
@@ -324,8 +325,8 @@ const RightSidebar = React.memo(function RightSidebar({
   const updateTextVariable = useComponentsStore((state) => state.updateTextVariable);
 
   const { cmsItems, fetchItems, openFetchCreator } = useCmsBindingSources(selectedLayerId);
-  const pageFetches = usePagesStore((state) => (
-    state.pages.find(item => item.id === currentPageId)?.settings?.fetches ?? []
+  const pageFetches = usePagesStore((state) => stableList(
+    state.pages.find(item => item.id === currentPageId)?.settings?.fetches,
   ));
   const fetchStatus = useFetchRuntimeStore((state) => state.status);
   const fetchValues = useFetchRuntimeStore((state) => state.values);

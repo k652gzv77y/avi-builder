@@ -16,6 +16,7 @@ import {
   placeDetailNavigation,
   type DetailDirection,
 } from '@/lib/collection-query';
+import { stableList } from '@/lib/stable-list';
 import { useDetailPreview } from '@/hooks/use-detail-preview';
 import { useEditorStore } from '@/stores/useEditorStore';
 import { usePagesStore } from '@/stores/usePagesStore';
@@ -26,8 +27,8 @@ export default function DetailPageSettings() {
   const currentPageId = useEditorStore(state => state.currentPageId);
   const editingComponentId = useEditorStore(state => state.editingComponentId);
   const setSelectedLayerId = useEditorStore(state => state.setSelectedLayerId);
-  const layers = usePagesStore(state => (
-    currentPageId ? state.draftsByPageId[currentPageId]?.layers ?? [] : []
+  const layers = usePagesStore(state => stableList(
+    currentPageId ? state.draftsByPageId[currentPageId]?.layers : undefined,
   ));
   const setDraftLayers = usePagesStore(state => state.setDraftLayers);
 
