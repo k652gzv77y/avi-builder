@@ -15,7 +15,7 @@ import { SplitText } from 'gsap/SplitText';
 
 import { ITEMS_INJECTED_EVENT, type ItemsInjectedDetail } from '@/components/FilterableCollection';
 import { buildGsapProps, addTweenToTimeline, createSplitTextAnimation, generateInitialAnimationCSS, getEffectiveApplyStyle, setColorVariableResolver } from '@/lib/animation-utils';
-import { prepareOverlayTargets, runInteractionActions } from '@/lib/interaction-runtime';
+import { listenForKeyboard, listenForTimer, prepareOverlayTargets, runInteractionActions } from '@/lib/interaction-runtime';
 import { actionsOnHoverLeave } from '@/lib/interactions-framer';
 import { BREAKPOINT_VALUES, getCurrentBreakpoint } from '@/lib/breakpoint-utils';
 import { remapLayerIdsForCollectionItem } from '@/lib/collection-utils';
@@ -548,7 +548,7 @@ export default function AnimationInitializer({ layers, injectInitialCSS }: Anima
       // server-emitted CSS. For hover/click, paint the `from` state inline so
       // the resting appearance matches the author's intent instead of the
       // layer's CSS default.
-      if (trigger === 'hover' || trigger === 'click' || trigger === 'press') {
+      if (trigger === 'hover' || trigger === 'click' || trigger === 'press' || trigger === 'key' || trigger === 'timer') {
         if (shouldRunOnBreakpoint(interaction, currentBreakpoint)) {
           applyInitialFromState(interaction);
         }
@@ -642,6 +642,27 @@ export default function AnimationInitializer({ layers, injectInitialCSS }: Anima
             triggerElement.removeEventListener('mouseenter', handleMouseEnter);
             triggerElement.removeEventListener('mouseleave', handleMouseLeave);
           });
+          break;
+        }
+
+        case 'key': {
+          const cleanup = listenForKeyboard(actionDocument, interaction.keyboard, () => {
+            if (!shouldRunOnBreakpoint(interaction, getCurrentBreakpoint())) return;
+            runInteractionActions(actionDocument, interaction, triggerElement, { live: true });
+            if ((interaction.tweens || []).length > 0) getTimeline()?.invalidate().restart();
+          });
+          cleanupRef.current.push(cleanup);
+          break;
+        }
+
+        case 'timer': {
+          const cleanup = listenForTimer(interaction.timer, () => {
+            if (!shouldRunOnBreakpoint(interaction, getCurrentBreakpoint())) return;
+            if (!getElement(triggerLayerId)) return;
+            runInteractionActions(actionDocument, interaction, triggerElement, { live: true });
+            if ((interaction.tweens || []).length > 0) getTimeline()?.invalidate().restart();
+          });
+          cleanupRef.current.push(cleanup);
           break;
         }
 

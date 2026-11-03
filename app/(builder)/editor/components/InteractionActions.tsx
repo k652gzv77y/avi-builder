@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -29,14 +30,21 @@ import Icon from '@/components/ui/icon';
 import { runInteractionActions } from '@/lib/interaction-runtime';
 import {
   APPEAR_PRESETS,
+  DEFAULT_TIMER_DELAY_MS,
+  KEYBOARD_MODIFIERS,
+  SCROLL_PRESETS,
   actionLabel,
   createEventAction,
+  defaultKeyboardTrigger,
+  defaultTimerTrigger,
   flattenLayers,
+  formatKeyLabel,
   hrefForPage,
+  keyFromKeyboardEvent,
   nextScrollStop,
   removeInteractionAction,
   OVERLAY_DISMISS_ROWS,
-  SCROLL_PRESETS,
+  sanitizeMilliseconds,
   upsertInteractionAction,
   variantTargets,
   withAppearPreset,
@@ -50,11 +58,13 @@ import { usePagesStore } from '@/stores/usePagesStore';
 import type {
   AppearPresetId,
   InteractionAction,
+  KeyboardTrigger,
   Layer,
   LayerInteraction,
   OverlayDismiss,
   OverlayPlacement,
   ScrollPresetId,
+  TimerTrigger,
 } from '@/types';
 
 interface InteractionActionsProps {
@@ -79,7 +89,11 @@ export default function InteractionActions({
   const showAppear = interaction.trigger === 'scroll-into-view' || interaction.trigger === 'load';
   const showScroll = interaction.trigger === 'while-scrolling';
   const showScrollAction = showScroll;
-  const isPointerEvent = interaction.trigger === 'click' || interaction.trigger === 'hover' || interaction.trigger === 'press';
+  const isActionEvent = interaction.trigger === 'click'
+    || interaction.trigger === 'hover'
+    || interaction.trigger === 'press'
+    || interaction.trigger === 'key'
+    || interaction.trigger === 'timer';
 
   useEffect(() => {
     if (!globalsLoaded) {
@@ -151,7 +165,7 @@ export default function InteractionActions({
             <DropdownMenuItem onClick={() => handleAdd('open-overlay')}>Open Overlay</DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleAdd('close-overlay')}>Close Overlay</DropdownMenuItem>
             <DropdownMenuItem onClick={() => handleAdd('navigate')}>Navigate</DropdownMenuItem>
-            {isPointerEvent && (
+            {isActionEvent && (
               <>
                 <DropdownMenuItem onClick={() => handleAdd('scroll-to')}>Scroll to</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => handleAdd('set-variable')}>Set variable</DropdownMenuItem>
@@ -214,7 +228,21 @@ export default function InteractionActions({
         </div>
       )}
 
-      {actions.length === 0 && isPointerEvent && (
+      {interaction.trigger === 'key' && (
+        <KeyboardFields
+          keyboard={interaction.keyboard ?? defaultKeyboardTrigger()}
+          onChange={(keyboard) => onChange({ ...interaction, keyboard })}
+        />
+      )}
+
+      {interaction.trigger === 'timer' && (
+        <TimerFields
+          timer={interaction.timer ?? defaultTimerTrigger()}
+          onChange={(timer) => onChange({ ...interaction, timer })}
+        />
+      )}
+
+      {actions.length === 0 && isActionEvent && (
         <div className="flex flex-col gap-1 pb-4">
           <p className="text-xs text-muted-foreground">
             Choose an action for this event.
@@ -262,7 +290,7 @@ export default function InteractionActions({
         </div>
       )}
 
-      {actions.length === 0 && !showAppear && !isPointerEvent && (
+      {actions.length === 0 && !showAppear && !isActionEvent && (
         <p className="text-xs text-muted-foreground pb-4">
           Add an action for this event.
         </p>
@@ -637,6 +665,155 @@ function DismissFields({
           <Label variant="muted">{row.label}</Label>
         </label>
       ))}
+    </div>
+  );
+}
+
+function KeyboardFields({
+  keyboard,
+  onChange,
+}: {
+  keyboard: KeyboardTrigger;
+  onChange: (keyboard: KeyboardTrigger) => void;
+}) {
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const key = keyFromKeyboardEvent({ key: event.key, code: event.code });
+    if (!key) return;
+    onChange({
+      ...keyboard,
+      key,
+      shift: event.shiftKey,
+      meta: event.metaKey,
+      alt: event.altKey,
+      ctrl: event.ctrlKey,
+    });
+  };
+
+  return (
+    <div className="flex flex-col gap-2 pb-4">
+      <Field label="Key">
+        <Input
+          readOnly
+          value={formatKeyLabel(keyboard.key)}
+          placeholder="Press a key"
+          aria-label="Keyboard shortcut"
+          onKeyDown={handleKeyDown}
+        />
+      </Field>
+      <Field label="When">
+        <Select
+          value={keyboard.phase ?? 'down'}
+          onValueChange={(phase) => onChange({
+            ...keyboard,
+            phase: phase === 'up' ? 'up' : 'down',
+          })}
+        >
+          <SelectTrigger className="w-full" aria-label="Key phase">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="down">Key down</SelectItem>
+            <SelectItem value="up">Key up</SelectItem>
+          </SelectContent>
+        </Select>
+      </Field>
+      <div className="flex flex-wrap gap-x-3 gap-y-2">
+        {KEYBOARD_MODIFIERS.map((modifier) => (
+          <label key={modifier.key} className="flex items-center gap-2">
+            <Checkbox
+              checked={keyboard[modifier.key] === true}
+              onCheckedChange={(checked) => onChange({
+                ...keyboard,
+                [modifier.key]: checked === true,
+              })}
+            />
+            <Label variant="muted">{modifier.label}</Label>
+          </label>
+        ))}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Focus the key field and press the shortcut. Cmd is the Command or Windows key.
+      </p>
+    </div>
+  );
+}
+
+function TimerFields({
+  timer,
+  onChange,
+}: {
+  timer: TimerTrigger;
+  onChange: (timer: TimerTrigger) => void;
+}) {
+  const writeDelay = (raw: string) => {
+    if (raw.trim() === '') {
+      onChange({ ...timer, delay: 0 });
+      return;
+    }
+    const delay = sanitizeMilliseconds(raw, 0);
+    if (delay === null) return;
+    onChange({ ...timer, delay });
+  };
+
+  const writeInterval = (raw: string) => {
+    if (raw.trim() === '') {
+      onChange({ ...timer, interval: 1 });
+      return;
+    }
+    const interval = sanitizeMilliseconds(raw, 1);
+    if (interval === null) return;
+    onChange({ ...timer, interval });
+  };
+
+  return (
+    <div className="flex flex-col gap-2 pb-4">
+      <Field label="Delay">
+        <InputGroup>
+          <InputGroupInput
+            type="number"
+            min={0}
+            step={1}
+            value={timer.delay}
+            aria-label="Delay in milliseconds"
+            onChange={(event) => writeDelay(event.target.value)}
+          />
+          <InputGroupAddon align="inline-end" className="text-xs text-muted-foreground">
+            ms
+          </InputGroupAddon>
+        </InputGroup>
+      </Field>
+      <label className="flex items-center gap-2">
+        <Checkbox
+          checked={timer.repeat === true}
+          onCheckedChange={(checked) => {
+            const repeat = checked === true;
+            const interval = timer.interval && timer.interval > 0
+              ? timer.interval
+              : (timer.delay > 0 ? timer.delay : DEFAULT_TIMER_DELAY_MS);
+            onChange({ ...timer, repeat, interval });
+          }}
+        />
+        <Label variant="muted">Repeat</Label>
+      </label>
+      {timer.repeat && (
+        <Field label="Every">
+          <InputGroup>
+            <InputGroupInput
+              type="number"
+              min={1}
+              step={1}
+              value={timer.interval ?? timer.delay}
+              aria-label="Repeat interval in milliseconds"
+              onChange={(event) => writeInterval(event.target.value)}
+            />
+            <InputGroupAddon align="inline-end" className="text-xs text-muted-foreground">
+              ms
+            </InputGroupAddon>
+          </InputGroup>
+        </Field>
+      )}
     </div>
   );
 }

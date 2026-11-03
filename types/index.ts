@@ -455,13 +455,46 @@ export type InteractionAction =
       stops: Array<{ at: number; variantId: string }>;
     };
 
+/** Which edge of a key press runs the action list. */
+export type KeyboardPhase = 'down' | 'up';
+
+/**
+ * Shortcut for a Keyboard event.
+ * `key` is the physical key (`k`, `1`, `enter`), not the shifted glyph.
+ * Modifiers are exact: Cmd+K does not also fire on K.
+ */
+export interface KeyboardTrigger {
+  key: string;
+  phase?: KeyboardPhase;
+  shift?: boolean;
+  /** Command on macOS, Windows key on Windows. */
+  meta?: boolean;
+  alt?: boolean;
+  ctrl?: boolean;
+}
+
+/**
+ * Timer event. `delay` is the wait before the first run, in milliseconds.
+ * When `repeat` is set, the action list runs again every `interval` ms
+ * (or every `delay` ms when interval is omitted).
+ */
+export interface TimerTrigger {
+  delay: number;
+  repeat?: boolean;
+  interval?: number;
+}
+
 export interface LayerInteraction {
   id: string;
-  trigger: 'click' | 'hover' | 'press' | 'scroll-into-view' | 'while-scrolling' | 'load';
+  trigger: 'click' | 'hover' | 'press' | 'key' | 'timer' | 'scroll-into-view' | 'while-scrolling' | 'load';
   timeline: InteractionTimeline;
   tweens: InteractionTween[];
   /** Event actions. Kept beside tweens so existing animations stay intact. */
   actions?: InteractionAction[];
+  /** Shortcut for a Keyboard event. Ignored on other triggers. */
+  keyboard?: KeyboardTrigger;
+  /** Schedule for a Timer event. Ignored on other triggers. */
+  timer?: TimerTrigger;
   /** Appear preset last applied to this event. Absent when the tween is custom. */
   appearPreset?: AppearPresetId;
   /** Scroll preset last applied to a Scroll event. Absent when the tween is custom. */
