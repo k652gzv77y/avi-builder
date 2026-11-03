@@ -23,6 +23,8 @@ import type { FieldGroup, FieldSourceType } from '@/lib/collection-field-utils';
 import type { BackgroundImageSourceType } from './BackgroundImageSettings';
 import BackgroundImageSettings from './BackgroundImageSettings';
 import ColorPropertyField from './ColorPropertyField';
+import { StackPropertyLabel } from './BindingsPicker';
+import { useControlBindings } from '@/hooks/use-control-bindings';
 
 interface BackgroundsControlsProps {
   layer: Layer | null;
@@ -70,6 +72,7 @@ const BackgroundsControls = memo(function BackgroundsControls({ layer, onLayerUp
     activeUIState,
     activeTextStyleKey,
   });
+  const { bindingFor, syncValue } = useControlBindings({ layer, onLayerUpdate });
 
   // Get current values from layer (no inheritance - only exact breakpoint values)
   const backgroundSize = getDesignProperty('backgrounds', 'backgroundSize') || 'cover';
@@ -274,7 +277,10 @@ const BackgroundsControls = memo(function BackgroundsControls({ layer, onLayerUp
         (immediate ? updateDesignProperty : debouncedUpdateDesignProperty)('backgrounds', 'backgroundColor', sanitized);
       }
     }
-  }, [layer, onLayerUpdate, updateDesignProperty, debouncedUpdateDesignProperty, activeBreakpoint, activeUIState]);
+    if (sanitized && !sanitized.includes('gradient(')) {
+      syncValue('fill', { type: 'color', value: sanitized });
+    }
+  }, [layer, onLayerUpdate, updateDesignProperty, debouncedUpdateDesignProperty, activeBreakpoint, activeUIState, syncValue]);
 
   /**
    * Update the background image URL.
@@ -513,7 +519,7 @@ const BackgroundsControls = memo(function BackgroundsControls({ layer, onLayerUp
 
       <div className="flex flex-col gap-2">
         <div className="grid grid-cols-3">
-          <Label variant="muted">Color</Label>
+          <StackPropertyLabel binding={bindingFor('fill')} fallback="Color" />
           <div className="col-span-2 *:w-full">
             <ColorPropertyField
               value={backgroundColor}

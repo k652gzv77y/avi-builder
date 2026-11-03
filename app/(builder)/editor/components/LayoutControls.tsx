@@ -24,6 +24,8 @@ import {
 } from '@/lib/layout-model';
 import { removeSpaces } from '@/lib/utils';
 import { useStackBindings } from '@/hooks/use-stack-bindings';
+import { useControlBindings } from '@/hooks/use-control-bindings';
+import { Switch } from '@/components/ui/switch';
 import type { Layer } from '@/types';
 
 interface LayoutControlsProps {
@@ -34,7 +36,9 @@ interface LayoutControlsProps {
 const LayoutControls = memo(function LayoutControls({ layer, onLayerUpdate }: LayoutControlsProps) {
   const activeBreakpoint = useEditorStore((s) => s.activeBreakpoint);
   const activeUIState = useEditorStore((s) => s.activeUIState);
+  const editingComponentId = useEditorStore((s) => s.editingComponentId);
   const { bindingFor, syncValue } = useStackBindings({ layer, onLayerUpdate });
+  const { bindingFor: controlBindingFor, syncValue: syncControl } = useControlBindings({ layer, onLayerUpdate });
   const { updateDesignProperty, updateDesignProperties, debouncedUpdateDesignProperty, getDesignProperty, getPropertyInheritance } = useDesignSync({
     layer,
     onLayerUpdate,
@@ -274,6 +278,24 @@ const LayoutControls = memo(function LayoutControls({ layer, onLayerUpdate }: La
       </header>
 
       <div className="flex flex-col gap-2">
+
+          {layer && layer.id !== 'body' && editingComponentId && (
+            <div className="grid grid-cols-3 items-center">
+              <StackPropertyLabel binding={controlBindingFor('visible')} fallback="Visible" />
+              <div className="col-span-2">
+                <Switch
+                  checked={layer.settings?.hidden !== true}
+                  aria-label="Visible"
+                  onCheckedChange={(checked) => {
+                    onLayerUpdate(layer.id, {
+                      settings: { ...layer.settings, hidden: !checked },
+                    });
+                    syncControl('visible', { type: 'boolean', value: checked });
+                  }}
+                />
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-3">
               <Label variant="muted">Type</Label>

@@ -6,6 +6,7 @@
 
 import type { Layer, Component, ComponentVariable, ComponentVariableValue, LayerVariables, VariantSettingsValue } from '@/types';
 import { applyStackBindings } from '@/lib/component-bindings';
+import { applyControlBindings } from '@/lib/component-properties';
 import { prepareVariantLayersForPublish } from './component-variant-utils';
 import { mergeLayerInteractions, remapComponentRootInteraction, remapInteractionTargets } from '@/lib/interactions-framer';
 import { normalizeComponentVariableValue } from './variable-utils';
@@ -291,6 +292,10 @@ const OVERRIDE_CATEGORIES: OverrideCategory[] = [
   'icon',
   'variant',
   'stack',
+  'number',
+  'boolean',
+  'enum',
+  'color',
 ];
 
 function findOverrideByVariableId(
@@ -558,6 +563,8 @@ export function applyComponentOverrides(
         };
       }
     }
+
+    updatedLayer = applyControlBindings(updatedLayer, overrides, componentVariables);
 
     // Resolve variableLinks on nested component overrides
     if (updatedLayer.componentOverrides?.variableLinks) {

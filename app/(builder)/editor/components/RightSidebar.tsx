@@ -119,6 +119,7 @@ import { detachSpecificLayerFromComponent } from '@/lib/component-utils';
 import { convertContentToValue, parseValueToContent } from '@/lib/cms-variables-utils';
 import { defaultPaginationCountDoc, defaultPaginationInfoDoc } from '@/lib/pagination-text-utils';
 import { createTextComponentVariableValue } from '@/lib/variable-utils';
+import { boundTextForValue } from '@/lib/component-properties';
 import { getRichTextValue, extractPlainTextFromTiptap, getSoleCmsFieldBinding } from '@/lib/tiptap-utils';
 import { DEFAULT_TEXT_STYLES, getTextStyle, getTiptapTextContent } from '@/lib/text-format-utils';
 import { buildFieldGroupsForLayer, getFieldIcon, hasBoundCollectionSource, isMultipleAssetField, MULTI_ASSET_COLLECTION_ID, SIMPLE_TEXT_FIELD_TYPES } from '@/lib/collection-field-utils';
@@ -2606,16 +2607,43 @@ const RightSidebar = React.memo(function RightSidebar({
               const allComponentVariables = editingComponent?.variables || [];
               const isRichText = isRichTextLayer(selectedLayer);
               const componentVariables = allComponentVariables.filter(v =>
-                isRichText ? v.type === 'rich_text' : (!v.type || v.type === 'text')
+                isRichText
+                  ? v.type === 'rich_text'
+                  : (!v.type || v.type === 'text' || v.type === 'enum' || v.type === 'number')
               );
-              const linkedVariableId = selectedLayer.variables?.text?.id;
-              const linkedVariable = componentVariables.find(v => v.id === linkedVariableId);
+              const textControl = allComponentVariables.find(v => (
+                v.id === selectedLayer.controlBindings?.text && (v.type === 'enum' || v.type === 'number')
+              ));
+              const linkedVariableId = textControl?.id ?? selectedLayer.variables?.text?.id;
+              const linkedVariable = textControl ?? componentVariables.find(v => v.id === linkedVariableId);
+
+              const clearTextControl = () => {
+                if (!selectedLayer.controlBindings?.text) return selectedLayer.controlBindings;
+                const next = { ...selectedLayer.controlBindings };
+                delete next.text;
+                return Object.keys(next).length > 0 ? next : undefined;
+              };
 
               // Handle linking a layer to a variable
               const handleLinkVariable = (variableId: string) => {
                 if (!selectedLayerId) return;
+                const variable = allComponentVariables.find(v => v.id === variableId);
+                if (variable?.type === 'enum' || variable?.type === 'number') {
+                  const content = variable.default_value
+                    ? (boundTextForValue(variable, variable.default_value) ?? '')
+                    : '';
+                  handleLayerUpdate(selectedLayerId, {
+                    controlBindings: { ...(selectedLayer.controlBindings ?? {}), text: variableId },
+                    variables: {
+                      ...selectedLayer.variables,
+                      text: { type: 'dynamic_text', data: { content } },
+                    },
+                  });
+                  return;
+                }
                 const currentTextVar = selectedLayer.variables?.text;
                 handleLayerUpdate(selectedLayerId, {
+                  controlBindings: clearTextControl(),
                   variables: {
                     ...selectedLayer.variables,
                     text: currentTextVar ? { ...currentTextVar, id: variableId } : { type: 'dynamic_text', id: variableId, data: { content: '' } },
@@ -2664,6 +2692,10 @@ const RightSidebar = React.memo(function RightSidebar({
               // Handle unlinking a layer from a variable
               const handleUnlinkVariable = () => {
                 if (!selectedLayerId) return;
+                if (textControl) {
+                  handleLayerUpdate(selectedLayerId, { controlBindings: clearTextControl() });
+                  return;
+                }
                 const currentTextVar = selectedLayer.variables?.text;
                 if (currentTextVar) {
                   const { id: _, ...textWithoutId } = currentTextVar;

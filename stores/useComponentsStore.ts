@@ -18,6 +18,7 @@ import { detachStyleFromLayers, updateLayersWithStyle } from '@/lib/layer-style-
 import { scheduleIdle } from '@/lib/schedule-idle';
 import { generateId } from '@/lib/utils';
 import { applyStackValueToBoundLayers, uniqueName } from '@/lib/component-bindings';
+import { applyControlValueToBoundLayers, stripControlBinding } from '@/lib/component-properties';
 import {
   applyReplicaOverrides,
   isReplicaVariant,
@@ -26,7 +27,7 @@ import {
   replicaSourceLayers,
   withoutReplicaOverride,
 } from '@/lib/component-variant-utils';
-import type { Component, ComponentVariant, ComponentVariantState, Layer, LayerStyle, StackVariableKey, StackVariableValue } from '@/types';
+import type { Component, ComponentPropertyType, ComponentVariable, ComponentVariableValue, ComponentVariant, ComponentVariantState, EnumOption, Layer, LayerStyle, StackVariableKey, StackVariableValue } from '@/types';
 
 /**
  * Per-component, per-variant working copy of layers used while editing a
@@ -246,7 +247,24 @@ interface ComponentsActions {
     stackKey: StackVariableKey,
     defaultValue: StackVariableValue,
   ) => Promise<string | null>;
-  updateTextVariable: (componentId: string, variableId: string, updates: { name?: string; placeholder?: string; default_value?: any }) => Promise<void>;
+  /** Add a number, boolean, enum, or color property control. */
+  addPropertyVariable: (
+    componentId: string,
+    input: {
+      name: string;
+      type: ComponentPropertyType;
+      default_value: ComponentVariableValue;
+      options?: EnumOption[];
+      min?: number;
+      max?: number;
+      step?: number;
+    },
+  ) => Promise<string | null>;
+  updateTextVariable: (
+    componentId: string,
+    variableId: string,
+    updates: Partial<Pick<ComponentVariable, 'name' | 'placeholder' | 'default_value' | 'options' | 'min' | 'max' | 'step'>>,
+  ) => Promise<void>;
   reorderVariables: (componentId: string, orderedIds: string[]) => Promise<void>;
   deleteTextVariable: (componentId: string, variableId: string) => Promise<void>;
 
@@ -1398,7 +1416,50 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
       }
     },
 
-    // Update a text variable's name and/or default value
+    addPropertyVariable: async (componentId, input) => {
+      const component = get().getComponentById(componentId);
+      if (!component) return null;
+
+      const variableId = generateId('cpv');
+      const newVariable: ComponentVariable = {
+        id: variableId,
+        name: uniqueName((component.variables || []).map(variable => variable.name), input.name),
+        type: input.type,
+        default_value: input.default_value,
+        ...(input.options ? { options: input.options } : {}),
+        ...(input.min !== undefined ? { min: input.min } : {}),
+        ...(input.max !== undefined ? { max: input.max } : {}),
+        ...(input.step !== undefined ? { step: input.step } : {}),
+      };
+      const updatedVariables = [...(component.variables || []), newVariable];
+
+      try {
+        const response = await fetch(projectsPath(`/api/components/${componentId}`), {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ variables: updatedVariables }),
+        });
+
+        const result = await response.json();
+        if (result.error) {
+          console.error('Failed to add property variable:', result.error);
+          return null;
+        }
+
+        set((state) => ({
+          components: state.components.map((c) =>
+            c.id === componentId ? { ...c, variables: updatedVariables } : c
+          ),
+        }));
+
+        return variableId;
+      } catch (error) {
+        console.error('Failed to add property variable:', error);
+        return null;
+      }
+    },
+
+    // Update a variable's name, default, or enum options
     updateTextVariable: async (componentId, variableId, updates) => {
       const component = get().getComponentById(componentId);
       if (!component) return;
@@ -1411,10 +1472,33 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
       const version = (variableSaveVersion.get(saveKey) ?? 0) + 1;
       variableSaveVersion.set(saveKey, version);
 
+      const previousDrafts = get().componentDrafts[componentId];
+      let nextDrafts = previousDrafts;
+      if (updates.default_value !== undefined && previousDrafts) {
+        const draftCopy = { ...previousDrafts };
+        let draftChanged = false;
+        for (const [variantId, layers] of Object.entries(previousDrafts)) {
+          const nextLayers = applyControlValueToBoundLayers(
+            layers,
+            variableId,
+            updates.default_value,
+            updatedVariables,
+          );
+          if (nextLayers !== layers) {
+            draftCopy[variantId] = nextLayers;
+            draftChanged = true;
+          }
+        }
+        if (draftChanged) nextDrafts = draftCopy;
+      }
+
       set((state) => ({
         components: state.components.map((c) =>
           c.id === componentId ? { ...c, variables: updatedVariables } : c
         ),
+        componentDrafts: nextDrafts && nextDrafts !== previousDrafts
+          ? { ...state.componentDrafts, [componentId]: nextDrafts }
+          : state.componentDrafts,
       }));
 
       try {
@@ -1432,6 +1516,9 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
             components: state.components.map((c) =>
               c.id === componentId ? { ...c, variables: previous } : c
             ),
+            componentDrafts: previousDrafts
+              ? { ...state.componentDrafts, [componentId]: previousDrafts }
+              : state.componentDrafts,
           }));
         }
       } catch (error) {
@@ -1441,6 +1528,9 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
           components: state.components.map((c) =>
             c.id === componentId ? { ...c, variables: previous } : c
           ),
+          componentDrafts: previousDrafts
+            ? { ...state.componentDrafts, [componentId]: previousDrafts }
+            : state.componentDrafts,
         }));
       }
     },
@@ -1535,6 +1625,7 @@ export const useComponentsStore = create<ComponentsStore>((set, get) => {
             }
           }
 
+          updatedLayer = stripControlBinding(updatedLayer, variableId);
           updatedLayer = removeVariableLinksPointingTo(updatedLayer, variableId);
 
           // Recursively process children
