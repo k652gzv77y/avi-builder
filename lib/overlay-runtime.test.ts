@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
+import { tweenTransition } from '@/lib/action-transition';
 import { closeOpenOverlays, runInteractionActions } from '@/lib/interaction-runtime';
 import { createOverlayAction } from '@/lib/interactions-framer';
 import type { LayerInteraction } from '@/types';
@@ -129,6 +130,28 @@ class FakeElement {
 
   removeEventListener(type: string, listener: (event: Event) => void) {
     this.listeners.get(type)?.delete(listener);
+  }
+
+  animations: Array<{
+    keyframes: unknown;
+    options: { duration?: number; delay?: number; easing?: string };
+    onfinish: (() => void) | null;
+    oncancel: (() => void) | null;
+    cancel: () => void;
+  }> = [];
+
+  animate(keyframes: unknown, options: { duration?: number; delay?: number; easing?: string } = {}) {
+    const record = {
+      keyframes,
+      options,
+      onfinish: null as (() => void) | null,
+      oncancel: null as (() => void) | null,
+      cancel() {
+        this.oncancel?.();
+      },
+    };
+    this.animations.push(record);
+    return record;
   }
 
   emit(type: string, event: { target?: unknown; key?: string; shiftKey?: boolean; preventDefault?: () => void; stopImmediatePropagation?: () => void }) {
@@ -322,5 +345,52 @@ test('a tooltip does not take focus and Escape can be turned off', () => {
 
   doc.emit('pointerdown', { target: doc.body });
   assert.equal(overlay.style.display, 'none');
+  closeOpenOverlays();
+});
+
+test('an authored overlay transition fades open and waits to finish before it closes', () => {
+  const doc = new FakeDocument();
+  const trigger = layer(doc, 'button', { top: 20, left: 20, width: 80, height: 32 });
+  const overlay = layer(doc, 'dialog', { top: 0, left: 0, width: 200, height: 100 });
+  const action = createOverlayAction('open', 'open', 'dialog', 'fixed', 'modal');
+  action.transition = tweenTransition();
+  open(doc, action, trigger);
+
+  assert.equal(overlay.getAttribute('data-overlay-open'), 'modal');
+  assert.equal(overlay.animations.length, 1);
+  assert.equal(overlay.animations[0]?.options.duration, 300);
+  assert.equal(overlay.animations[0]?.options.easing, 'ease-out');
+  const backdrop = doc.body.children.find(child => child.getAttribute('data-overlay-backdrop') === 'dialog');
+  assert.ok(backdrop);
+  assert.equal(backdrop.animations.length, 1);
+
+  const escape = { key: 'Escape', prevented: false, preventDefault() { this.prevented = true; }, stopImmediatePropagation() {} };
+  doc.emit('keydown', escape);
+  assert.equal(overlay.getAttribute('data-overlay-open'), 'modal');
+  assert.equal(overlay.animations.length, 2);
+  assert.equal(backdrop.animations.length, 2);
+
+  overlay.animations[1]?.onfinish?.();
+  assert.equal(overlay.getAttribute('data-overlay-open'), 'modal');
+  backdrop.animations[1]?.onfinish?.();
+  assert.equal(overlay.style.display, 'none');
+  assert.equal(doc.body.children.includes(backdrop), false);
+  closeOpenOverlays();
+});
+
+test('a close action with an instant transition hides without waiting', () => {
+  const doc = new FakeDocument();
+  const trigger = layer(doc, 'button', { top: 20, left: 20, width: 80, height: 32 });
+  const overlay = layer(doc, 'dialog', { top: 0, left: 0, width: 200, height: 100 });
+  const opening = createOverlayAction('open', 'open', 'dialog', 'fixed', 'modal');
+  opening.transition = tweenTransition();
+  open(doc, opening, trigger);
+  assert.equal(overlay.getAttribute('data-overlay-open'), 'modal');
+
+  const closing = createOverlayAction('close', 'close', 'dialog');
+  closing.transition = { ...tweenTransition(), duration: 0, stagger: 0 };
+  open(doc, closing, trigger);
+  assert.equal(overlay.style.display, 'none');
+  assert.equal(overlay.hasAttribute('data-overlay-open'), false);
   closeOpenOverlays();
 });

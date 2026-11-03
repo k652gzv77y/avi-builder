@@ -40,7 +40,7 @@ import { combineBgValues, mergeStaticBgVars } from '@/lib/tailwind-class-mapper'
 import { clsx } from 'clsx';
 import type { HiddenLayerInfo } from '@/lib/animation-utils';
 import { transformLayerIdsForInstance } from '@/lib/resolve-components';
-import { useInteractiveVariantGestures, useInteractiveVariantLayer } from '@/hooks/use-interactive-variant';
+import { useInteractiveVariantGestures, useInteractiveVariantLayer, useVariantTransitionPlayback } from '@/hooks/use-interactive-variant';
 
 /**
  * Per-layer-type code splitting.
@@ -311,6 +311,7 @@ const LayerRendererPublic: React.FC<LayerRendererPublicProps> = ({
 function InteractiveVariantItem(props: React.ComponentProps<typeof LayerItem>) {
   const shown = useInteractiveVariantLayer(props.layer);
   useInteractiveVariantGestures(props.layer);
+  useVariantTransitionPlayback(props.layer.id);
   return <LayerItem {...props} layer={shown} />;
 }
 

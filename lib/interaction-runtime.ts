@@ -43,6 +43,17 @@ import {
   trapFocusIndex,
 } from '@/lib/overlay-position';
 import {
+  motionSpec,
+  transitionForVariantChange,
+  variantMotionSlot,
+  type VariantMotionSlot,
+} from '@/lib/action-transition';
+import {
+  currentOpacity,
+  playOverlayEnter,
+  playOverlayExit,
+} from '@/lib/action-transition-playback';
+import {
   activeVariantId,
   emptyVariantSession,
   reduceVariantSession,
@@ -53,6 +64,7 @@ import {
 import { useGlobalsStore } from '@/stores/useGlobalsStore';
 import { useInteractionPreviewStore } from '@/stores/useInteractionPreviewStore';
 import type {
+  ActionTransition,
   InteractionAction,
   KeyboardPhase,
   DragTrigger,
@@ -86,6 +98,10 @@ interface OverlaySession {
   trigger: HTMLElement | null;
   backdrop: HTMLElement | null;
   restoreFocus: boolean;
+  /** Transition the overlay opened with. Close reuses it when the close action has none. */
+  transition: ActionTransition | null;
+  closing: boolean;
+  cancelMotion: () => void;
   cleanup: () => void;
 }
 
@@ -114,33 +130,47 @@ function findLayer(doc: Document, layerId: string): HTMLElement | null {
 }
 
 const variantSessions = new Map<string, VariantSession>();
+const transitionSlots = new Map<string, Partial<Record<VariantMotionSlot, ActionTransition | null>>>();
+let playbackToken = 0;
 
-function commitVariant(doc: Document, layerId: string): void {
-  const active = activeVariantId(variantSessions.get(layerId) ?? emptyVariantSession());
+function rememberTransition(
+  layerId: string,
+  gesture: VariantGesture,
+  transition: ActionTransition | null | undefined,
+): void {
+  const slots = { ...(transitionSlots.get(layerId) ?? {}) };
+  slots[variantMotionSlot(gesture)] = transition ?? null;
+  transitionSlots.set(layerId, slots);
+}
+
+function publishVariant(doc: Document, layerId: string, before: VariantSession, after: VariantSession): void {
+  const active = activeVariantId(after);
+  const transition = transitionForVariantChange(before, after, transitionSlots.get(layerId) ?? {});
+  const playback = transition ? { token: ++playbackToken, transition } : undefined;
   const element = findLayer(doc, layerId);
   if (active) {
-    useInteractionPreviewStore.getState().setVariant(layerId, active);
+    useInteractionPreviewStore.getState().setVariant(layerId, active, playback);
     element?.setAttribute('data-interaction-variant', active);
     return;
   }
-  useInteractionPreviewStore.getState().clearVariant(layerId);
+  useInteractionPreviewStore.getState().clearVariant(layerId, playback);
   element?.removeAttribute('data-interaction-variant');
+}
+
+function sessionIsEmpty(session: VariantSession): boolean {
+  return session.base == null
+    && session.hover == null
+    && session.press == null
+    && session.drag == null;
 }
 
 function writeVariantSession(doc: Document, layerId: string, next: VariantSession, previous: VariantSession): void {
   if (next === previous) return;
-  if (
-    activeVariantId(next) == null
-    && next.base == null
-    && next.hover == null
-    && next.press == null
-    && next.drag == null
-  ) {
-    variantSessions.delete(layerId);
-  } else {
-    variantSessions.set(layerId, next);
-  }
-  commitVariant(doc, layerId);
+  const empty = sessionIsEmpty(next);
+  if (empty) variantSessions.delete(layerId);
+  else variantSessions.set(layerId, next);
+  publishVariant(doc, layerId, previous, next);
+  if (empty) transitionSlots.delete(layerId);
 }
 
 /** Remember a variant for a gesture and publish the one that should show. */
@@ -148,11 +178,12 @@ export function previewVariantGesture(
   doc: Document,
   layerId: string,
   event:
-    | { type: 'set'; gesture: VariantGesture; variantId: string }
+    | { type: 'set'; gesture: VariantGesture; variantId: string; transition?: ActionTransition | null }
     | { type: 'end'; gesture: 'hover' | 'press' | 'drag' },
 ): void {
   if (!layerId) return;
   if (event.type === 'set' && !event.variantId) return;
+  if (event.type === 'set') rememberTransition(layerId, event.gesture, event.transition);
   const current = variantSessions.get(layerId) ?? emptyVariantSession();
   writeVariantSession(doc, layerId, reduceVariantSession(current, event), current);
 }
@@ -160,6 +191,7 @@ export function previewVariantGesture(
 /** Drop every remembered variant. Tests use this between cases. */
 export function resetInteractiveVariants(): void {
   variantSessions.clear();
+  transitionSlots.clear();
   resetDragGestures();
   useInteractionPreviewStore.getState().clearVariants();
 }
@@ -170,14 +202,16 @@ function applySetVariant(
   variantId: string,
   gesture: VariantGesture,
   mode: 'merge' | 'replace',
+  transition?: ActionTransition,
 ): void {
   if (!targetLayerId || !variantId) return;
   if (mode === 'replace') {
+    transitionSlots.set(targetLayerId, { base: transition ?? null });
     const current = variantSessions.get(targetLayerId) ?? emptyVariantSession();
     writeVariantSession(doc, targetLayerId, { base: variantId, hover: null, press: null, drag: null }, current);
     return;
   }
-  previewVariantGesture(doc, targetLayerId, { type: 'set', gesture, variantId });
+  previewVariantGesture(doc, targetLayerId, { type: 'set', gesture, variantId, transition });
 }
 
 function pointerHitsLayer(doc: Document, layerId: string, event: Event): HTMLElement | null {
@@ -283,6 +317,7 @@ function clearOverlayChrome(overlay: HTMLElement): void {
   overlay.style.removeProperty('margin');
   overlay.style.removeProperty('transform');
   overlay.style.removeProperty('z-index');
+  overlay.style.removeProperty('opacity');
   overlay.removeAttribute('data-overlay-open');
   if (overlay.dataset.overlayRoleAdded === 'true') {
     overlay.removeAttribute('role');
@@ -291,9 +326,10 @@ function clearOverlayChrome(overlay: HTMLElement): void {
   }
 }
 
-export function closeOverlay(targetLayerId: string): void {
+function finishClose(targetLayerId: string): void {
   const session = sessions.get(targetLayerId);
   if (!session) return;
+  session.cancelMotion();
   session.cleanup();
   session.backdrop?.remove();
   clearOverlayChrome(session.overlay);
@@ -301,9 +337,43 @@ export function closeOverlay(targetLayerId: string): void {
   if (session.restoreFocus) session.trigger?.focus();
 }
 
+function closeMotion(explicit: ActionTransition | null | undefined, openedWith: ActionTransition | null) {
+  // A close action with its own transition wins, even when that transition is instant.
+  // An omitted close transition reuses the one the overlay opened with.
+  if (explicit) return motionSpec(explicit);
+  return motionSpec(openedWith);
+}
+
+export function closeOverlay(targetLayerId: string, transition?: ActionTransition | null): void {
+  const session = sessions.get(targetLayerId);
+  if (!session || session.closing) return;
+  const spec = closeMotion(transition, session.transition);
+  const canAnimate = spec != null && typeof session.overlay.animate === 'function';
+  if (!spec || !canAnimate) {
+    finishClose(targetLayerId);
+    return;
+  }
+  session.closing = true;
+  session.cleanup();
+  const fromOverlay = currentOpacity(session.overlay);
+  const fromBackdrop = session.backdrop ? currentOpacity(session.backdrop) : 1;
+  session.cancelMotion();
+  session.cancelMotion = playOverlayExit(
+    session.overlay,
+    session.backdrop,
+    spec,
+    fromOverlay,
+    fromBackdrop,
+    () => {
+      if (sessions.get(targetLayerId) !== session) return;
+      finishClose(targetLayerId);
+    },
+  );
+}
+
 /** Close every overlay this document opened. Used when preview rebinds. */
 export function closeOpenOverlays(): void {
-  for (const layerId of [...sessions.keys()]) closeOverlay(layerId);
+  for (const layerId of [...sessions.keys()]) finishClose(layerId);
 }
 
 function viewportOf(doc: Document): { width: number; height: number } {
@@ -404,7 +474,7 @@ function openOverlay(
 ): void {
   const overlay = findLayer(doc, action.targetLayerId);
   if (!overlay) return;
-  closeOverlay(action.targetLayerId);
+  finishClose(action.targetLayerId);
 
   const kind = resolveOverlayKind(action);
   const anchored = overlayIsAnchored(kind);
@@ -469,11 +539,15 @@ function openOverlay(
   view?.addEventListener('resize', place);
   view?.addEventListener('scroll', place, true);
 
+  const motion = motionSpec(action.transition);
   sessions.set(action.targetLayerId, {
     overlay,
     trigger,
     backdrop,
     restoreFocus: takesFocus && focusAfterClose(action.dismiss),
+    transition: action.transition ?? null,
+    closing: false,
+    cancelMotion: () => {},
     cleanup: () => {
       doc.removeEventListener('keydown', onKey, true);
       doc.removeEventListener('pointerdown', onPointer, true);
@@ -482,6 +556,10 @@ function openOverlay(
       view?.removeEventListener('scroll', place, true);
     },
   });
+  if (!motion || typeof overlay.animate !== 'function') return;
+  const session = sessions.get(action.targetLayerId);
+  if (!session) return;
+  session.cancelMotion = playOverlayEnter(overlay, backdrop, motion);
 }
 
 function applyScrollTo(
@@ -560,7 +638,14 @@ function applyAction(
 ): void {
   switch (action.type) {
     case 'set-variant':
-      applySetVariant(doc, action.targetLayerId, action.variantId, options.gesture ?? 'sticky', 'merge');
+      applySetVariant(
+        doc,
+        action.targetLayerId,
+        action.variantId,
+        options.gesture ?? 'sticky',
+        'merge',
+        action.transition,
+      );
       break;
     case 'scroll-variant': {
       const variantId = variantForScrollProgress(action.stops, options.scrollProgress ?? 1);
@@ -568,7 +653,7 @@ function applyAction(
       break;
     }
     case 'overlay':
-      if (action.operation === 'close') closeOverlay(action.targetLayerId);
+      if (action.operation === 'close') closeOverlay(action.targetLayerId, action.transition);
       else openOverlay(doc, action, trigger);
       break;
     case 'navigate':
@@ -782,6 +867,7 @@ function syncDragVariants(
       type: 'set',
       gesture: 'drag',
       variantId: choice.variantId,
+      transition: choice.transition,
     });
     next.add(choice.targetLayerId);
   }
@@ -807,6 +893,7 @@ function commitDragVariants(
       type: 'set',
       gesture: 'sticky',
       variantId: choice.variantId,
+      transition: choice.transition,
     });
   }
   for (const targetLayerId of new Set([...activeTargets, ...chosen])) {
