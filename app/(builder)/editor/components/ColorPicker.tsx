@@ -77,6 +77,8 @@ interface ColorPickerProps {
   imagePreviewUrl?: string;
   /** Label for the active background image source (e.g. "File manager", "Custom URL") */
   imageLabel?: string;
+  /** Variable or CMS field name shown in place of the hex while this color is bound. */
+  boundLabel?: string;
 }
 
 // Helper to convert hex/rgba to RgbaColor object
@@ -1144,6 +1146,7 @@ export default function ColorPicker({
   onImageDeactivate,
   imagePreviewUrl,
   imageLabel,
+  boundLabel,
 }: ColorPickerProps) {
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'solid' | 'linear' | 'radial' | 'image'>('solid');
@@ -1178,6 +1181,7 @@ export default function ColorPicker({
     if (val.startsWith('color:var(')) {
       return activeVariable?.name || 'Variable';
     }
+    if (boundLabel) return boundLabel;
     if (val.startsWith('linear-gradient')) return 'Linear';
     if (val.startsWith('radial-gradient')) return 'Radial';
     if (val === 'transparent') return 'Transparent';

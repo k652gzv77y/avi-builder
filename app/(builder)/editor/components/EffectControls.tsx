@@ -10,7 +10,12 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Slider } from '@/components/ui/slider';
 import { useDesignSync } from '@/hooks/use-design-sync';
 import { useControlBindings } from '@/hooks/use-control-bindings';
-import { StackPropertyLabel } from './BindingsPicker';
+import ProjectVariablePicker, { BoundVariableValue, useProjectVariableCatalog } from './ProjectVariablePicker';
+import {
+  boundProjectVariableId,
+  styleBindingPatch,
+  type ProjectVariableOption,
+} from '@/lib/project-variable-picker';
 import { useEditorStore } from '@/stores/useEditorStore';
 import { removeSpaces } from '@/lib/utils';
 import type { Layer } from '@/types';
@@ -47,6 +52,10 @@ const EffectControls = memo(function EffectControls({ layer, onLayerUpdate, acti
     activeTextStyleKey,
   });
   const { bindingFor, syncValue } = useControlBindings({ layer, onLayerUpdate });
+  const opacityBinding = bindingFor('opacity');
+  const opacityCatalog = useProjectVariableCatalog('opacity');
+  const opacityBoundId = boundProjectVariableId('opacity', layer);
+  const opacityBound = opacityCatalog.find(item => item.id === opacityBoundId);
 
   // Get current values from layer (no inheritance - only exact breakpoint values)
   const opacity = getDesignProperty('effects', 'opacity') || '100';
@@ -177,6 +186,20 @@ const EffectControls = memo(function EffectControls({ layer, onLayerUpdate, acti
       updateDesignProperty('effects', 'opacity', null);
       setOpacityInput('100');
     }
+  };
+
+  const handleBindOpacity = (option: ProjectVariableOption) => {
+    if (!layer || option.kind !== 'global') return;
+    onLayerUpdate(layer.id, styleBindingPatch(layer, 'opacity', {
+      globalId: option.sourceId,
+      literal: opacity,
+    }));
+    if (opacityBinding?.linkedId) opacityBinding.onUnlink?.();
+  };
+
+  const handleUnbindOpacity = () => {
+    if (!layer) return;
+    onLayerUpdate(layer.id, styleBindingPatch(layer, 'opacity', undefined));
   };
 
   // Handle opacity slider change (immediate - slider interaction)
@@ -470,8 +493,25 @@ const EffectControls = memo(function EffectControls({ layer, onLayerUpdate, acti
       <div className="flex flex-col gap-2">
 
           <div className="grid grid-cols-3">
-              <StackPropertyLabel binding={bindingFor('opacity')} fallback="Opacity" />
+              <ProjectVariablePicker
+                label="Opacity"
+                property="opacity"
+                boundId={opacityBoundId}
+                onSelect={handleBindOpacity}
+                onUnbind={handleUnbindOpacity}
+                sources={opacityBinding?.sources}
+                linkedSourceId={opacityBoundId ? undefined : opacityBinding?.linkedId}
+                linkedSourceName={opacityBoundId ? undefined : opacityBinding?.linkedName}
+                onUnlink={opacityBinding?.onUnlink}
+                createValue={opacity}
+              />
               <div className="col-span-2 grid grid-cols-2 items-center gap-2">
+                  {opacityBound ? (
+                    <div className="col-span-2">
+                      <BoundVariableValue name={opacityBound.leaf} onUnbind={handleUnbindOpacity} />
+                    </div>
+                  ) : (
+                  <>
                   <InputGroup>
                       <InputGroupInput
                         value={opacityInput}
@@ -494,6 +534,8 @@ const EffectControls = memo(function EffectControls({ layer, onLayerUpdate, acti
                     max={100}
                     step={1}
                   />
+                  </>
+                  )}
               </div>
           </div>
 

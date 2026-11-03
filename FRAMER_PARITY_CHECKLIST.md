@@ -77,8 +77,8 @@ or materially below Framer's workflow.
 - [x] Global variables, dynamic variables, CMS variable resolution, and collection layers
 - [x] CMS collections, fields, items, pagination, filters, imports, and forms
 - [x] Visibility conditions and collection item values
-- [~] Variable controls exist but need Framer-style binding ergonomics
-- [ ] Unified variable picker for every compatible property
+- [~] Variable controls use one picker on fill, typography color, opacity, text, width, and height. Other properties are still separate
+- [~] Unified variable picker for fill, typography color, opacity, text, width, and height. Search, folder or type groups, bind, unbind, and create. Computed formulas stay open
 - [ ] Variables with typed defaults, descriptions, folders, and scope
 - [ ] Formulas / computed variables with validation and dependency tracing
 - [ ] Array, object, and JSON variables with visual editors
@@ -160,7 +160,7 @@ Mark the items you want from this set first:
 
 - [x] Component property controls and instance overrides (text, number, boolean, enum, color, image, link, array, object, slot, and the existing media controls)
 - [x] Variant property matrix and interactive variants. Each variant stores property defaults. Hover, Press, and Tap switch the active variant and use those defaults
-- [ ] Variables/bindings picker and computed variables
+- [~] Variables/bindings picker for fill, color, opacity, text, and size. Computed variables remain open
 - [~] Layer event/action panel: Tap, Hover, Press, Drag, Keyboard, or Timer to Navigate, Set Variant, Open Overlay, Scroll to, or Set Variable. Drag can switch variants from a direction and distance. Modal, popover, and tooltip overlays can be created from the event. Sheet and menu are partial
 - [x] Framer-style responsive sizing and breakpoint inspector
 - [ ] Code Components and layer overrides

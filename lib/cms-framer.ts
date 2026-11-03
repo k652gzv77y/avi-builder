@@ -322,6 +322,7 @@ export interface ContentBinding {
   kind: 'cms' | 'fetch';
   id: string;
   name: string;
+  source?: 'page' | 'collection' | 'global';
 }
 
 function readVariableNode(node: unknown): ContentBinding | null {
@@ -338,10 +339,12 @@ function readVariableNode(node: unknown): ContentBinding | null {
     };
   }
   if (variable.type === 'field' && typeof variable.data?.field_id === 'string') {
+    const source = variable.data.source;
     return {
       kind: 'cms',
       id: variable.data.field_id,
       name: record.attrs?.label || variable.label || 'CMS',
+      source: source === 'page' || source === 'collection' || source === 'global' ? source : undefined,
     };
   }
   return null;

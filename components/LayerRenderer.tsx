@@ -44,6 +44,7 @@ import { useComponentsStore } from '@/stores/useComponentsStore';
 import { getComponentVariantLayers, resolvePointerVariantId } from '@/lib/component-variant-utils';
 import { resolveEditorInstanceLayers, variablesForVariant } from '@/lib/component-properties';
 import { applyDataBindings, presentFetchText } from '@/lib/cms-framer';
+import { applyStyleBindings } from '@/lib/project-variable-picker';
 import { useFetchRuntimeStore } from '@/stores/useFetchRuntimeStore';
 import { useInteractionPreviewStore } from '@/stores/useInteractionPreviewStore';
 import { useCollectionLayerStore } from '@/stores/useCollectionLayerStore';
@@ -514,18 +515,6 @@ const LayerItemImpl: React.FC<{
   // Check if locked by another user (only compute when lock exists)
   const isLockedByOther = !!(lock && lock.user_id !== currentUserId && Date.now() <= lock.expires_at);
   const fetchTick = useFetchRuntimeStore((state) => state.tick);
-  const boundLayer = useMemo(
-    () => applyDataBindings(layer, {
-      collectionItemData: layer._collectionItemValues || collectionItemData,
-      pageItemData: pageCollectionItemData ?? undefined,
-      runtime: useFetchRuntimeStore.getState(),
-    }),
-    [layer, collectionItemData, pageCollectionItemData, fetchTick],
-  );
-  const classesString = getClassesString(boundLayer);
-  // Collection layer data (from repeaters/loops) - separate from page collection data
-  // Use layer's pre-resolved values if present (from SSR), otherwise use prop from parent
-  const collectionLayerItemId = layer._collectionItemId || collectionItemId;
   // Site-wide global variables, keyed by id, so global-source bindings resolve
   // anywhere regardless of collection/page context. Merged into the collection
   // data map every resolve call already receives (global ids are unique UUIDs,
@@ -535,6 +524,18 @@ const LayerItemImpl: React.FC<{
     () => buildGlobalsValueMap(globalVariables),
     [globalVariables]
   );
+  const boundLayer = useMemo(
+    () => applyStyleBindings(applyDataBindings(layer, {
+      collectionItemData: layer._collectionItemValues || collectionItemData,
+      pageItemData: pageCollectionItemData ?? undefined,
+      runtime: useFetchRuntimeStore.getState(),
+    }), globalsData),
+    [layer, collectionItemData, pageCollectionItemData, fetchTick, globalsData],
+  );
+  const classesString = getClassesString(boundLayer);
+  // Collection layer data (from repeaters/loops) - separate from page collection data
+  // Use layer's pre-resolved values if present (from SSR), otherwise use prop from parent
+  const collectionLayerItemId = layer._collectionItemId || collectionItemId;
   const globalsMeta = useMemo(
     () => buildGlobalsMetaMap(globalVariables),
     [globalVariables]
