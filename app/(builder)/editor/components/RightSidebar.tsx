@@ -81,6 +81,7 @@ import TransitionControls from './TransitionControls';
 import SettingsPanel from './SettingsPanel';
 import SizingControls from './SizingControls';
 import SpacingControls from './SpacingControls';
+import StackSpacingControls from './StackSpacingControls';
 import ToggleGroup from './ToggleGroup';
 import TypographyControls from './TypographyControls';
 import UIStateSelector from './UIStateSelector';
@@ -109,6 +110,7 @@ import { getStyleIds } from '@/lib/layer-style-utils';
 import { resolveLayerClasses, chipClasses } from '@/lib/layer-style-resolve';
 import { buildDesign } from '@/lib/import/design';
 import { cn, generateId } from '@/lib/utils';
+import { spacingContainerKind } from '@/lib/stack-spacing';
 import { nextInteractionOwnerId } from '@/lib/interaction-owner';
 import { applyOverlaySetup, createOverlayLayer, syncOverlaySettings } from '@/lib/overlay-setup';
 import { overlayKindLabel, resolveOverlayKind } from '@/lib/overlay-position';
@@ -984,6 +986,19 @@ const RightSidebar = React.memo(function RightSidebar({
   // text-style path inside useDesignSync owns the update.
   const controlLayer = showTextStyleControls ? selectedLayer : designLayer;
   const controlUpdate = showTextStyleControls ? handleLayerUpdate : handleDesignUpdate;
+
+  // A stack or grid edits its own spacing. A child edits the parent stack.
+  const stackSpacingTarget = useMemo(() => {
+    const ownKind = spacingContainerKind(controlLayer);
+    if (ownKind && controlLayer) {
+      return { layer: controlLayer, kind: ownKind, editsParent: false };
+    }
+    const parentKind = spacingContainerKind(selectedLayerParent);
+    if (parentKind && selectedLayerParent) {
+      return { layer: selectedLayerParent, kind: parentKind, editsParent: true };
+    }
+    return null;
+  }, [controlLayer, selectedLayerParent]);
 
   // Update local state when selected layer changes (for settings fields)
   const [prevSelectedLayerId, setPrevSelectedLayerId] = useState<string | null>(null);
@@ -2194,11 +2209,21 @@ const RightSidebar = React.memo(function RightSidebar({
                 onLayerUpdate={controlUpdate}
               />
 
+              {stackSpacingTarget && (
+                <StackSpacingControls
+                  layer={stackSpacingTarget.layer}
+                  kind={stackSpacingTarget.kind}
+                  editsParent={stackSpacingTarget.editsParent}
+                  onLayerUpdate={stackSpacingTarget.editsParent ? handleLayerUpdate : controlUpdate}
+                />
+              )}
+
               {shouldShowControl('spacing', selectedLayer) && (
                 <SpacingControls
                   layer={controlLayer}
                   onLayerUpdate={controlUpdate}
                   activeTextStyleKey={activeTextStyleKey}
+                  showPadding={!stackSpacingTarget || stackSpacingTarget.editsParent}
                 />
               )}
             </InspectorSection>

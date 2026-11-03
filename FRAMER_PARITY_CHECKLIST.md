@@ -24,7 +24,7 @@ or materially below Framer's workflow.
 - [ ] Canvas comments, pins, threads, mentions, and resolution state
 - [ ] Canvas sections for organizing long pages
 - [x] Shift/Cmd-click and marquee multi-select, plus align and distribute for free-form layers
-- [ ] Spacing inspector and alignment for stack or grid children
+- [x] Spacing inspector and alignment for stack or grid children. A stack, grid, or a child inside one shows padding (all sides or per side), gap, and main/cross alignment. Multi-select of in-flow children aligns that selection on the cross axis and packs the parent on the main axis. Free-form align and distribute is unchanged
 - [x] Copy/paste styles (fill, border, radius, shadow, opacity, blend, filters, transforms, and text typography) and paste responsive breakpoint overrides between layers
 - [ ] Keyboard shortcut reference and command palette for all editor actions
 
@@ -32,7 +32,7 @@ or materially below Framer's workflow.
 
 - [x] Stack/flex layout, grid, padding, gap, alignment, wrap, and positioning
 - [x] Width, height, min/max sizing, overflow, and aspect-ratio support
-- [~] Visual layout controls need Framer-level density and discoverability
+- [~] Visual layout controls need Framer-level density and discoverability. Stack spacing is grouped in the inspector; other panels are unchanged
 - [x] Framer-style `Fill`, `Fit`, `Fixed`, `Relative`, and `Viewport` sizing for width and height (`Fit`, not Hug)
 - [ ] Fractional grid controls, named grid areas, and visual cell placement
 - [ ] Full positioning pin controls with responsive constraints

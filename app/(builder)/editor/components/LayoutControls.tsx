@@ -7,14 +7,10 @@ import Icon from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { OverrideReset } from './BreakpointOverride';
 import { StackPropertyLabel } from './BindingsPicker';
 import { useDesignSync } from '@/hooks/use-design-sync';
-import { useControlledInput, useControlledInputs } from '@/hooks/use-controlled-input';
-import { useModeToggle } from '@/hooks/use-mode-toggle';
 import { useEditorStore } from '@/stores/useEditorStore';
-import { extractMeasurementValue } from '@/lib/measurement-utils';
 import {
   applyBreakpointDesign,
   layoutModeFromDisplay,
@@ -22,7 +18,6 @@ import {
   shouldRemapChildPosition,
   type LayoutMode,
 } from '@/lib/layout-model';
-import { removeSpaces } from '@/lib/utils';
 import { useStackBindings } from '@/hooks/use-stack-bindings';
 import { useControlBindings } from '@/hooks/use-control-bindings';
 import StructureBindingControls from './structure-binding-controls';
@@ -50,12 +45,7 @@ const LayoutControls = memo(function LayoutControls({ layer, onLayerUpdate }: La
   // Get current values from layer (with inheritance)
   const display = getDesignProperty('layout', 'display') || '';
   const flexDirection = getDesignProperty('layout', 'flexDirection') || 'row';
-  const alignItems = getDesignProperty('layout', 'alignItems') || '';
-  const justifyContent = getDesignProperty('layout', 'justifyContent') || 'start';
   const flexWrap = getDesignProperty('layout', 'flexWrap') || 'nowrap';
-  const gap = getDesignProperty('layout', 'gap') || '';
-  const columnGap = getDesignProperty('layout', 'columnGap') || '';
-  const rowGap = getDesignProperty('layout', 'rowGap') || '';
   const gridCols = getDesignProperty('layout', 'gridTemplateColumns') || '';
   const gridRows = getDesignProperty('layout', 'gridTemplateRows') || '';
 
@@ -89,44 +79,12 @@ const LayoutControls = memo(function LayoutControls({ layer, onLayerUpdate }: La
     setGridRowsInput(extractGridNumber(gridRows));
   }, [gridRows]);
 
-  // Local controlled inputs (prevents repopulation bug)
-  const inputs = useControlledInputs({
-    gap,
-    columnGap,
-    rowGap,
-  }, extractMeasurementValue);
-
-  const [gapInput, setGapInput] = inputs.gap;
-  const [columnGapInput, setColumnGapInput] = inputs.columnGap;
-  const [rowGapInput, setRowGapInput] = inputs.rowGap;
-
-  // Use mode toggle hook for gap
-  const gapModeToggle = useModeToggle({
-    category: 'layout',
-    unifiedProperty: 'gap',
-    individualProperties: ['columnGap', 'rowGap'],
-    modeProperty: 'gapMode', // Store the mode preference in layer JSON
-    updateDesignProperty,
-    updateDesignProperties,
-    // Don't wrap in useCallback - let it recreate on every render to avoid stale closures
-    getCurrentValue: (prop: string) => getDesignProperty('layout', prop) || '',
-  });
-
   const layoutMode = layoutModeFromDisplay(display);
   const isStack = layoutMode === 'stack';
   const isGrid = layoutMode === 'grid';
   const stackAxis = flexDirection === 'column' || flexDirection === 'column-reverse' ? 'column' : 'row';
   const wrapMode = flexWrap === 'wrap' ? 'yes' : 'no';
   const displayOverride = getPropertyInheritance('display').isOverride;
-
-  const paddingTop = getDesignProperty('spacing', 'paddingTop') || '';
-  const paddingRight = getDesignProperty('spacing', 'paddingRight') || '';
-  const paddingBottom = getDesignProperty('spacing', 'paddingBottom') || '';
-  const paddingLeft = getDesignProperty('spacing', 'paddingLeft') || '';
-  const paddingUniform = [paddingRight, paddingBottom, paddingLeft].every((side) => side === paddingTop)
-    ? paddingTop
-    : '';
-  const [paddingInput, setPaddingInput] = useControlledInput(paddingUniform, extractMeasurementValue);
 
   const remapChildren = (target: 'absolute' | 'relative') => {
     if (!layer?.children?.length) return;
@@ -196,54 +154,9 @@ const LayoutControls = memo(function LayoutControls({ layer, onLayerUpdate }: La
     syncValue('direction', value);
   };
 
-  const handlePaddingChange = (value: string) => {
-    setPaddingInput(value);
-    const sanitized = removeSpaces(value);
-    const stored = sanitized || null;
-    debouncedUpdateDesignProperty('spacing', 'paddingTop', stored);
-    debouncedUpdateDesignProperty('spacing', 'paddingRight', stored);
-    debouncedUpdateDesignProperty('spacing', 'paddingBottom', stored);
-    debouncedUpdateDesignProperty('spacing', 'paddingLeft', stored);
-    syncValue('padding', sanitized);
-  };
-
-  // Handle align items change
-  const handleAlignChange = (value: string) => {
-    updateDesignProperty('layout', 'alignItems', value);
-    syncValue('align', value);
-  };
-
-  // Handle justify content change
-  const handleJustifyChange = (value: string) => {
-    updateDesignProperty('layout', 'justifyContent', value);
-    syncValue('distribute', value);
-  };
-
   // Handle wrap mode change
   const handleWrapChange = (value: 'yes' | 'no') => {
     updateDesignProperty('layout', 'flexWrap', value === 'yes' ? 'wrap' : 'nowrap');
-  };
-
-  // Handle gap changes (debounced for text input)
-  const handleGapChange = (value: string) => {
-    setGapInput(value);
-    if (gapModeToggle.mode === 'all') {
-      const sanitized = removeSpaces(value);
-      debouncedUpdateDesignProperty('layout', 'gap', sanitized || null);
-      syncValue('gap', sanitized);
-    }
-  };
-
-  const handleColumnGapChange = (value: string) => {
-    setColumnGapInput(value);
-    const sanitized = removeSpaces(value);
-    debouncedUpdateDesignProperty('layout', 'columnGap', sanitized || null);
-  };
-
-  const handleRowGapChange = (value: string) => {
-    setRowGapInput(value);
-    const sanitized = removeSpaces(value);
-    debouncedUpdateDesignProperty('layout', 'rowGap', sanitized || null);
   };
 
   // Handle grid columns change (number input only)
@@ -374,73 +287,6 @@ const LayoutControls = memo(function LayoutControls({ layer, onLayerUpdate }: La
             </div>
           )}
 
-          {(isStack || isGrid) && (
-              <>
-                  <div className="grid grid-cols-3">
-                      {isStack
-                        ? <StackPropertyLabel binding={bindingFor('align')} fallback="Align" />
-                        : <Label variant="muted">Align</Label>}
-                      <div className="col-span-2">
-                          <Tabs
-                            value={alignItems || 'start'}
-                            onValueChange={handleAlignChange}
-                            className="w-full"
-                          >
-                              <TabsList className="w-full">
-                                  <TabsTrigger value="start" aria-label="Align start">
-                                      <Icon name={stackAxis === 'column' ? 'layout-align-left' : 'layout-align-top'} className="size-3.5" />
-                                  </TabsTrigger>
-                                  <TabsTrigger value="center" aria-label="Align center">
-                                      <Icon name={stackAxis === 'column' ? 'layout-align-center-horizontally' : 'layout-align-center-vertically'} className="size-3.5" />
-                                  </TabsTrigger>
-                                  <TabsTrigger value="end" aria-label="Align end">
-                                      <Icon name={stackAxis === 'column' ? 'layout-align-right' : 'layout-align-bottom'} className="size-3.5" />
-                                  </TabsTrigger>
-                                  <TabsTrigger value="stretch" aria-label="Stretch">
-                                      <Icon name="alignStretch" className={stackAxis === 'column' ? '-rotate-90' : ''} />
-                                  </TabsTrigger>
-                              </TabsList>
-                          </Tabs>
-                      </div>
-                  </div>
-
-                  <div className="grid grid-cols-3">
-                      {isStack
-                        ? <StackPropertyLabel binding={bindingFor('distribute')} fallback="Distribute" />
-                        : <Label variant="muted">Distribute</Label>}
-                      <div className="col-span-2 *:w-full">
-                          <Select value={justifyContent} onValueChange={handleJustifyChange}>
-                              <SelectTrigger>
-                                  <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                  <SelectGroup>
-                                      <SelectItem value="start">
-                                        <Icon name={stackAxis === 'column' ? 'layout-align-top' : 'layout-align-left'} className="size-3" />
-                                        Start
-                                      </SelectItem>
-                                      <SelectItem value="center">
-                                        <Icon name={stackAxis === 'column' ? 'layout-align-center-vertically' : 'layout-align-center-horizontally'} className="size-3" />
-                                        Center
-                                      </SelectItem>
-                                      <SelectItem value="end">
-                                        <Icon name={stackAxis === 'column' ? 'layout-align-bottom' : 'layout-align-right'} className="size-3" />
-                                        End
-                                      </SelectItem>
-                                      <SelectItem value="between">
-                                        <Icon name={stackAxis === 'column' ? 'distribute-vertically' : 'distribute-horizontally'} className="size-3" />
-                                        Between
-                                      </SelectItem>
-                                      <SelectItem value="around">Around</SelectItem>
-                                      <SelectItem value="evenly">Evenly</SelectItem>
-                                  </SelectGroup>
-                              </SelectContent>
-                          </Select>
-                      </div>
-                  </div>
-              </>
-          )}
-
           {isGrid && (
               <div className="grid grid-cols-3">
                   <Label variant="muted">Grid</Label>
@@ -510,113 +356,6 @@ const LayoutControls = memo(function LayoutControls({ layer, onLayerUpdate }: La
                       </Tabs>
                   </div>
               </div>
-          )}
-
-          {(isStack || isGrid) && (
-              <div className="grid grid-cols-3 items-start">
-                  {isStack
-                    ? (
-                      <StackPropertyLabel
-                        binding={bindingFor('gap')}
-                        fallback="Gap"
-                        className="h-8"
-                      />
-                    )
-                    : <Label variant="muted" className="h-8">Gap</Label>}
-                  <div className="col-span-2 flex flex-col gap-2">
-                      <div className="flex items-center gap-2">
-                          <InputGroup className="flex-1">
-                              <InputGroupInput
-                                stepper
-                                min="0"
-                                step="1"
-                                disabled={gapModeToggle.mode === 'individual'}
-                                value={gapInput}
-                                onChange={(e) => handleGapChange(e.target.value)}
-                              />
-                          </InputGroup>
-                          <Button
-                            variant={gapModeToggle.mode === 'individual' ? 'secondary' : 'ghost'}
-                            size="sm"
-                            onClick={gapModeToggle.handleToggle}
-                          >
-                              <Icon name="link" />
-                          </Button>
-                      </div>
-                      {gapModeToggle.mode === 'individual' && (
-                           <div className="col-span-2 grid grid-cols-2 gap-2">
-                           <InputGroup>
-                               <InputGroupAddon>
-                                   <div className="flex">
-                                       <Tooltip>
-                                           <TooltipTrigger tabIndex={-1}>
-                                               <Icon name="horizontalGap" className="size-3" />
-                                           </TooltipTrigger>
-                                           <TooltipContent>
-                                               <p>Horizontal gap</p>
-                                           </TooltipContent>
-                                       </Tooltip>
-                                   </div>
-                               </InputGroupAddon>
-                               <InputGroupInput
-                                 stepper
-                                 min="0"
-                                 step="1"
-                                 value={columnGapInput}
-                                 onChange={(e) => handleColumnGapChange(e.target.value)}
-                               />
-                           </InputGroup>
-                           <InputGroup>
-                               <InputGroupAddon>
-                                   <div className="flex">
-                                       <Tooltip>
-                                           <TooltipTrigger tabIndex={-1}>
-                                               <Icon name="verticalGap" className="size-3" />
-                                           </TooltipTrigger>
-                                           <TooltipContent>
-                                               <p>Vertical gap</p>
-                                           </TooltipContent>
-                                       </Tooltip>
-                                   </div>
-                               </InputGroupAddon>
-                               <InputGroupInput
-                                 stepper
-                                 min="0"
-                                 step="1"
-                                 value={rowGapInput}
-                                 onChange={(e) => handleRowGapChange(e.target.value)}
-                               />
-                           </InputGroup>
-                       </div>
-                      )}
-                  </div>
-              </div>
-          )}
-
-          {isStack && (
-            <div className="grid grid-cols-3 items-start">
-              <StackPropertyLabel
-                binding={bindingFor('padding')}
-                fallback="Padding"
-                className="h-8"
-              />
-              <div className="col-span-2">
-                <InputGroup>
-                  <InputGroupAddon>
-                    <Icon name="padding-per-side" className="size-3" />
-                  </InputGroupAddon>
-                  <InputGroupInput
-                    stepper
-                    min="0"
-                    step="1"
-                    placeholder={paddingUniform === '' && (paddingTop || paddingRight || paddingBottom || paddingLeft) ? 'Mixed' : undefined}
-                    value={paddingInput}
-                    onChange={(e) => handlePaddingChange(e.target.value)}
-                    aria-label="Stack padding"
-                  />
-                </InputGroup>
-              </div>
-            </div>
           )}
 
       </div>
