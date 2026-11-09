@@ -13,6 +13,7 @@ import {
   buildBgImgVarName,
   buildBgImgClass,
 } from '@/lib/tailwind-class-mapper';
+import { isVariantClass } from '@/lib/breakpoint-utils';
 import { getLayerFromTemplate } from '@/lib/templates/blocks';
 
 export { generateId } from '@/lib/utils';
@@ -488,10 +489,7 @@ export function applyDesignToLayer(
 
     // Regenerate base classes, preserve any state/breakpoint-prefixed classes
     const existingClasses = Array.isArray(layer.classes) ? layer.classes : (layer.classes || '').split(' ').filter(Boolean);
-    const stateClasses = existingClasses.filter(cls =>
-      cls.match(/^(max-lg:|max-md:|lg:|md:)?(hover:|focus:|active:|disabled:|current:)/) ||
-      cls.match(/^(max-lg:|max-md:)/)
-    );
+    const stateClasses = existingClasses.filter((cls) => isVariantClass(cls));
     const baseClasses = designToClassString(mergedDesign);
     const allClasses = baseClasses ? `${baseClasses} ${stateClasses.join(' ')}`.trim() : stateClasses.join(' ');
 

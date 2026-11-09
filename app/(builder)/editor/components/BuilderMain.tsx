@@ -97,7 +97,8 @@ import { measureCanvasLayer } from '@/lib/canvas-freeform-dom';
 import { cloneDeep } from 'lodash';
 
 // 5. Types
-import type { Layer, Asset } from '@/types';
+import type { Layer, Asset, Breakpoint } from '@/types';
+import { useBreakpointCatalog } from '@/hooks/use-breakpoint-catalog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Field } from '@/components/ui/field';
@@ -135,6 +136,7 @@ export default function BuilderApp({ children }: BuilderAppProps = {} as Builder
   const setCurrentPageId = useEditorStore((state) => state.setCurrentPageId);
   const activeBreakpoint = useEditorStore((state) => state.activeBreakpoint);
   const setActiveBreakpoint = useEditorStore((state) => state.setActiveBreakpoint);
+  useBreakpointCatalog();
   const undo = useEditorStore((state) => state.undo);
   const redo = useEditorStore((state) => state.redo);
   const canUndo = useEditorStore((state) => state.canUndo);
@@ -207,7 +209,7 @@ export default function BuilderApp({ children }: BuilderAppProps = {} as Builder
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const [showPageDropdown, setShowPageDropdown] = useState(false);
-  const [viewportMode, setViewportMode] = useState<'desktop' | 'tablet' | 'mobile'>(
+  const [viewportMode, setViewportMode] = useState<Breakpoint>(
     urlState.view || 'desktop'
   );
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);

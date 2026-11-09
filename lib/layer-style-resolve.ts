@@ -14,14 +14,13 @@
  */
 
 import type { Layer, LayerStyle } from '@/types';
+import { VARIANT_PREFIX_RE } from '@/lib/breakpoint-utils';
 import { getAffectedProperties, removeConflictingClasses } from '@/lib/tailwind-class-mapper';
 import { buildDesign } from '@/lib/import/design';
 
 /** Breakpoint + state prefix on a Tailwind class (empty for base desktop/neutral). */
-const CLASS_PREFIX_RE = /^((?:max-lg:|max-md:|lg:|md:)?(?:hover:|focus:|active:|disabled:|visited:|current:)?)/;
-
 function classPrefix(cls: string): string {
-  return cls.match(CLASS_PREFIX_RE)?.[1] ?? '';
+  return cls.match(VARIANT_PREFIX_RE)?.[1] ?? '';
 }
 
 /**

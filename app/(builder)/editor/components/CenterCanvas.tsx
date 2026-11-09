@@ -75,7 +75,8 @@ import { asLayerArray, getCollectionVariable, canDeleteLayer, findLayerById, fin
 import { variablesForVariant } from '@/lib/component-properties';
 import { insertComponentOnCanvas } from '@/lib/insert-component-on-canvas';
 import { CANVAS_BORDER, CANVAS_PADDING, updateViewportOverrides } from '@/lib/canvas-utils';
-import { BREAKPOINTS, DEFAULT_CANVAS_BREAKPOINT_FRAMES } from '@/lib/breakpoint-utils';
+import { DEFAULT_DESKTOP_WIDTH } from '@/lib/breakpoint-utils';
+import { useBreakpointCatalog } from '@/hooks/use-breakpoint-catalog';
 import { buildFieldGroupsForLayer, flattenFieldGroups, filterFieldGroupsByType, SIMPLE_TEXT_FIELD_TYPES } from '@/lib/collection-field-utils';
 import { getPaginationLayerKind, PAGINATION_VARIABLE_LABELS, type PaginationVariableKey } from '@/lib/pagination-text-utils';
 import { buildFieldVariableData } from '@/lib/variable-format-utils';
@@ -86,7 +87,7 @@ import ElementPickerOverlay from './ElementPickerOverlay';
 import { setDragCursor, clearDragCursor } from '@/lib/drag-cursor';
 
 // 7. Types
-import type { Layer, Page, CollectionField, Asset } from '@/types';
+import type { Layer, Page, CollectionField, Asset, Breakpoint } from '@/types';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -103,7 +104,7 @@ import {
 import { Spinner } from '@/components/ui/spinner';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
-type ViewportMode = 'desktop' | 'tablet' | 'mobile';
+type ViewportMode = Breakpoint;
 
 import type { UseLiveLayerUpdatesReturn } from '@/hooks/use-live-layer-updates';
 import type { UseLiveComponentUpdatesReturn } from '@/hooks/use-live-component-updates';
@@ -121,16 +122,6 @@ interface CenterCanvasProps {
   liveLayerUpdates?: UseLiveLayerUpdatesReturn | null;
   liveComponentUpdates?: UseLiveComponentUpdatesReturn | null;
 }
-
-// Viewport widths are derived from BREAKPOINTS to avoid sitting on exact
-// breakpoint boundaries where CSS zoom sub-pixel rounding can toggle styles.
-const MOBILE_MAX_WIDTH = BREAKPOINTS.find(bp => bp.value === 'mobile')!.maxWidth!;
-
-const viewportSizes: Record<ViewportMode, { width: string; label: string; icon: string }> = {
-  desktop: { width: '1366px', label: 'Desktop', icon: '🖥️' },
-  tablet: { width: `${MOBILE_MAX_WIDTH + 10}px`, label: 'Tablet', icon: '📱' },
-  mobile: { width: '375px', label: 'Phone', icon: '📱' },
-};
 
 interface ViewportZoomControlsProps {
   zoom: number;
@@ -829,15 +820,22 @@ const CenterCanvas = React.memo(function CenterCanvas({
     autoInit: true,
   });
 
+  const { catalog } = useBreakpointCatalog();
+  const activeBreakpointDefinition = catalog.find((breakpoint) => breakpoint.id === viewportMode)
+    ?? catalog.find((breakpoint) => breakpoint.id === 'desktop');
+  const fallbackCanvasWidth = activeBreakpointDefinition?.width ?? DEFAULT_DESKTOP_WIDTH;
+
   // Parse viewport width — prefer the active freeform frame width when set.
-  const [activeFrameId, setActiveFrameId] = useState<string | null>('desktop');
-  const [activeCanvasWidth, setActiveCanvasWidth] = useState<number>(
-    DEFAULT_CANVAS_BREAKPOINT_FRAMES[0].width,
-  );
-  const viewportWidth = useMemo(() => {
-    if (activeCanvasWidth > 0) return activeCanvasWidth;
-    return parseInt(viewportSizes[viewportMode].width);
-  }, [activeCanvasWidth, viewportMode]);
+  const [activeFrameId, setActiveFrameId] = useState<string | null>(viewportMode);
+  const [activeCanvasWidth, setActiveCanvasWidth] = useState<number>(fallbackCanvasWidth);
+  const viewportWidth = activeCanvasWidth > 0 ? activeCanvasWidth : fallbackCanvasWidth;
+
+  useEffect(() => {
+    const match = catalog.find((breakpoint) => breakpoint.id === viewportMode);
+    if (!match) return;
+    setActiveFrameId(match.id);
+    setActiveCanvasWidth(match.width);
+  }, [catalog, viewportMode]);
 
   // Calculate default iframe height to fill canvas — track current container height
   // so the white canvas always fills all the available vertical space, even when the
@@ -904,7 +902,7 @@ const CenterCanvas = React.memo(function CenterCanvas({
   });
 
   // Independent zoom for the preview (second useZoom instance, active only in preview mode)
-  const previewContentWidth = parseInt(viewportSizes[viewportMode].width);
+  const previewContentWidth = fallbackCanvasWidth;
   const {
     zoom: previewZoom,
     zoomMode: previewZoomMode,
@@ -2324,10 +2322,10 @@ const CenterCanvas = React.memo(function CenterCanvas({
             <BreakpointBar
               active={viewportMode}
               activeFrameId={activeFrameId}
-              onSelect={(mode, frame) => {
-                setActiveFrameId(frame.id);
-                setActiveCanvasWidth(frame.width);
-                setViewportMode(mode);
+              onSelect={(breakpoint) => {
+                setActiveFrameId(breakpoint.id);
+                setActiveCanvasWidth(breakpoint.width);
+                setViewportMode(breakpoint.id);
               }}
             />
           )}
@@ -2759,10 +2757,10 @@ const CenterCanvas = React.memo(function CenterCanvas({
                   active={viewportMode}
                   activeFrameId={activeFrameId}
                   zoom={zoom}
-                  onSelect={(mode, frame) => {
-                    setActiveFrameId(frame.id);
-                    setActiveCanvasWidth(frame.width);
-                    setViewportMode(mode);
+                  onSelect={(breakpoint) => {
+                    setActiveFrameId(breakpoint.id);
+                    setActiveCanvasWidth(breakpoint.width);
+                    setViewportMode(breakpoint.id);
                   }}
                   onActiveWidthChange={setActiveCanvasWidth}
                 >

@@ -7,7 +7,7 @@
 
 import type { Layer, UIState, Breakpoint } from '@/types';
 import { cn } from '@/lib/utils';
-import { getBreakpointPrefix } from './breakpoint-utils';
+import { cascadeOrder, getBreakpointPrefix, hasResponsivePrefix, splitResponsivePrefix, stripVariantPrefixes } from './breakpoint-utils';
 
 /**
  * Build a CSS custom property name for background image per breakpoint/state.
@@ -544,7 +544,7 @@ export function removeConflictingClasses(
 
   return classes.filter(cls => {
     // Strip breakpoint and state prefixes for helper class detection
-    const baseClass = cls.replace(/^(max-lg:|max-md:|lg:|md:)?(hover:|focus:|active:|disabled:|visited:|current:)?/, '');
+    const baseClass = stripVariantPrefixes(cls);
 
     // Special handling for text color property
     // Remove gradient-related classes (bg-[gradient], bg-clip-text, text-transparent)
@@ -637,7 +637,7 @@ export function removeConflictingClasses(
  */
 function isStandardColorClass(className: string): boolean {
   // Strip prefixes
-  const baseClass = className.replace(/^(max-lg:|max-md:|lg:|md:)?(hover:|focus:|active:|disabled:|visited:|current:)?/, '');
+  const baseClass = stripVariantPrefixes(className);
 
   // Common Tailwind color patterns
   const colorPattern = /^(text|bg|border|ring|outline|decoration|shadow|from|via|to|caret|accent|divide|placeholder)-(slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)(-\d+)?$/;
@@ -650,7 +650,7 @@ function isStandardColorClass(className: string): boolean {
  */
 function isArbitraryColorClass(className: string, property: string): boolean {
   // Strip prefixes
-  const baseClass = className.replace(/^(max-lg:|max-md:|lg:|md:)?(hover:|focus:|active:|disabled:|visited:|current:)?/, '');
+  const baseClass = stripVariantPrefixes(className);
 
   // Check based on property
   if (property === 'color' && baseClass.startsWith('text-[')) {
@@ -1240,7 +1240,7 @@ export function getAffectedProperties(className: string): string[] {
   const properties: string[] = [];
 
   // Strip breakpoint and state prefixes for helper class detection
-  const baseClass = className.replace(/^(max-lg:|max-md:|lg:|md:)?(hover:|focus:|active:|disabled:|visited:|current:)?/, '');
+  const baseClass = stripVariantPrefixes(className);
 
   // bg-clip-* classes affect backgroundClip; bg-clip-text also participates in text gradients
   if (baseClass.startsWith('bg-clip-')) {
@@ -1454,6 +1454,12 @@ export function classesToDesign(classes: string | string[]): Layer['design'] {
     // Also skip breakpoint+state combinations
     if (cls.match(/^(max-lg|max-md|lg|md):(hover|focus|active|disabled|visited|current):/)) {
       return; // Skip this class
+    }
+
+    // Custom ranges stay out of the desktop design object. They are read
+    // back through getInheritedValue for the breakpoint that owns the width.
+    if (/^max-\[\d+px\]:/.test(cls)) {
+      return;
     }
 
     // Strip breakpoint prefix (but keep base classes)
@@ -2145,24 +2151,12 @@ export function parseFullClass(className: string): {
   uiState: UIState;
   baseClass: string;
 } {
-  let remaining = className;
-  let breakpoint: Breakpoint = 'desktop';
+  const split = splitResponsivePrefix(className);
+  let remaining = split.rest;
+  const breakpoint: Breakpoint = split.breakpoint;
   let uiState: UIState = 'neutral';
 
-  // Check for responsive prefix first (Tailwind order: responsive then state)
-  if (remaining.startsWith('max-md:')) {
-    breakpoint = 'mobile';
-    remaining = remaining.slice(7);
-  } else if (remaining.startsWith('max-lg:')) {
-    breakpoint = 'tablet';
-    remaining = remaining.slice(7);
-  } else if (remaining.startsWith('lg:')) {
-    breakpoint = 'desktop';
-    remaining = remaining.slice(3);
-  } else if (remaining.startsWith('md:')) {
-    breakpoint = 'tablet';
-    remaining = remaining.slice(3);
-  }
+  // State prefix follows the responsive prefix.
 
   // Check for state prefix
   if (remaining.startsWith('hover:')) {
@@ -2198,20 +2192,8 @@ export function parseBreakpointClass(className: string): {
   breakpoint: Breakpoint;
   baseClass: string;
 } {
-  if (className.startsWith('max-md:')) {
-    return { breakpoint: 'mobile', baseClass: className.slice(7) };
-  }
-  if (className.startsWith('max-lg:')) {
-    return { breakpoint: 'tablet', baseClass: className.slice(7) };
-  }
-  // Support legacy mobile-first classes for backward compatibility
-  if (className.startsWith('lg:')) {
-    return { breakpoint: 'desktop', baseClass: className.slice(3) };
-  }
-  if (className.startsWith('md:')) {
-    return { breakpoint: 'tablet', baseClass: className.slice(3) };
-  }
-  return { breakpoint: 'desktop', baseClass: className };
+  const split = splitResponsivePrefix(className);
+  return { breakpoint: split.breakpoint, baseClass: split.rest };
 }
 
 /**
@@ -2231,20 +2213,12 @@ export function addBreakpointPrefix(breakpoint: Breakpoint, className: string): 
  */
 export function getBreakpointClasses(classes: string[], breakpoint: Breakpoint): string[] {
   const prefix = getBreakpointPrefix(breakpoint);
-
+  if (!prefix) {
+    return classes.filter((cls) => !hasResponsivePrefix(cls));
+  }
   return classes
-    .filter(cls => {
-      if (prefix) {
-        // For tablet (max-lg:) or mobile (max-md:), match their specific prefix
-        return cls.startsWith(prefix);
-      } else {
-        // For desktop (no prefix), return classes without max-lg: or max-md: prefix
-        // Also exclude legacy mobile-first prefixes (md:, lg:)
-        return !cls.startsWith('max-lg:') && !cls.startsWith('max-md:') &&
-               !cls.startsWith('md:') && !cls.startsWith('lg:');
-      }
-    })
-    .map(cls => (prefix ? cls.slice(prefix.length) : cls));
+    .filter((cls) => splitResponsivePrefix(cls).breakpoint === breakpoint)
+    .map((cls) => splitResponsivePrefix(cls).rest);
 }
 
 /**
@@ -2277,7 +2251,7 @@ function isImageValue(value: string): boolean {
  */
 function shouldIncludeClassForProperty(className: string, property: string, pattern: RegExp): boolean {
   // Strip breakpoint and state prefixes for helper class detection
-  const baseClass = className.replace(/^(max-lg:|max-md:|lg:|md:)?(hover:|focus:|active:|disabled:|visited:|current:)?/, '');
+  const baseClass = stripVariantPrefixes(className);
 
   if (baseClass.startsWith('text-shadow')) {
     return property === 'textShadow';
@@ -2415,70 +2389,41 @@ export function getInheritedValue(
   const pattern = getConflictingClassPattern(property);
   if (!pattern) return { value: null, source: null };
 
-  // Define inheritance chain based on current breakpoint (desktop-first)
-  const inheritanceChain: Breakpoint[] =
-    currentBreakpoint === 'mobile' ? ['desktop', 'tablet', 'mobile'] :
-      currentBreakpoint === 'tablet' ? ['desktop', 'tablet'] :
-        ['desktop'];
+  // Desktop first, then each narrower range that still applies at this breakpoint.
+  const inheritanceChain: Breakpoint[] = cascadeOrder(currentBreakpoint);
 
-  // Check each breakpoint in order (desktop → tablet → mobile)
+  // Check each breakpoint in order (base → narrower). Later values win.
   let lastValue: string | null = null;
   let lastSource: Breakpoint | null = null;
 
   for (const breakpoint of inheritanceChain) {
-    const bpPrefix = getBreakpointPrefix(breakpoint);
-    const statePrefix = getUIStatePrefix(currentUIState);
-
-    // If we're in a specific state (not neutral), check for state-specific class at this breakpoint
     if (currentUIState !== 'neutral') {
-      const fullPrefix = bpPrefix + statePrefix;
-      const stateClass = classes.find(cls => {
-        const withPrefix = bpPrefix ? cls.startsWith(fullPrefix) : cls.startsWith(statePrefix);
-        if (!withPrefix) return false;
-        const baseClass = cls.slice(fullPrefix.length);
-        // Smart filtering for text-[...] classes
-        return shouldIncludeClassForProperty(baseClass, property, pattern);
+      const stateClass = classes.find((cls) => {
+        const parsed = parseFullClass(cls);
+        if (parsed.breakpoint !== breakpoint || parsed.uiState !== currentUIState) return false;
+        return shouldIncludeClassForProperty(parsed.baseClass, property, pattern);
       });
 
       if (stateClass) {
-        lastValue = stateClass.slice(fullPrefix.length);
+        lastValue = parseFullClass(stateClass).baseClass;
         lastSource = breakpoint;
-        // Don't break - keep checking for more specific breakpoints
       }
     }
 
-    // Check for neutral state class at this breakpoint (always check this)
-    const neutralClass = classes.find(cls => {
-      if (bpPrefix) {
-        if (!cls.startsWith(bpPrefix)) return false;
-        const afterBp = cls.slice(bpPrefix.length);
-        // Must not have a state prefix
-        if (afterBp.match(/^(hover|focus|active|disabled|visited|current):/)) return false;
-        // Smart filtering for text-[...] classes
-        return shouldIncludeClassForProperty(afterBp, property, pattern);
-      } else {
-        // Desktop: no breakpoint prefix, no state prefix
-        if (cls.match(/^(max-lg|max-md|hover|focus|active|disabled|visited|current):/)) return false;
-        // Smart filtering for text-[...] classes
-        return shouldIncludeClassForProperty(cls, property, pattern);
-      }
+    const neutralClass = classes.find((cls) => {
+      const parsed = parseFullClass(cls);
+      if (parsed.breakpoint !== breakpoint || parsed.uiState !== 'neutral') return false;
+      return shouldIncludeClassForProperty(parsed.baseClass, property, pattern);
     });
 
     if (neutralClass) {
-      const baseClass = bpPrefix ? neutralClass.slice(bpPrefix.length) : neutralClass;
+      const baseClass = parseFullClass(neutralClass).baseClass;
 
-      // CRITICAL FIX: If we're in neutral state, ONLY use neutral classes
-      // If we're in a specific state, only use neutral as fallback if no state-specific value found
-      if (currentUIState === 'neutral') {
-        // In neutral: always update with neutral value (override any state values that shouldn't be here)
+      // Neutral editing only uses neutral classes. A state falls back to
+      // neutral when that state has no class of its own yet.
+      if (currentUIState === 'neutral' || !lastValue) {
         lastValue = baseClass;
         lastSource = breakpoint;
-      } else {
-        // In specific state: only use neutral as fallback if no state-specific value exists yet
-        if (!lastValue) {
-          lastValue = baseClass;
-          lastSource = breakpoint;
-        }
       }
     }
   }
@@ -2649,7 +2594,7 @@ export function getRemovedPropertyClasses(
           // Find all style classes that match this property pattern
           for (const styleClass of styleClasses) {
             // Strip prefixes for pattern matching
-            const baseClass = styleClass.replace(/^(max-lg:|max-md:|lg:|md:)?(hover:|focus:|active:|disabled:|visited:|current:)?/, '');
+            const baseClass = stripVariantPrefixes(styleClass);
 
             // Special handling for text-[...] classes
             if (baseClass.startsWith('text-[')) {

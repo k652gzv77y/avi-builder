@@ -16,13 +16,7 @@ import {
 } from 'swiper/modules';
 import type { SwiperOptions } from 'swiper/types';
 import type { Breakpoint, ResponsiveNumber, SliderSettings, SwiperAnimationEffect } from '@/types';
-
-/** Desktop-first fallback chain: a breakpoint inherits from larger ones when unset */
-const BREAKPOINT_FALLBACKS: Record<Breakpoint, Breakpoint[]> = {
-  desktop: ['desktop'],
-  tablet: ['tablet', 'desktop'],
-  mobile: ['mobile', 'tablet', 'desktop'],
-};
+import { inheritanceChain, swiperMinWidthEntries } from '@/lib/breakpoint-utils';
 
 /**
  * Resolve a responsive value for a breakpoint, following the desktop-first
@@ -35,7 +29,7 @@ export function resolveResponsiveNumber(
 ): number {
   if (value == null) return fallback;
   if (typeof value === 'number') return value;
-  for (const bp of BREAKPOINT_FALLBACKS[breakpoint]) {
+  for (const bp of inheritanceChain(breakpoint)) {
     const resolved = value[bp];
     if (typeof resolved === 'number') return resolved;
   }
@@ -172,10 +166,18 @@ export function buildBaseSwiperOptions(
   };
 
   if (!fixedBreakpoint) {
-    config.breakpoints = {
-      768: { slidesPerView: perView('tablet'), slidesPerGroup: perGroup('tablet') },
-      1024: { slidesPerView: perView('desktop'), slidesPerGroup: perGroup('desktop') },
-    };
+    const entries = swiperMinWidthEntries();
+    const base = entries[0];
+    config.slidesPerView = perView(base?.id ?? 'mobile');
+    config.slidesPerGroup = perGroup(base?.id ?? 'mobile');
+    config.breakpoints = {};
+    for (const entry of entries) {
+      if (entry.min <= 0) continue;
+      config.breakpoints[entry.min] = {
+        slidesPerView: perView(entry.id),
+        slidesPerGroup: perGroup(entry.id),
+      };
+    }
   }
 
   if (effectModule) {

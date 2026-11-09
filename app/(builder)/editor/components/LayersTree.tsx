@@ -43,7 +43,7 @@ import { getLayerIcon, getLayerName } from '@/lib/layer-display-utils';
 import { getBlockName } from '@/lib/templates/blocks';
 import { MULTI_ASSET_COLLECTION_ID } from '@/lib/collection-field-utils';
 import { getUserInitials, getDisplayName } from '@/lib/collaboration-utils';
-import { getBreakpointPrefix } from '@/lib/breakpoint-utils';
+import { getBreakpointPrefix, isBaseBreakpoint } from '@/lib/breakpoint-utils';
 import { Input } from '@/components/ui/input';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { CollaboratorBadge } from '@/components/collaboration/CollaboratorBadge';
@@ -2039,7 +2039,7 @@ export default function LayersTree({
       // Check if this is a within-parent reorder on a non-desktop breakpoint
       // If so, use CSS order classes instead of changing DOM structure
       const isWithinParentReorder = activeNode.parentId === newParentId;
-      const isResponsiveBreakpoint = activeBreakpoint !== 'desktop';
+      const isResponsiveBreakpoint = !isBaseBreakpoint(activeBreakpoint);
 
       let newLayers: Layer[];
 
@@ -2051,7 +2051,7 @@ export default function LayersTree({
           newParentId!,
           activeNode.id,
           newOrder,
-          activeBreakpoint as 'tablet' | 'mobile'
+          activeBreakpoint
         );
       } else {
         // Standard DOM structure change (affects all breakpoints)
@@ -2564,9 +2564,10 @@ function applyResponsiveOrderClasses(
   parentId: string,
   movedChildId: string,
   newIndex: number,
-  breakpoint: 'tablet' | 'mobile'
+  breakpoint: Breakpoint
 ): Layer[] {
-  const prefix = getBreakpointPrefix(breakpoint); // max-lg: or max-md:
+  const prefix = getBreakpointPrefix(breakpoint);
+  if (!prefix) return layers;
 
   // Helper to normalize classes to string
   const normalizeClasses = (classes: string | string[] | undefined): string => {

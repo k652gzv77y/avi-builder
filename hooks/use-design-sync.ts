@@ -17,6 +17,7 @@ import {
   getConflictingClassPattern,
   extractBgImgVarName,
 } from '@/lib/tailwind-class-mapper';
+import { stripVariantPrefixes } from '@/lib/breakpoint-utils';
 import { applyBreakpointDesign, isBreakpointOverride, toClassList } from '@/lib/layout-model';
 import { useCanvasTextEditorStore } from '@/stores/useCanvasTextEditorStore';
 import { DEFAULT_TEXT_STYLES, getTextStyle } from '@/lib/text-format-utils';
@@ -547,7 +548,7 @@ export function useDesignSync({
  */
 function mapClassToDesignValue(className: string, property: string): string | undefined {
   // Remove any breakpoint and state prefixes
-  const cleanClass = className.replace(/^(max-lg:|max-md:|lg:|md:)?(hover:|focus:|active:|disabled:|visited:)?/, '');
+  const cleanClass = stripVariantPrefixes(className);
 
   // Special cases for properties where classes don't have dashes or are complete values
   const noSplitProperties = [
