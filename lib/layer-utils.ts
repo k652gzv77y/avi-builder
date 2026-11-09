@@ -16,6 +16,7 @@ import { mergeLayerInteractions, remapActionTarget, remapInteractionTargets } fr
 import { resolveFieldFromSources } from '@/lib/cms-variables-utils';
 import { compareDateFilter, isDateFieldType, isDatePreset, parseItemIdList, resolveDateFilterValue } from '@/lib/collection-field-utils';
 import { parseMultiReferenceValue, normalizeBooleanValue } from '@/lib/collection-utils';
+import { getBreakpointCatalog, getBreakpointPrefix, isBaseBreakpoint } from '@/lib/breakpoint-utils';
 import { getInheritedValue } from '@/lib/tailwind-class-mapper';
 import cloneDeep from 'lodash/cloneDeep';
 import { layerHasLink, hasLinkInTree, hasRichTextLinks } from '@/lib/link-utils';
@@ -2790,13 +2791,15 @@ export function assignOrderClassToNewLayer(
   layers: Layer[],
   parentId: string,
   newLayerId: string,
-  _breakpoint: 'desktop' | 'tablet' | 'mobile'
+  _breakpoint: Breakpoint
 ): Layer[] {
-  // Define all responsive breakpoints to check
-  const breakpointConfigs = [
-    { name: 'tablet', prefix: 'max-lg:' },
-    { name: 'mobile', prefix: 'max-md:' },
-  ];
+  const breakpointConfigs = getBreakpointCatalog()
+    .filter((breakpoint) => !isBaseBreakpoint(breakpoint.id))
+    .map((breakpoint) => ({
+      name: breakpoint.id,
+      prefix: getBreakpointPrefix(breakpoint.id),
+    }))
+    .filter((config) => config.prefix.length > 0);
 
   // Helper to normalize classes to string
   const normalizeClasses = (classes: string | string[] | undefined): string => {
@@ -2807,14 +2810,14 @@ export function assignOrderClassToNewLayer(
   // Helper to check if a class string has order classes for a specific prefix
   const hasOrderClassForPrefix = (classes: string | string[] | undefined, prefix: string): boolean => {
     const normalized = normalizeClasses(classes);
-    const regex = new RegExp(`${prefix.replace(':', '\\:')}order-\\d+`);
+    const regex = new RegExp(`${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}order-\\d+`);
     return regex.test(normalized);
   };
 
   // Helper to get the order value from classes for a specific prefix
   const getOrderValueForPrefix = (classes: string | string[] | undefined, prefix: string): number | null => {
     const normalized = normalizeClasses(classes);
-    const regex = new RegExp(`${prefix.replace(':', '\\:')}order-(\\d+)`);
+    const regex = new RegExp(`${prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}order-(\\d+)`);
     const match = normalized.match(regex);
     return match ? parseInt(match[1], 10) : null;
   };

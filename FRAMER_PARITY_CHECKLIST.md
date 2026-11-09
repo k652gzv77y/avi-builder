@@ -17,8 +17,8 @@ or materially below Framer's workflow.
 - [x] Smart-guide panel listing the parent and sibling edges and centers the active drag or resize is snapped to, with a show/hide toggle for the canvas lines
 - [x] Desktop/tablet/phone breakpoints
 - [x] Per-breakpoint layout overrides with a clear inherited-value indicator
-- [ ] Independent breakpoint creation, naming, ordering, and range editing
-- [ ] Framer-style breakpoint canvas switcher and viewport presets
+- [x] Independent breakpoint creation, naming, ordering, and range editing
+- [~] Framer-style breakpoint canvas switcher and viewport presets. The switcher lists custom breakpoints and their width ranges. A device-frame preset catalog and per-page canvas frames are still open
 - [ ] Per-page canvas presets and device frames
 - [ ] Page transitions and route-level animation controls
 - [ ] Canvas comments, pins, threads, mentions, and resolution state

@@ -1,4 +1,6 @@
 import AnimationInitializer from '@/components/AnimationInitializer';
+import BreakpointCatalogSync from '@/components/BreakpointCatalogSync';
+import { BREAKPOINT_CATALOG_SETTING } from '@/lib/breakpoint-utils';
 import BodyClassApplier from '@/components/BodyClassApplier';
 import ContentHeightReporter from '@/components/ContentHeightReporter';
 import CustomCodeInjector from '@/components/CustomCodeInjector';
@@ -630,11 +632,12 @@ export default async function PageRenderer({
 
   // Fetch server-side settings needed by LayerRenderer (map tokens, color variables, timezone)
   // Globals follow the page's draft/published mode so previews see draft values.
-  const [mapboxToken, googleMapsEmbedKey, serverColorVariables, timezoneSetting, globalVariables] = await Promise.all([
+  const [mapboxToken, googleMapsEmbedKey, serverColorVariables, timezoneSetting, breakpointCatalog, globalVariables] = await Promise.all([
     getMapboxAccessToken(),
     getGoogleMapsEmbedApiKey(),
     getAllColorVariables(),
     getSettingByKey('timezone').catch(() => null),
+    getSettingByKey(BREAKPOINT_CATALOG_SETTING).catch(() => null),
     getAllGlobalVariables(usePublishedData).catch(() => []),
   ]);
   // Flat id -> value map merged into resolution at render time.
@@ -991,6 +994,8 @@ export default async function PageRenderer({
       {/* Initialize GSAP animations based on layer interactions.
           Skipped entirely when no layer has interactions so we don't ship
           GSAP + ScrollTrigger + SplitText to the client for static pages. */}
+      <BreakpointCatalogSync value={breakpointCatalog} />
+
       {hasAnyInteractions(resolvedLayers) && <AnimationInitializer layers={animationLayers} />}
 
       {/* Initialize Swiper on slider elements */}

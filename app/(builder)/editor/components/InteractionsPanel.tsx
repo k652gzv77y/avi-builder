@@ -86,7 +86,7 @@ import { applyInteractionChange } from '@/lib/overlay-setup';
 
 // 4. Types
 import type { ApplyStyles, Layer, LayerInteraction, InteractionTimeline, InteractionTween, TweenProperties, Breakpoint, OverlayKind } from '@/types';
-import { BREAKPOINTS } from '@/lib/breakpoint-utils';
+import { useBreakpointCatalog } from '@/hooks/use-breakpoint-catalog';
 import { useColorVariablesStore } from '@/stores/useColorVariablesStore';
 import { Badge } from '@/components/ui/badge';
 
@@ -220,6 +220,7 @@ export default function InteractionsPanel({
   onLayersChange,
   onCreateOverlay,
 }: InteractionsPanelProps) {
+  const { catalog } = useBreakpointCatalog();
   const [selectedInteractionId, setSelectedInteractionId] = useState<string | null>(null);
   const [selectedTweenId, setSelectedTweenId] = useState<string | null>(null);
   const [positionInput, setPositionInput] = useState('0');
@@ -1357,23 +1358,23 @@ export default function InteractionsPanel({
                       className="w-full justify-between"
                     >
                       <span>
-                        {(selectedInteraction.timeline?.breakpoints?.length ?? 0) === BREAKPOINTS.length
+                        {(selectedInteraction.timeline?.breakpoints?.length ?? 0) === catalog.length
                           ? 'All breakpoints'
                           : selectedInteraction.timeline?.breakpoints
-                            ?.map(bp => BREAKPOINTS.find(b => b.value === bp)?.label || bp)
+                            ?.map((bp) => catalog.find((item) => item.id === bp)?.name || bp)
                             .join(', ') || 'No breakpoints'}
                       </span>
                       <Icon name="chevronDown" className="size-3 opacity-50" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-40">
-                    {BREAKPOINTS.map((bp) => (
+                    {catalog.map((bp) => (
                       <DropdownMenuCheckboxItem
-                        key={bp.value}
-                        checked={selectedInteraction.timeline?.breakpoints?.includes(bp.value) ?? false}
-                        onCheckedChange={() => handleToggleBreakpoint(bp.value)}
+                        key={bp.id}
+                        checked={selectedInteraction.timeline?.breakpoints?.includes(bp.id) ?? false}
+                        onCheckedChange={() => handleToggleBreakpoint(bp.id)}
                       >
-                        {bp.label}
+                        {bp.name}
                       </DropdownMenuCheckboxItem>
                     ))}
                   </DropdownMenuContent>

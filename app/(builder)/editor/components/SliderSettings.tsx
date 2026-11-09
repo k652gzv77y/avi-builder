@@ -29,7 +29,7 @@ import ToggleGroup from './ToggleGroup';
 import { addChildToLayerTree, findAncestorByName, getCollectionVariable } from '@/lib/layer-utils';
 import { isSliderLayerName, DEFAULT_SLIDER_SETTINGS, createSlideLayer } from '@/lib/templates/utilities';
 import { EFFECTS_WITH_PER_VIEW, resolveResponsiveNumber, writeResponsiveNumber } from '@/lib/slider-utils';
-import { BREAKPOINTS } from '@/lib/breakpoint-utils';
+import { breakpointLabel } from '@/lib/breakpoint-utils';
 import { slidePrev, slideNext } from '@/hooks/use-canvas-slider';
 import { useEditorStore } from '@/stores/useEditorStore';
 import { usePagesStore } from '@/stores/usePagesStore';
@@ -122,7 +122,7 @@ export default function SliderSettings({ layer, onLayerUpdate, allLayers, fieldG
   const settings: SliderSettingsType = { ...DEFAULT_SLIDER_SETTINGS, ...sliderLayer?.settings?.slider };
   const perViewValue = resolveResponsiveNumber(settings.groupSlide, activeBreakpoint, 1);
   const perGroupValue = Math.min(resolveResponsiveNumber(settings.slidesPerGroup, activeBreakpoint, 1), perViewValue);
-  const breakpointLabel = BREAKPOINTS.find(bp => bp.value === activeBreakpoint)?.label ?? '';
+  const activeBreakpointLabel = breakpointLabel(activeBreakpoint);
 
   // Local draft state lets users freely type/clear the number inputs without the
   // controlled value snapping back; valid values commit on change, blur clamps.
@@ -412,7 +412,7 @@ export default function SliderSettings({ layer, onLayerUpdate, allLayers, fieldG
         {/* Slides per view - responsive, only for effects that support multiple slides */}
         {EFFECTS_WITH_PER_VIEW.has(settings.animationEffect) && (
           <div className="grid grid-cols-3 items-center">
-            <Label variant="muted" title={`Slides visible per view on ${breakpointLabel}`}>Per view</Label>
+            <Label variant="muted" title={`Slides visible per view on ${activeBreakpointLabel}`}>Per view</Label>
             <div className="col-span-2 *:w-full">
               <InputGroup>
                 <InputGroupInput
@@ -459,7 +459,7 @@ export default function SliderSettings({ layer, onLayerUpdate, allLayers, fieldG
         {/* Slides per group - responsive, only when slidesPerView > 1 */}
         {EFFECTS_WITH_PER_VIEW.has(settings.animationEffect) && perViewValue > 1 && (
           <div className="grid grid-cols-3 items-center">
-            <Label variant="muted" title={`Slides advanced per step on ${breakpointLabel}`}>Per group</Label>
+            <Label variant="muted" title={`Slides advanced per step on ${activeBreakpointLabel}`}>Per group</Label>
             <div className="col-span-2 *:w-full">
               <InputGroup>
                 <InputGroupInput

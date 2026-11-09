@@ -16,6 +16,7 @@ import type {
   StackVariableKey,
   StackVariableValue,
 } from '@/types';
+import { inheritanceChain, isBaseBreakpoint } from '@/lib/breakpoint-utils';
 import { applyBreakpointDesign, type DesignUpdate } from '@/lib/layout-model';
 
 export const STACK_VARIABLE_KEYS: StackVariableKey[] = [
@@ -44,11 +45,14 @@ export function isStackVariableValue(value: unknown): value is StackVariableValu
 
 export function stackValuesEqual(a: StackVariableValue, b: StackVariableValue): boolean {
   if (a.value !== b.value) return false;
-  const aTablet = a.breakpoints?.tablet;
-  const bTablet = b.breakpoints?.tablet;
-  const aMobile = a.breakpoints?.mobile;
-  const bMobile = b.breakpoints?.mobile;
-  return aTablet === bTablet && aMobile === bMobile;
+  const keys = new Set([
+    ...Object.keys(a.breakpoints ?? {}),
+    ...Object.keys(b.breakpoints ?? {}),
+  ]);
+  for (const key of keys) {
+    if (a.breakpoints?.[key] !== b.breakpoints?.[key]) return false;
+  }
+  return true;
 }
 
 /** Desktop base, then tablet, then phone. `isOverride` is true only for a value set on this breakpoint. */
@@ -57,11 +61,11 @@ export function readStackBreakpoint(
   breakpoint: Breakpoint,
 ): { value: string; isOverride: boolean } {
   const desktop = current?.value ?? '';
-  if (!current || breakpoint === 'desktop') return { value: desktop, isOverride: false };
-  const own = current.breakpoints?.[breakpoint];
-  if (own !== undefined) return { value: own, isOverride: true };
-  if (breakpoint === 'mobile' && current.breakpoints?.tablet !== undefined) {
-    return { value: current.breakpoints.tablet, isOverride: false };
+  if (!current || isBaseBreakpoint(breakpoint)) return { value: desktop, isOverride: false };
+  for (const candidate of inheritanceChain(breakpoint)) {
+    if (isBaseBreakpoint(candidate)) return { value: desktop, isOverride: false };
+    const own = current.breakpoints?.[candidate];
+    if (own !== undefined) return { value: own, isOverride: candidate === breakpoint };
   }
   return { value: desktop, isOverride: false };
 }
@@ -72,7 +76,7 @@ export function writeStackBreakpoint(
   raw: string,
 ): StackVariableValue {
   const cleaned = raw.trim();
-  if (breakpoint === 'desktop') {
+  if (isBaseBreakpoint(breakpoint)) {
     return { ...current, value: cleaned };
   }
   const breakpoints = { ...(current.breakpoints ?? {}) };
@@ -127,16 +131,13 @@ export function applyStackVariableToLayer(
     ...layer,
     ...applyBreakpointDesign(layer, stackDesignUpdates(key, stackValue.value ?? ''), 'desktop'),
   };
-  if (stackValue.breakpoints?.tablet !== undefined) {
+  const overrides = Object.entries(stackValue.breakpoints ?? {})
+    .filter((entry): entry is [Breakpoint, string] => entry[1] !== undefined)
+    .sort((left, right) => inheritanceChain(left[0]).length - inheritanceChain(right[0]).length);
+  for (const [breakpoint, value] of overrides) {
     next = {
       ...next,
-      ...applyBreakpointDesign(next, stackDesignUpdates(key, stackValue.breakpoints.tablet), 'tablet'),
-    };
-  }
-  if (stackValue.breakpoints?.mobile !== undefined) {
-    next = {
-      ...next,
-      ...applyBreakpointDesign(next, stackDesignUpdates(key, stackValue.breakpoints.mobile), 'mobile'),
+      ...applyBreakpointDesign(next, stackDesignUpdates(key, value), breakpoint),
     };
   }
   return next;

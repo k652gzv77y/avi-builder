@@ -55,7 +55,7 @@ interface EditorUrlState {
   pageSize?: number | null; // For collection items per page
   search?: string | null; // For collection search
   sidebarTab: EditorTab; // Inferred from route type
-  view?: 'desktop' | 'tablet' | 'mobile' | null; // Viewport mode
+  view?: string | null; // Viewport breakpoint id
   rightTab?: 'design' | 'settings' | 'interactions' | null; // Right sidebar tab
   layerId?: string | null; // Selected layer ID
   /** Selected component variant id while editing a component. */
@@ -96,7 +96,7 @@ export function useEditorUrl() {
         tab: null,
         page: null,
         sidebarTab: 'layers', // Inferred: layers route shows layers sidebar
-        view: viewParam as 'desktop' | 'tablet' | 'mobile' | null,
+        view: viewParam,
         rightTab: rightTabParam as 'design' | 'settings' | 'interactions' | null,
         layerId: layerParam,
       };
@@ -120,7 +120,7 @@ export function useEditorUrl() {
         tab: editTab,
         page: null,
         sidebarTab: 'pages', // Inferred: pages route shows pages sidebar
-        view: viewParam as 'desktop' | 'tablet' | 'mobile' | null,
+        view: viewParam,
         rightTab: rightTabParam as 'design' | 'settings' | 'interactions' | null,
         layerId: layerParam,
       };

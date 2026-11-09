@@ -20,6 +20,7 @@ import {
 } from '@/lib/component-properties';
 import { isRichTextLayer, isTextContentLayer } from '@/lib/layer-utils';
 import { buildStyledUpdate } from '@/lib/layer-style-utils';
+import { hasResponsivePrefix } from '@/lib/breakpoint-utils';
 import { classesToDesign, getAffectedProperties, parseFullClass } from '@/lib/tailwind-class-mapper';
 import { EMPTY_OVERRIDES } from '@/lib/variable-utils';
 
@@ -110,8 +111,6 @@ const TYPOGRAPHY_PROPERTIES = new Set([
   'verticalAlign',
 ]);
 
-const RESPONSIVE_PREFIX = /^(?:max-lg:|max-md:|lg:|md:)/;
-
 type StyleDesignKey = (typeof STYLE_DESIGN_KEYS)[number];
 
 function classTokens(classes: Layer['classes'] | undefined): string[] {
@@ -178,7 +177,7 @@ function acceptsStyleClass(className: string, universe: string[], includeTypogra
 }
 
 function isResponsiveClass(className: string): boolean {
-  return RESPONSIVE_PREFIX.test(className) && propertiesOf(className).length > 0;
+  return hasResponsivePrefix(className) && propertiesOf(className).length > 0;
 }
 
 function captureDesign(layer: Layer, styleTokens: string[]): DesignProperties {

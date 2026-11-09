@@ -10,7 +10,7 @@
  * attribute. They do not add events, actions, or effects.
  */
 
-import { BREAKPOINT_VALUES } from '@/lib/breakpoint-utils';
+import { catalogBreakpointIds } from '@/lib/breakpoint-utils';
 import { defaultDragTrigger, readDragTrigger, readDragVariantRule } from '@/lib/drag-gesture';
 import { defaultDismissForKind, placementForKind } from '@/lib/overlay-position';
 import type {
@@ -381,7 +381,7 @@ export function createLayerInteraction(
     id,
     trigger,
     timeline: {
-      breakpoints: [...BREAKPOINT_VALUES],
+      breakpoints: catalogBreakpointIds(),
       repeat: 0,
       yoyo: false,
       ...(trigger === 'scroll-into-view' ? {

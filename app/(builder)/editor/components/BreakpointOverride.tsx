@@ -2,6 +2,7 @@
 
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { isBaseBreakpoint, splitResponsivePrefix } from '@/lib/breakpoint-utils';
 import { editorBreakpointLabel, stripBreakpointOverrides, toClassList } from '@/lib/layout-model';
 import { useEditorStore } from '@/stores/useEditorStore';
 import type { Layer } from '@/types';
@@ -51,13 +52,11 @@ interface BreakpointContextBarProps {
  */
 export function BreakpointContextBar({ layer, onLayerUpdate }: BreakpointContextBarProps) {
   const activeBreakpoint = useEditorStore((state) => state.activeBreakpoint);
-  if (!layer || activeBreakpoint === 'desktop') return null;
+  if (!layer || isBaseBreakpoint(activeBreakpoint)) return null;
 
   const breakpointLabel = editorBreakpointLabel(activeBreakpoint);
   const classes = toClassList(layer.classes);
-  const hasOverride = classes.some((cls) => (
-    activeBreakpoint === 'mobile' ? cls.startsWith('max-md:') : cls.startsWith('max-lg:')
-  ));
+  const hasOverride = classes.some((cls) => splitResponsivePrefix(cls).breakpoint === activeBreakpoint);
 
   const handleReset = () => {
     const next = stripBreakpointOverrides(classes, activeBreakpoint);

@@ -1,6 +1,6 @@
 import type { Layer, Breakpoint } from '../types';
 import { canHaveChildren } from './layer-utils';
-import { getBreakpointPrefix } from './breakpoint-utils';
+import { getBreakpointPrefix, inheritanceChain, isBaseBreakpoint } from './breakpoint-utils';
 
 export interface FlattenedItem {
   id: string;
@@ -46,35 +46,23 @@ export interface FlattenedTreeNode<T> {
  * 
  * Returns null if no order class is found
  */
+function orderPattern(prefix: string): RegExp {
+  const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`${escaped}order-(\\d+)`);
+}
+
 function getOrderValueForBreakpoint(layer: Layer, breakpoint: Breakpoint): number | null {
-  if (breakpoint === 'desktop') return null;
-  
+  if (isBaseBreakpoint(breakpoint)) return null;
+
   const classes = Array.isArray(layer.classes) ? layer.classes.join(' ') : (layer.classes || '');
-  
-  if (breakpoint === 'mobile') {
-    // First check for mobile-specific order (max-md:)
-    const mobileRegex = /max-md:order-(\d+)/;
-    const mobileMatch = classes.match(mobileRegex);
-    if (mobileMatch) {
-      return parseInt(mobileMatch[1], 10);
-    }
-    
-    // Fall back to tablet order (max-lg:) which also applies to mobile
-    const tabletRegex = /max-lg:order-(\d+)/;
-    const tabletMatch = classes.match(tabletRegex);
-    if (tabletMatch) {
-      return parseInt(tabletMatch[1], 10);
-    }
-    
-    return null;
+  for (const candidate of inheritanceChain(breakpoint)) {
+    if (isBaseBreakpoint(candidate)) continue;
+    const prefix = getBreakpointPrefix(candidate);
+    if (!prefix) continue;
+    const match = classes.match(orderPattern(prefix));
+    if (match) return parseInt(match[1], 10);
   }
-  
-  // Tablet breakpoint - only check max-lg:
-  const prefix = getBreakpointPrefix(breakpoint);
-  const regex = new RegExp(`${prefix.replace(':', '\\:')}order-(\\d+)`);
-  const match = classes.match(regex);
-  
-  return match ? parseInt(match[1], 10) : null;
+  return null;
 }
 
 /**
@@ -82,18 +70,16 @@ function getOrderValueForBreakpoint(layer: Layer, breakpoint: Breakpoint): numbe
  * For mobile, also checks tablet classes (due to CSS cascade)
  */
 function hasAnyOrderClassForBreakpoint(layers: Layer[], breakpoint: Breakpoint): boolean {
-  if (breakpoint === 'desktop') return false;
-  
-  return layers.some(layer => {
+  if (isBaseBreakpoint(breakpoint)) return false;
+
+  const patterns = inheritanceChain(breakpoint)
+    .filter((candidate) => !isBaseBreakpoint(candidate))
+    .map((candidate) => orderPattern(getBreakpointPrefix(candidate)))
+    .filter((pattern) => pattern.source !== 'order-(\\d+)');
+
+  return layers.some((layer) => {
     const classes = Array.isArray(layer.classes) ? layer.classes.join(' ') : (layer.classes || '');
-    
-    if (breakpoint === 'mobile') {
-      // Check both mobile and tablet (tablet cascades to mobile)
-      return /max-md:order-\d+/.test(classes) || /max-lg:order-\d+/.test(classes);
-    }
-    
-    // Tablet - only check max-lg:
-    return /max-lg:order-\d+/.test(classes);
+    return patterns.some((pattern) => pattern.test(classes));
   });
 }
 
@@ -102,7 +88,7 @@ function hasAnyOrderClassForBreakpoint(layers: Layer[], breakpoint: Breakpoint):
  * Layers without order classes maintain their DOM position relative to each other
  */
 function sortByOrderClass(layers: Layer[], breakpoint: Breakpoint): Layer[] {
-  if (breakpoint === 'desktop') return layers;
+  if (isBaseBreakpoint(breakpoint)) return layers;
   
   // Check if any layer has an order class (including cascade)
   if (!hasAnyOrderClassForBreakpoint(layers, breakpoint)) return layers;

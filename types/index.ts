@@ -6,7 +6,8 @@
 
 // UI State Types (for state-specific styling: hover, focus, etc.)
 export type UIState = 'neutral' | 'hover' | 'focus' | 'active' | 'disabled' | 'current';
-export type Breakpoint = 'mobile' | 'tablet' | 'desktop';
+/** Built-in ids plus any author-created breakpoint id (`bp-…`). */
+export type Breakpoint = 'mobile' | 'tablet' | 'desktop' | (string & {});
 export type StringAssetId = string;
 
 // Design Property Interfaces
@@ -1140,12 +1141,12 @@ export type StackVariableKey = 'direction' | 'gap' | 'padding' | 'distribute' | 
 export type ControlBindingKey = 'visible' | 'fill' | 'opacity' | 'text';
 
 /**
- * Value for a stack variable. Desktop is the base (`value`). Tablet and phone
- * store overrides and fall back to the larger breakpoint when unset.
+ * Value for a stack variable. Desktop is the base (`value`). Other breakpoints
+ * store overrides and fall back to the wider breakpoint when unset.
  */
 export interface StackVariableValue {
   value: string;
-  breakpoints?: Partial<Record<'tablet' | 'mobile', string>>;
+  breakpoints?: Partial<Record<string, string>>;
 }
 
 /**

@@ -8,7 +8,7 @@
  */
 
 import type { Breakpoint, DesignProperties, Layer, UIState } from '@/types';
-import { getBreakpointPrefix } from '@/lib/breakpoint-utils';
+import { breakpointLabel, isBaseBreakpoint, splitResponsivePrefix } from '@/lib/breakpoint-utils';
 import { buildStyledUpdate } from '@/lib/layer-style-utils';
 import {
   getInheritedValue,
@@ -44,17 +44,15 @@ export function toClassList(classes: Layer['classes'] | undefined): string[] {
 }
 
 export function isCascadeBase(breakpoint: Breakpoint, uiState: UIState = 'neutral'): boolean {
-  return breakpoint === 'desktop' && uiState === 'neutral';
+  return isBaseBreakpoint(breakpoint) && uiState === 'neutral';
 }
 
 export function isBreakpointOverride(source: Breakpoint | null, active: Breakpoint): boolean {
-  return active !== 'desktop' && source === active;
+  return !isBaseBreakpoint(active) && source === active;
 }
 
 export function editorBreakpointLabel(breakpoint: Breakpoint): string {
-  if (breakpoint === 'mobile') return 'Phone';
-  if (breakpoint === 'tablet') return 'Tablet';
-  return 'Desktop';
+  return breakpointLabel(breakpoint);
 }
 
 /**
@@ -62,9 +60,8 @@ export function editorBreakpointLabel(breakpoint: Breakpoint): string {
  * back to the desktop cascade. Desktop itself is the base and is left intact.
  */
 export function stripBreakpointOverrides(classes: string[], breakpoint: Breakpoint): string[] {
-  const prefix = getBreakpointPrefix(breakpoint);
-  if (!prefix) return classes;
-  return classes.filter((cls) => !cls.startsWith(prefix));
+  if (isBaseBreakpoint(breakpoint)) return classes;
+  return classes.filter((cls) => splitResponsivePrefix(cls).breakpoint !== breakpoint);
 }
 
 export function resolveSizingMode(value: string | undefined | null): SizingMode {
