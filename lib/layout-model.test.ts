@@ -121,7 +121,7 @@ test('smaller breakpoints store class overrides and leave the base design', () =
   );
 
   assert.equal(phone.design?.sizing?.width, '320px');
-  assert.match(String(phone.classes), /max-md:w-full/);
+  assert.match(String(phone.classes), /max-\[809px\]:w-full/);
   assert.match(String(phone.classes), /w-\[320px\]/);
 
   const cleared = stripBreakpointOverrides(String(phone.classes).split(' '), 'mobile');

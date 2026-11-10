@@ -56,7 +56,6 @@ import { useCanvasTextEditorStore } from '@/stores/useCanvasTextEditorStore';
 // 4b. Internal components
 import Canvas from './Canvas';
 import CanvasBuildSkeleton from './CanvasBuildSkeleton';
-import BreakpointBar from './breakpoint-bar';
 import BreakpointFrames from './BreakpointFrames';
 import { CollectionFieldSelector } from './CollectionFieldSelector';
 import AiActivityOverlay from '@/components/AiActivityOverlay';
@@ -75,7 +74,7 @@ import { asLayerArray, getCollectionVariable, canDeleteLayer, findLayerById, fin
 import { variablesForVariant } from '@/lib/component-properties';
 import { insertComponentOnCanvas } from '@/lib/insert-component-on-canvas';
 import { CANVAS_BORDER, CANVAS_PADDING, updateViewportOverrides } from '@/lib/canvas-utils';
-import { DEFAULT_DESKTOP_WIDTH } from '@/lib/breakpoint-utils';
+import { BREAKPOINT_FRAME_GAP, DEFAULT_DESKTOP_WIDTH } from '@/lib/breakpoint-utils';
 import { useBreakpointCatalog } from '@/hooks/use-breakpoint-catalog';
 import { buildFieldGroupsForLayer, flattenFieldGroups, filterFieldGroupsByType, SIMPLE_TEXT_FIELD_TYPES } from '@/lib/collection-field-utils';
 import { getPaginationLayerKind, PAGINATION_VARIABLE_LABELS, type PaginationVariableKey } from '@/lib/pagination-text-utils';
@@ -129,6 +128,7 @@ interface ViewportZoomControlsProps {
   onZoomOut: () => void;
   onResetZoom: () => void;
   onZoomToFit: () => void;
+  onZoomToBoard?: () => void;
   onAutofit: () => void;
   showRulers?: boolean;
   onShowRulersChange?: (show: boolean) => void;
@@ -143,6 +143,7 @@ function ViewportZoomControls({
   onZoomOut,
   onResetZoom,
   onZoomToFit,
+  onZoomToBoard,
   onAutofit,
   showRulers,
   onShowRulersChange,
@@ -190,6 +191,12 @@ function ViewportZoomControls({
             Fit height
             <DropdownMenuShortcut>⌘1</DropdownMenuShortcut>
           </DropdownMenuItem>
+          {onZoomToBoard && (
+            <DropdownMenuItem onClick={onZoomToBoard}>
+              Zoom to fit
+              <DropdownMenuShortcut>⇧1</DropdownMenuShortcut>
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem onClick={onAutofit}>
             Fit width
             <DropdownMenuShortcut>⌘2</DropdownMenuShortcut>
@@ -631,6 +638,7 @@ const CenterCanvas = React.memo(function CenterCanvas({
 
   // Track iframe content size from iframe reports
   const [reportedContentHeight, setReportedContentHeight] = useState(0);
+  const [previewHeights, setPreviewHeights] = useState<Record<string, number>>({});
   const [reportedContentWidth, setReportedContentWidth] = useState(0);
 
   // Track container height for dynamic alignment
@@ -872,6 +880,17 @@ const CenterCanvas = React.memo(function CenterCanvas({
   // This allows "Fit height" to zoom based on document content, not viewport
   const zoomContentHeight = iframeContentHeight;
 
+  const pageFrameHeight = editingComponentId
+    ? iframeContentHeight
+    : Math.max(reportedContentHeight || 0, 480);
+  const boardWidth = Math.max(
+    catalog.reduce((sum, breakpoint) => sum + breakpoint.width, 0)
+      + BREAKPOINT_FRAME_GAP * Math.max(0, catalog.length - 1)
+      + 64,
+    effectiveCanvasWidth,
+  );
+  const boardHeight = Math.max(pageFrameHeight, ...Object.values(previewHeights), 480) + 48;
+
   // Initialize zoom hook
   const {
     zoom,
@@ -881,12 +900,14 @@ const CenterCanvas = React.memo(function CenterCanvas({
     setZoomTo,
     resetZoom,
     zoomToFit,
+    zoomToBoard,
     autofit,
     handleZoomGesture,
   } = useZoom({
     containerRef: canvasContainerRef,
-    contentWidth: effectiveCanvasWidth,
-    contentHeight: zoomContentHeight,
+    scrollRef: scrollContainerRef,
+    contentWidth: editingComponentId ? effectiveCanvasWidth : boardWidth,
+    contentHeight: editingComponentId ? zoomContentHeight : boardHeight,
     minZoom: 10,
     maxZoom: 1000,
     zoomStep: 10,
@@ -929,10 +950,9 @@ const CenterCanvas = React.memo(function CenterCanvas({
   // (iframeContentHeight) still drives Fit Height zoom calc separately.
   const finalIframeHeight = useMemo(() => {
     if (editingComponentId) return iframeContentHeight;
-    if (!containerHeight || zoom <= 0) return iframeContentHeight;
-
-    return (containerHeight - CANVAS_PADDING) / (zoom / 100);
-  }, [iframeContentHeight, containerHeight, zoom, editingComponentId]);
+    // The frame hugs the page. The canvas around it is what pans.
+    return Math.max(reportedContentHeight || 0, 480);
+  }, [iframeContentHeight, reportedContentHeight, editingComponentId]);
 
   // Same logic as finalIframeHeight, applied to the preview iframe. Sizing the
   // wrapper to the measured scrollHeight is unstable on pages that pin absolute
@@ -2317,19 +2337,7 @@ const CenterCanvas = React.memo(function CenterCanvas({
           </div>
         )}
 
-        <div className="flex min-w-0 justify-center">
-          {!isPreviewMode && (
-            <BreakpointBar
-              active={viewportMode}
-              activeFrameId={activeFrameId}
-              onSelect={(breakpoint) => {
-                setActiveFrameId(breakpoint.id);
-                setActiveCanvasWidth(breakpoint.width);
-                setViewportMode(breakpoint.id);
-              }}
-            />
-          )}
-        </div>
+        <div className="min-w-0" />
 
         {/* Undo/Redo Buttons (hidden in preview mode) */}
         {!isPreviewMode && (
@@ -2340,6 +2348,7 @@ const CenterCanvas = React.memo(function CenterCanvas({
               onZoomOut={zoomOut}
               onResetZoom={resetZoom}
               onZoomToFit={zoomToFit}
+              onZoomToBoard={zoomToBoard}
               onAutofit={autofit}
               showRulers={showRulers}
               onShowRulersChange={setShowRulers}
@@ -2743,7 +2752,7 @@ const CenterCanvas = React.memo(function CenterCanvas({
                   // Height: scaled iframe size + canvas padding. finalIframeHeight is
                   // already stretched to fill the viewport at any zoom level, so the
                   // white canvas always fills the available height.
-                  height: `${finalIframeHeight * (zoom / 100) + CANVAS_PADDING}px`,
+                  height: `${finalIframeHeight * (zoom / 100) + CANVAS_PADDING + 36}px`,
                   display: 'flex',
                   alignItems: 'flex-start',
                   justifyContent: 'flex-start',
@@ -2757,12 +2766,44 @@ const CenterCanvas = React.memo(function CenterCanvas({
                   active={viewportMode}
                   activeFrameId={activeFrameId}
                   zoom={zoom}
+                  previewHeight={finalIframeHeight}
+                  previewHeights={previewHeights}
                   onSelect={(breakpoint) => {
                     setActiveFrameId(breakpoint.id);
                     setActiveCanvasWidth(breakpoint.width);
                     setViewportMode(breakpoint.id);
+                    clearSelection();
                   }}
                   onActiveWidthChange={setActiveCanvasWidth}
+                  renderPreview={(breakpoint) => (
+                    <Canvas
+                      key={`preview-${currentPageId}-${breakpoint.id}`}
+                      layers={layers}
+                      components={components}
+                      selectedLayerId={null}
+                      hoveredLayerId={null}
+                      breakpoint={breakpoint.id}
+                      activeUIState={activeUIState}
+                      editingComponentId={editingComponentId || null}
+                      collectionItems={mergedCollectionItems}
+                      collectionFields={collectionFieldsFromStore}
+                      pageCollectionItem={translatedPageCollectionItem}
+                      pageCollectionFields={pageCollectionFields}
+                      currentLocale={selectedLocale}
+                      availableLocales={locales}
+                      translations={localeTranslations}
+                      assets={assetsMap}
+                      pageId={currentPageId || ''}
+                      interactive={false}
+                      onContentHeightChange={(height) => {
+                        setPreviewHeights((current) => (
+                          current[breakpoint.id] === height ? current : { ...current, [breakpoint.id]: height }
+                        ));
+                      }}
+                      zoom={zoom}
+                      referenceViewportHeight={defaultCanvasHeight}
+                    />
+                  )}
                 >
                 {/* Sizer: occupies the SCALED footprint so the scroll area,
                     centering, and drop shadow match the visible canvas size. */}

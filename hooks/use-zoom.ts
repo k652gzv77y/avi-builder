@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import { CANVAS_PADDING } from '@/lib/canvas-utils';
 
 export type ZoomMode = 'custom' | 'fit' | 'autofit';
@@ -14,6 +14,29 @@ interface UseZoomOptions {
   shortcutsEnabled?: boolean;
   /** Optional iframe ref — attaches wheel/gesture listeners to its contentDocument (separate browsing context) */
   iframeRef?: React.RefObject<HTMLIFrameElement | null>;
+  /** Scrollable canvas. Wheel zoom keeps the point under the cursor fixed. */
+  scrollRef?: React.RefObject<HTMLElement | null>;
+}
+
+interface ZoomOrigin {
+  x: number;
+  y: number;
+}
+
+interface ZoomAnchor {
+  x: number;
+  y: number;
+  prev: number;
+  next: number;
+}
+
+function scrollZoomAnchor(element: HTMLElement, anchor: ZoomAnchor) {
+  const rect = element.getBoundingClientRect();
+  const localX = anchor.x - rect.left;
+  const localY = anchor.y - rect.top;
+  const ratio = anchor.next / anchor.prev;
+  element.scrollLeft = (element.scrollLeft + localX) * ratio - localX;
+  element.scrollTop = (element.scrollTop + localY) * ratio - localY;
 }
 
 interface UseZoomResult {
@@ -24,8 +47,10 @@ interface UseZoomResult {
   setZoomTo: (zoom: number) => void;
   resetZoom: () => void;
   zoomToFit: () => void;
+  /** Fit the whole breakpoint board in the viewport. Shift+1. */
+  zoomToBoard: () => void;
   autofit: () => void;
-  handleZoomGesture: (delta: number) => void;
+  handleZoomGesture: (delta: number, origin?: ZoomOrigin) => void;
   lockZoomMode: () => void; // Lock current zoom to custom mode
 }
 
@@ -35,12 +60,23 @@ export function useZoom({
   contentHeight,
   minZoom = 10,
   maxZoom = 200,
-  zoomStep = 10,
+  zoomStep: _zoomStep = 10,
   shortcutsEnabled = true,
   iframeRef,
+  scrollRef,
 }: UseZoomOptions): UseZoomResult {
   const [zoom, setZoom] = useState(100);
   const [zoomMode, setZoomMode] = useState<ZoomMode>('autofit'); // Default to autofit
+  const zoomAnchor = useRef<ZoomAnchor | null>(null);
+
+  const rememberAnchor = useCallback((origin: ZoomOrigin | undefined, prev: number, next: number) => {
+    const scroller = scrollRef?.current;
+    if (!origin || !scroller || prev === next || prev <= 0) return;
+    const rect = scroller.getBoundingClientRect();
+    const inside = origin.x >= rect.left && origin.x <= rect.right && origin.y >= rect.top && origin.y <= rect.bottom;
+    if (!inside) return;
+    zoomAnchor.current = { x: origin.x, y: origin.y, prev, next };
+  }, [scrollRef]);
 
   // Calculate zoom to fit height (prioritizes vertical fit, width follows)
   // Returns null if container is hidden (0 dimensions) to preserve current zoom
@@ -76,17 +112,16 @@ export function useZoom({
     return Math.min(Math.max(horizontalZoom, minZoom), 100);
   }, [containerRef, contentWidth, minZoom]);
 
-  // Zoom in
+  // Framer doubles or halves the zoom on each keyboard step.
   const zoomIn = useCallback(() => {
-    setZoom((current) => Math.min(current + zoomStep, maxZoom));
+    setZoom((current) => Math.min(current * 2, maxZoom));
     setZoomMode('custom');
-  }, [zoomStep, maxZoom]);
+  }, [maxZoom]);
 
-  // Zoom out
   const zoomOut = useCallback(() => {
-    setZoom((current) => Math.max(current - zoomStep, minZoom));
+    setZoom((current) => Math.max(current / 2, minZoom));
     setZoomMode('custom');
-  }, [zoomStep, minZoom]);
+  }, [minZoom]);
 
   // Set specific zoom
   const setZoomTo = useCallback((newZoom: number) => {
@@ -108,6 +143,15 @@ export function useZoom({
     setZoomMode('fit');
   }, [calculateZoomToFit]);
 
+  // Fit every breakpoint frame in the viewport (Shift+1).
+  const zoomToBoard = useCallback(() => {
+    const heightZoom = calculateZoomToFit();
+    const widthZoom = calculateAutofit();
+    if (heightZoom === null || widthZoom === null) return;
+    setZoom(Math.min(heightZoom, widthZoom));
+    setZoomMode('custom');
+  }, [calculateAutofit, calculateZoomToFit]);
+
   // Autofit (horizontal)
   const autofit = useCallback(() => {
     const newZoom = calculateAutofit();
@@ -117,18 +161,26 @@ export function useZoom({
   }, [calculateAutofit]);
 
   // Handle zoom gesture (from iframe or external source)
-  const handleZoomGesture = useCallback((delta: number) => {
+  const handleZoomGesture = useCallback((delta: number, origin?: ZoomOrigin) => {
     // Delta from iframe is already normalized: positive = zoom in, negative = zoom out
-    // Scale appropriately for smooth zooming
     const sensitivity = 0.5;
-    const zoomDelta = delta * sensitivity; // No negation - iframe already normalized
+    const zoomDelta = delta * sensitivity;
 
     setZoom((current) => {
-      const newZoom = current + zoomDelta;
-      return Math.min(Math.max(newZoom, minZoom), maxZoom);
+      const next = Math.min(Math.max(current + zoomDelta, minZoom), maxZoom);
+      rememberAnchor(origin, current, next);
+      return next;
     });
     setZoomMode('custom');
-  }, [minZoom, maxZoom]);
+  }, [minZoom, maxZoom, rememberAnchor]);
+
+  useLayoutEffect(() => {
+    const pending = zoomAnchor.current;
+    const scroller = scrollRef?.current;
+    if (!pending || !scroller || pending.prev === pending.next) return;
+    zoomAnchor.current = null;
+    scrollZoomAnchor(scroller, pending);
+  }, [zoom, scrollRef]);
 
   // Lock current zoom to custom mode (prevents auto-recalculation)
   const lockZoomMode = useCallback(() => {
@@ -168,6 +220,18 @@ export function useZoom({
     if (!shortcutsEnabled) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      const isTyping = !!target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
+      if (isTyping) return;
+
+      // Shift+1 fits every breakpoint frame. Digit1 with Shift reports key "!".
+      if (!e.metaKey && !e.ctrlKey && e.shiftKey && e.code === 'Digit1') {
+        e.preventDefault();
+        e.stopPropagation();
+        zoomToBoard();
+        return;
+      }
+
       // Check for Cmd (Mac) or Ctrl (Windows/Linux)
       const isCmdOrCtrl = e.metaKey || e.ctrlKey;
 
@@ -213,7 +277,7 @@ export function useZoom({
     // Add listener with capture phase to intercept before other handlers
     window.addEventListener('keydown', handleKeyDown, true);
     return () => window.removeEventListener('keydown', handleKeyDown, true);
-  }, [shortcutsEnabled, zoomIn, zoomOut, resetZoom, zoomToFit, autofit]);
+  }, [shortcutsEnabled, zoomIn, zoomOut, resetZoom, zoomToFit, zoomToBoard, autofit]);
 
   // Ctrl/Cmd + wheel to zoom (includes trackpad pinch) - GLOBAL, works everywhere
   // Also prevents native browser zoom COMPLETELY
@@ -233,8 +297,9 @@ export function useZoom({
         const zoomDelta = -e.deltaY * sensitivity; // Negative because deltaY is inverted
 
         setZoom((current) => {
-          const newZoom = current + zoomDelta;
-          return Math.min(Math.max(newZoom, minZoom), maxZoom);
+          const next = Math.min(Math.max(current + zoomDelta, minZoom), maxZoom);
+          rememberAnchor({ x: e.clientX, y: e.clientY }, current, next);
+          return next;
         });
         setZoomMode('custom');
 
@@ -265,7 +330,7 @@ export function useZoom({
       document.removeEventListener('gesturestart', handleGestureStart, { capture: true } as EventListenerOptions);
       document.removeEventListener('gesturechange', handleGestureChange, { capture: true } as EventListenerOptions);
     };
-  }, [shortcutsEnabled, minZoom, maxZoom]);
+  }, [shortcutsEnabled, minZoom, maxZoom, rememberAnchor]);
 
   // Mirror wheel/gesture listeners onto the iframe's contentDocument since
   // events inside an iframe don't bubble to the parent document.
@@ -280,7 +345,11 @@ export function useZoom({
         e.preventDefault();
         e.stopPropagation();
         const zoomDelta = -e.deltaY * 0.5;
-        setZoom((current) => Math.min(Math.max(current + zoomDelta, minZoom), maxZoom));
+        setZoom((current) => {
+          const next = Math.min(Math.max(current + zoomDelta, minZoom), maxZoom);
+          rememberAnchor({ x: e.clientX, y: e.clientY }, current, next);
+          return next;
+        });
         setZoomMode('custom');
       }
     };
@@ -321,7 +390,7 @@ export function useZoom({
       detach();
       iframe.removeEventListener('load', attach);
     };
-  }, [shortcutsEnabled, iframeRef, minZoom, maxZoom]);
+  }, [shortcutsEnabled, iframeRef, minZoom, maxZoom, rememberAnchor]);
 
   return {
     zoom,
@@ -331,6 +400,7 @@ export function useZoom({
     setZoomTo,
     resetZoom,
     zoomToFit,
+    zoomToBoard,
     autofit,
     handleZoomGesture,
     lockZoomMode,

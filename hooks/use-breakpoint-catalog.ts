@@ -9,7 +9,7 @@ import {
   type BreakpointDefinition,
   type BreakpointMutation,
 } from '@/lib/breakpoint-utils';
-import { persistBreakpointPrefixRewrite } from '@/lib/persist-breakpoint-prefix';
+import { persistBreakpointBaseDemotion, persistBreakpointPrefixRewrite } from '@/lib/persist-breakpoint-prefix';
 import { useSettingsStore } from '@/stores/useSettingsStore';
 
 interface BreakpointCatalogController {
@@ -33,8 +33,13 @@ export function useBreakpointCatalog(): BreakpointCatalogController {
     if (mutation.error) return mutation;
     updateSetting(BREAKPOINT_CATALOG_SETTING, mutation.catalog);
     setClientBreakpointCatalog(mutation.catalog);
-    if (mutation.prefixRewrite) {
-      await persistBreakpointPrefixRewrite(mutation.prefixRewrite.from, mutation.prefixRewrite.to);
+    if (mutation.demoteBaseTo) {
+      await persistBreakpointBaseDemotion(mutation.demoteBaseTo);
+    }
+    const rewrites = mutation.prefixRewrites
+      ?? (mutation.prefixRewrite ? [mutation.prefixRewrite] : []);
+    for (const rewrite of rewrites) {
+      await persistBreakpointPrefixRewrite(rewrite.from, rewrite.to);
     }
     await saveSettings({ [BREAKPOINT_CATALOG_SETTING]: mutation.catalog });
     return mutation;

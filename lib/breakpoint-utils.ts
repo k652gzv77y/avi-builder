@@ -48,7 +48,7 @@ const MAX_RANGE_WIDTH = 3840;
  * Responsive + state variant prefix. `max-[900px]:` is a custom range.
  * Group 1 is the whole prefix (empty when the class is a base utility).
  */
-export const RESPONSIVE_PREFIX_PATTERN = 'max-lg:|max-md:|lg:|md:|max-\\[\\d+px\\]:';
+export const RESPONSIVE_PREFIX_PATTERN = 'max-lg:|max-md:|lg:|md:|max-\\[\\d+px\\]:|min-\\[\\d+px\\]:';
 export const VARIANT_PREFIX_RE = new RegExp(
   `^((?:${RESPONSIVE_PREFIX_PATTERN})?(?:hover:|focus:|active:|disabled:|visited:|current:)?)`,
 );
@@ -70,15 +70,26 @@ export interface CanvasBreakpointFrame {
 export interface BreakpointDefinition {
   id: string;
   name: string;
-  /** Artboard width shown on the canvas. */
+  /** Artboard width shown on the canvas. Also the viewport where this frame takes over. */
   width: number;
-  /** Inclusive lower bound. Null means no lower bound beyond a narrower sibling. */
+  /** Inclusive lower bound, derived from the frame width. The narrowest frame starts at 0. */
   minWidth: number | null;
-  /** Inclusive upper bound. Null is the primary breakpoint (no media query). */
+  /**
+   * Inclusive upper bound stored for the max-width override.
+   * Null on the primary (no media query) and on a frame wider than the primary
+   * (that frame uses a min-width prefix instead).
+   */
   maxWidth: number | null;
-  /** Desktop, Tablet, and Phone cannot be deleted. */
+  /** Desktop, Tablet, and Phone keep their built-in ids when they are on the canvas. */
   system: boolean;
+  /** Cascade base. Edits here are inherited; other frames store overrides. */
+  primary?: boolean;
 }
+
+/** Horizontal gap between breakpoint frames on the canvas, in page pixels. */
+export const BREAKPOINT_FRAME_GAP = 100;
+
+export type BreakpointPresetKey = 'tablet' | 'phone' | 'custom';
 
 export const DEFAULT_CANVAS_BREAKPOINT_FRAMES: CanvasBreakpointFrame[] = [
   { id: 'desktop', label: 'Desktop', width: DEFAULT_DESKTOP_WIDTH, locked: true },
@@ -116,7 +127,7 @@ const DEFAULT_BREAKPOINT_CATALOG: BreakpointDefinition[] = [
 let clientCatalog: BreakpointDefinition[] = defaultBreakpointCatalog();
 
 export function defaultBreakpointCatalog(): BreakpointDefinition[] {
-  return DEFAULT_BREAKPOINT_CATALOG.map((breakpoint) => ({ ...breakpoint }));
+  return deriveBreakpointRanges(DEFAULT_BREAKPOINT_CATALOG.map((breakpoint) => ({ ...breakpoint })));
 }
 
 /** Editor and published pages share this so class prefixes resolve the same way. */
@@ -144,6 +155,7 @@ export function isSystemBreakpointId(id: string): id is SystemBreakpointId {
 export function isBaseBreakpoint(id: string, catalog: BreakpointDefinition[] = getBreakpointCatalog()): boolean {
   const breakpoint = catalog.find((item) => item.id === id);
   if (!breakpoint) return id === 'desktop';
+  if (catalog.some((item) => item.primary)) return breakpoint.primary === true;
   return breakpoint.maxWidth == null;
 }
 
@@ -156,9 +168,10 @@ export function breakpointLabel(id: string, catalog: BreakpointDefinition[] = ge
   return id;
 }
 
-/** Desktop, the cascade base. Custom breakpoints never take this role. */
+/** The cascade base. Desktop unless a frame was set as primary. */
 export function baseBreakpoint(catalog: BreakpointDefinition[]): BreakpointDefinition | null {
-  return catalog.find((breakpoint) => breakpoint.id === 'desktop')
+  return catalog.find((breakpoint) => breakpoint.primary)
+    ?? catalog.find((breakpoint) => breakpoint.id === 'desktop')
     ?? catalog.find((breakpoint) => breakpoint.maxWidth == null)
     ?? catalog[0]
     ?? null;
@@ -201,8 +214,17 @@ export function createBreakpointId(): string {
   return `bp-${body}`;
 }
 
-function classPrefixFor(breakpoint: BreakpointDefinition | undefined): string {
-  if (!breakpoint || breakpoint.maxWidth == null) return '';
+function classPrefixFor(
+  breakpoint: BreakpointDefinition | undefined,
+  catalog: BreakpointDefinition[] = [],
+): string {
+  if (!breakpoint) return '';
+  const primary = catalog.find((item) => item.primary)
+    ?? catalog.find((item) => item.maxWidth == null);
+  if (breakpoint.primary || (primary && breakpoint.id === primary.id)) return '';
+  if (!primary && breakpoint.maxWidth == null) return '';
+  if (primary && breakpoint.width > primary.width) return `min-[${breakpoint.width}px]:`;
+  if (breakpoint.maxWidth == null) return '';
   if (breakpoint.id === 'tablet' && breakpoint.maxWidth === DEFAULT_TABLET_MAX) return 'max-lg:';
   if (breakpoint.id === 'mobile' && breakpoint.maxWidth === DEFAULT_MOBILE_MAX) return 'max-md:';
   return `max-[${breakpoint.maxWidth}px]:`;
@@ -217,7 +239,7 @@ export function getBreakpointPrefix(
   catalog: BreakpointDefinition[] = getBreakpointCatalog(),
 ): string {
   const match = catalog.find((item) => item.id === breakpoint);
-  if (match) return classPrefixFor(match);
+  if (match) return classPrefixFor(match, catalog);
   if (breakpoint === 'tablet') return 'max-lg:';
   if (breakpoint === 'mobile') return 'max-md:';
   return '';
@@ -275,6 +297,15 @@ export function splitResponsivePrefix(
       rest: className.slice(arbitrary[0].length),
     };
   }
+  const minArbitrary = /^min-\[(\d+)px\]:/.exec(className);
+  if (minArbitrary) {
+    const minWidth = Number(minArbitrary[1]);
+    const match = catalog.find((item) => item.width === minWidth && !item.primary);
+    return {
+      breakpoint: match?.id ?? `min-${minWidth}`,
+      rest: className.slice(minArbitrary[0].length),
+    };
+  }
   if (className.startsWith('lg:')) {
     return { breakpoint: 'desktop', rest: className.slice(3) };
   }
@@ -285,26 +316,48 @@ export function splitResponsivePrefix(
 }
 
 /**
- * Most specific breakpoint whose range contains `width`.
- * The primary breakpoint is the fallback when no max-width range matches.
+ * Viewport span for a frame. Each breakpoint applies from its width
+ * (the narrowest applies from 0) up to the next wider frame.
+ */
+export function viewportRange(
+  breakpoint: BreakpointDefinition,
+  catalog: BreakpointDefinition[],
+): { min: number; max: number | null } {
+  const sorted = [...catalog].sort((left, right) => left.width - right.width || left.id.localeCompare(right.id));
+  const index = sorted.findIndex((item) => item.id === breakpoint.id);
+  if (index < 0) {
+    return { min: breakpoint.minWidth ?? 0, max: breakpoint.maxWidth };
+  }
+  const next = sorted[index + 1];
+  return {
+    min: index === 0 ? 0 : breakpoint.width,
+    max: next ? next.width - 1 : null,
+  };
+}
+
+/**
+ * The frame whose width range contains `width`.
+ * Ranges come from the frame widths: each applies from its width up to the next wider frame.
  */
 export function breakpointForWidth(
   width: number,
   catalog: BreakpointDefinition[] = getBreakpointCatalog(),
 ): BreakpointDefinition {
   const source = catalog.length > 0 ? catalog : defaultBreakpointCatalog();
-  const matches = source.filter((breakpoint) => {
-    if (breakpoint.maxWidth == null) return false;
-    if (width > breakpoint.maxWidth) return false;
-    if (breakpoint.minWidth != null && width < breakpoint.minWidth) return false;
-    return true;
-  });
-  if (matches.length > 0) {
-    return matches.reduce((best, breakpoint) => (
-      (breakpoint.maxWidth ?? Infinity) < (best.maxWidth ?? Infinity) ? breakpoint : best
-    ));
+  let winner: BreakpointDefinition | null = null;
+  let winnerSpan = Number.POSITIVE_INFINITY;
+  for (const breakpoint of source) {
+    const range = viewportRange(breakpoint, source);
+    if (width < range.min) continue;
+    if (range.max != null && width > range.max) continue;
+    const span = (range.max ?? 100000) - range.min;
+    if (span < winnerSpan) {
+      winner = breakpoint;
+      winnerSpan = span;
+    }
   }
-  return source.find((breakpoint) => breakpoint.maxWidth == null)
+  return winner
+    ?? source.find((breakpoint) => breakpoint.primary)
     ?? source.find((breakpoint) => breakpoint.id === 'desktop')
     ?? source[0];
 }
@@ -323,15 +376,27 @@ export function inheritanceChain(
 ): Breakpoint[] {
   const source = catalog.length > 0 ? catalog : defaultBreakpointCatalog();
   const current = source.find((item) => item.id === breakpointId);
-  const base = source.find((item) => item.maxWidth == null) ?? source.find((item) => item.id === 'desktop');
-  if (!current || current.maxWidth == null) {
-    return [base?.id ?? 'desktop'];
+  const base = source.find((item) => item.primary)
+    ?? source.find((item) => item.maxWidth == null)
+    ?? source.find((item) => item.id === 'desktop');
+  if (!current || !base || current.id === base.id) {
+    return [base?.id ?? current?.id ?? 'desktop'];
   }
-  const applicable = source
-    .filter((item) => item.maxWidth != null && item.maxWidth >= current.maxWidth!)
-    .sort((left, right) => left.maxWidth! - right.maxWidth!);
+  const applicable = source.filter((item) => {
+    if (item.id === base.id) return false;
+    if (item.maxWidth != null) {
+      return current.maxWidth != null && item.maxWidth >= current.maxWidth;
+    }
+    return current.width >= item.width;
+  }).sort((left, right) => {
+    if (left.maxWidth != null && right.maxWidth != null) return left.maxWidth - right.maxWidth;
+    if (left.maxWidth != null) return -1;
+    if (right.maxWidth != null) return 1;
+    return right.width - left.width;
+  });
   const chain = applicable.map((item) => item.id);
-  if (base && !chain.includes(base.id)) chain.push(base.id);
+  if (!chain.includes(current.id)) chain.unshift(current.id);
+  if (!chain.includes(base.id)) chain.push(base.id);
   return chain;
 }
 
@@ -402,30 +467,56 @@ function readOptionalWidth(value: unknown): number | null {
   return clampRangeWidth(numeric);
 }
 
-function claimUniqueMaxWidths(list: BreakpointDefinition[]): BreakpointDefinition[] {
+function uniqueFrameWidths(catalog: BreakpointDefinition[]): BreakpointDefinition[] {
   const used = new Set<number>();
-  const claim = (breakpoint: BreakpointDefinition): BreakpointDefinition => {
-    if (breakpoint.maxWidth == null) return breakpoint;
-    let maxWidth = breakpoint.maxWidth;
-    while (used.has(maxWidth)) maxWidth += 1;
-    used.add(maxWidth);
-    return maxWidth === breakpoint.maxWidth ? breakpoint : { ...breakpoint, maxWidth };
-  };
-  const claimed = new Map<string, BreakpointDefinition>();
-  for (const breakpoint of list) {
-    if (!breakpoint.system) continue;
-    claimed.set(breakpoint.id, claim(breakpoint));
-  }
-  for (const breakpoint of list) {
-    if (breakpoint.system) continue;
-    claimed.set(breakpoint.id, claim(breakpoint));
-  }
-  return list.map((breakpoint) => claimed.get(breakpoint.id) ?? breakpoint);
+  return catalog.map((breakpoint) => {
+    let width = breakpoint.width;
+    while (used.has(width)) width = Math.min(MAX_CANVAS_WIDTH, width + 1);
+    used.add(width);
+    return width === breakpoint.width ? breakpoint : { ...breakpoint, width };
+  });
 }
 
 /**
- * Accept saved settings, or the previous canvas-frame list, and always keep
- * Desktop, Tablet, and Phone. Unknown shapes fall back to the built-in trio.
+ * Framer ranges: a frame applies from its width up to the next wider frame.
+ * The narrowest frame also covers every viewport below it. The primary frame
+ * is the cascade base (no max-width query). Desktop stays primary until
+ * another frame is set as primary.
+ */
+export function deriveBreakpointRanges(catalog: BreakpointDefinition[]): BreakpointDefinition[] {
+  if (catalog.length === 0) return [];
+  const frames = uniqueFrameWidths(catalog);
+  const sorted = [...frames].sort((left, right) => left.width - right.width || left.id.localeCompare(right.id));
+  const explicit = frames.filter((breakpoint) => breakpoint.primary);
+  const primaryId = explicit.length === 1
+    ? explicit[0].id
+    : (frames.find((breakpoint) => breakpoint.id === 'desktop')?.id ?? sorted[sorted.length - 1].id);
+  const indexById = new Map(sorted.map((breakpoint, index) => [breakpoint.id, index]));
+
+  return frames.map((breakpoint) => {
+    const index = indexById.get(breakpoint.id) ?? 0;
+    const next = sorted[index + 1];
+    const isPrimary = breakpoint.id === primaryId;
+    return {
+      ...breakpoint,
+      minWidth: index === 0 ? 0 : breakpoint.width,
+      maxWidth: isPrimary ? null : (next ? next.width - 1 : null),
+      primary: isPrimary,
+      system: breakpoint.system || isSystemBreakpointId(breakpoint.id),
+    };
+  });
+}
+
+export function canvasFrameOrder(catalog: BreakpointDefinition[]): BreakpointDefinition[] {
+  const primary = catalog.find((breakpoint) => breakpoint.primary) ?? catalog[0];
+  if (!primary) return catalog;
+  return [primary, ...catalog.filter((breakpoint) => breakpoint.id !== primary.id)];
+}
+
+/**
+ * Accept a saved catalog. A missing list falls back to Desktop, Tablet, and Phone.
+ * A saved list is kept as authored, including after a non-primary frame is deleted.
+ * Min and max are derived from the frame widths.
  */
 export function normalizeBreakpointCatalog(value: unknown): BreakpointDefinition[] {
   if (!Array.isArray(value)) return defaultBreakpointCatalog();
@@ -444,33 +535,19 @@ export function normalizeBreakpointCatalog(value: unknown): BreakpointDefinition
       ? raw.name.trim().slice(0, 40)
       : (typeof raw.label === 'string' && raw.label.trim() ? raw.label.trim().slice(0, 40) : template?.name ?? 'Breakpoint');
     const width = readWidth(raw.width, template?.width ?? 800, clampFrameWidth);
-    let maxWidth = rawId === 'desktop' ? null : readOptionalWidth(raw.maxWidth);
-    if (rawId !== 'desktop' && maxWidth == null) {
-      maxWidth = template?.maxWidth ?? clampRangeWidth(width);
-    }
-    let minWidth = readOptionalWidth(raw.minWidth);
-    if (minWidth == null && template) minWidth = template.minWidth;
-    if (minWidth != null && maxWidth != null && minWidth > maxWidth) minWidth = maxWidth;
     parsed.push({
       id: rawId,
       name,
       width,
-      minWidth,
-      maxWidth,
+      minWidth: readOptionalWidth(raw.minWidth),
+      maxWidth: readOptionalWidth(raw.maxWidth),
       system,
+      primary: raw.primary === true,
     });
   }
 
-  for (const id of SYSTEM_BREAKPOINT_IDS) {
-    if (!seen.has(id)) parsed.push(systemTemplate(id));
-  }
-
-  if (!parsed.some((breakpoint) => breakpoint.maxWidth == null)) {
-    const desktop = parsed.find((breakpoint) => breakpoint.id === 'desktop');
-    if (desktop) desktop.maxWidth = null;
-  }
-
-  return claimUniqueMaxWidths(parsed);
+  if (parsed.length === 0) return defaultBreakpointCatalog();
+  return deriveBreakpointRanges(parsed);
 }
 
 function legacyFramesToCatalog(frames: CanvasBreakpointFrame[]): BreakpointDefinition[] {
@@ -548,7 +625,15 @@ export function normalizeCanvasBreakpointFrames(value: unknown): CanvasBreakpoin
 export interface BreakpointMutation {
   catalog: BreakpointDefinition[];
   error?: string;
+  /** First prefix change. Kept for callers that rewrite one pair. */
   prefixRewrite?: { from: string; to: string };
+  /** Every prefix change caused by deriving ranges from the frame widths. */
+  prefixRewrites?: { from: string; to: string }[];
+  /**
+   * When the primary frame changes, unprefixed classes belong to the previous
+   * base and move onto this prefix before other rewrites run.
+   */
+  demoteBaseTo?: string;
   created?: BreakpointDefinition;
 }
 
@@ -560,39 +645,150 @@ function uniqueName(catalog: BreakpointDefinition[], base: string): string {
   return `${base} ${index}`;
 }
 
-function nextFreeMax(catalog: BreakpointDefinition[]): number {
-  const used = new Set(
-    catalog.map((breakpoint) => breakpoint.maxWidth).filter((width): width is number => width != null),
-  );
-  for (const candidate of [1440, 1280, 900, 600, 480, 1100, 1600, 2000]) {
-    if (!used.has(candidate)) return candidate;
+function nextFreeFrameWidth(catalog: BreakpointDefinition[]): number {
+  const used = new Set(catalog.map((breakpoint) => breakpoint.width));
+  for (const candidate of [1440, 1280, 1000, 900, 600, 480]) {
+    const width = clampFrameWidth(candidate);
+    if (!used.has(width)) return width;
   }
-  let width = 500;
-  while (used.has(width)) width += 10;
+  let width = clampFrameWidth(500);
+  while (used.has(width) && width < MAX_CANVAS_WIDTH) width += 10;
   return width;
+}
+
+function mutationFrom(
+  before: BreakpointDefinition[],
+  after: BreakpointDefinition[],
+  extra?: Partial<BreakpointMutation>,
+): BreakpointMutation {
+  const rewrites: { from: string; to: string }[] = [];
+  const beforeBase = before.find((breakpoint) => classPrefixFor(breakpoint, before) === '');
+  const afterBase = after.find((breakpoint) => classPrefixFor(breakpoint, after) === '');
+  let demoteBaseTo: string | undefined;
+  if (beforeBase && afterBase && beforeBase.id !== afterBase.id) {
+    const demoted = after.find((breakpoint) => breakpoint.id === beforeBase.id);
+    const to = demoted ? classPrefixFor(demoted, after) : '';
+    if (to) demoteBaseTo = to;
+  }
+  for (const next of after) {
+    const prev = before.find((breakpoint) => breakpoint.id === next.id);
+    if (!prev) continue;
+    const from = classPrefixFor(prev, before);
+    const to = classPrefixFor(next, after);
+    if (!from || from === to) continue;
+    rewrites.push({ from, to });
+  }
+  return {
+    catalog: after,
+    ...extra,
+    demoteBaseTo,
+    prefixRewrites: rewrites.length > 0 ? rewrites : undefined,
+    prefixRewrite: rewrites[0],
+  };
 }
 
 export function createBreakpoint(
   catalog: BreakpointDefinition[],
   input?: { name?: string; width?: number; minWidth?: number | null; maxWidth?: number | null },
 ): BreakpointMutation {
-  const maxWidth = input?.maxWidth != null ? clampRangeWidth(input.maxWidth) : nextFreeMax(catalog);
-  if (catalog.some((breakpoint) => breakpoint.maxWidth === maxWidth)) {
-    return { catalog, error: 'Another breakpoint already uses that max width.' };
-  }
-  let minWidth = input?.minWidth == null ? null : clampRangeWidth(input.minWidth);
-  if (minWidth != null && minWidth > maxWidth) minWidth = maxWidth;
-  const width = clampFrameWidth(input?.width ?? Math.min(MAX_CANVAS_WIDTH, Math.max(MIN_CANVAS_WIDTH, maxWidth)));
+  const requested = input?.width ?? input?.maxWidth ?? nextFreeFrameWidth(catalog);
+  const width = clampFrameWidth(requested);
   const name = uniqueName(catalog, (input?.name || 'Breakpoint').trim().slice(0, 40) || 'Breakpoint');
   const created: BreakpointDefinition = {
     id: createBreakpointId(),
     name,
     width,
-    minWidth,
-    maxWidth,
+    minWidth: null,
+    maxWidth: width,
     system: false,
   };
-  return { catalog: [...catalog, created], created };
+  const derived = deriveBreakpointRanges([...catalog, created]);
+  return mutationFrom(catalog, derived, {
+    created: derived.find((breakpoint) => breakpoint.id === created.id),
+  });
+}
+
+export function addBreakpointPreset(
+  catalog: BreakpointDefinition[],
+  preset: BreakpointPresetKey,
+): BreakpointMutation {
+  if (preset === 'custom') {
+    return createBreakpoint(catalog, { name: 'Breakpoint', width: nextFreeFrameWidth(catalog) });
+  }
+  const spec = preset === 'tablet'
+    ? { id: 'tablet' as const, name: 'Tablet', width: DEFAULT_TABLET_WIDTH }
+    : { id: 'mobile' as const, name: 'Phone', width: DEFAULT_MOBILE_WIDTH };
+  if (catalog.some((breakpoint) => breakpoint.id === spec.id)) {
+    return { catalog, error: `${spec.name} is already on the canvas.` };
+  }
+  const created: BreakpointDefinition = {
+    id: spec.id,
+    name: spec.name,
+    width: spec.width,
+    minWidth: null,
+    maxWidth: spec.width,
+    system: true,
+  };
+  const derived = deriveBreakpointRanges([...catalog, created]);
+  return mutationFrom(catalog, derived, {
+    created: derived.find((breakpoint) => breakpoint.id === created.id),
+  });
+}
+
+export function duplicateBreakpoint(
+  catalog: BreakpointDefinition[],
+  id: string,
+): BreakpointMutation {
+  const source = catalog.find((breakpoint) => breakpoint.id === id);
+  if (!source) return { catalog, error: 'Breakpoint not found.' };
+  const used = new Set(catalog.map((breakpoint) => breakpoint.width));
+  let width = clampFrameWidth(source.width);
+  if (used.has(width)) {
+    width = Math.min(MAX_CANVAS_WIDTH, width + 10);
+    while (used.has(width) && width < MAX_CANVAS_WIDTH) width += 10;
+  }
+  const created: BreakpointDefinition = {
+    id: createBreakpointId(),
+    name: uniqueName(catalog, `${source.name} copy`.slice(0, 40)),
+    width,
+    minWidth: null,
+    maxWidth: width,
+    system: false,
+  };
+  const index = catalog.findIndex((breakpoint) => breakpoint.id === id);
+  const next = [...catalog.slice(0, index + 1), created, ...catalog.slice(index + 1)];
+  const derived = deriveBreakpointRanges(next);
+  return mutationFrom(catalog, derived, {
+    created: derived.find((breakpoint) => breakpoint.id === created.id),
+  });
+}
+
+export function resizeBreakpointWidth(
+  catalog: BreakpointDefinition[],
+  id: string,
+  width: number,
+): BreakpointMutation {
+  if (!catalog.some((breakpoint) => breakpoint.id === id)) {
+    return { catalog, error: 'Breakpoint not found.' };
+  }
+  let nextWidth = clampFrameWidth(width);
+  const used = new Set(catalog.filter((breakpoint) => breakpoint.id !== id).map((breakpoint) => breakpoint.width));
+  while (used.has(nextWidth) && nextWidth < MAX_CANVAS_WIDTH) nextWidth += 1;
+  const resized = catalog.map((breakpoint) => (
+    breakpoint.id === id ? { ...breakpoint, width: nextWidth } : breakpoint
+  ));
+  return mutationFrom(catalog, deriveBreakpointRanges(resized));
+}
+
+export function setPrimaryBreakpoint(
+  catalog: BreakpointDefinition[],
+  id: string,
+): BreakpointMutation {
+  if (!catalog.some((breakpoint) => breakpoint.id === id)) {
+    return { catalog, error: 'Breakpoint not found.' };
+  }
+  const marked = catalog.map((breakpoint) => ({ ...breakpoint, primary: breakpoint.id === id }));
+  return mutationFrom(catalog, deriveBreakpointRanges(marked));
 }
 
 export function renameBreakpoint(
@@ -615,9 +811,10 @@ export function renameBreakpoint(
 export function deleteBreakpoint(catalog: BreakpointDefinition[], id: string): BreakpointMutation {
   const target = catalog.find((breakpoint) => breakpoint.id === id);
   if (!target) return { catalog, error: 'Breakpoint not found.' };
-  if (target.system) return { catalog, error: 'Desktop, Tablet, and Phone stay in the project.' };
+  const primary = target.primary || (!catalog.some((breakpoint) => breakpoint.primary) && target.maxWidth == null);
+  if (primary) return { catalog, error: 'The primary breakpoint can\'t be deleted.' };
   if (catalog.length <= 1) return { catalog, error: 'At least one breakpoint is required.' };
-  return { catalog: catalog.filter((breakpoint) => breakpoint.id !== id) };
+  return mutationFrom(catalog, deriveBreakpointRanges(catalog.filter((breakpoint) => breakpoint.id !== id)));
 }
 
 export function moveBreakpoint(
@@ -668,12 +865,25 @@ export function updateBreakpointRange(
   }
 
   const nextBreakpoint: BreakpointDefinition = { ...current, width, minWidth, maxWidth };
-  const from = classPrefixFor(current);
-  const to = classPrefixFor(nextBreakpoint);
+  const nextCatalog = catalog.map((breakpoint) => (breakpoint.id === id ? nextBreakpoint : breakpoint));
+  const from = classPrefixFor(current, catalog);
+  const to = classPrefixFor(nextBreakpoint, nextCatalog);
   return {
     catalog: catalog.map((breakpoint) => (breakpoint.id === id ? nextBreakpoint : breakpoint)),
     prefixRewrite: from !== to ? { from, to } : undefined,
   };
+}
+
+/** Prefix classes that have no breakpoint yet. Used when the primary frame changes. */
+export function prefixUnprefixedText(value: string, to: string): string {
+  if (!to || !value) return value;
+  let changed = false;
+  const next = value.split(/\s+/).filter(Boolean).map((token) => {
+    if (hasResponsivePrefix(token)) return token;
+    changed = true;
+    return `${to}${token}`;
+  });
+  return changed ? next.join(' ') : value;
 }
 
 export function rewriteClassText(value: string, from: string, to: string): string {
@@ -790,6 +1000,77 @@ export function rewriteLayers(layers: Layer[], from: string, to: string): { laye
     const rewritten = rewriteLayer(layer, from, to);
     if (rewritten.changed) changed = true;
     return rewritten.layer;
+  });
+  return { layers: changed ? next : layers, changed };
+}
+
+function prefixUnprefixedLayer(layer: Layer, to: string): { layer: Layer; changed: boolean } {
+  let changed = false;
+  let next = layer;
+  const apply = (value: string | undefined) => {
+    if (!value) return { value, changed: false };
+    const prefixed = prefixUnprefixedText(value, to);
+    return { value: prefixed, changed: prefixed !== value };
+  };
+
+  if (Array.isArray(layer.classes)) {
+    let classesChanged = false;
+    const classes = layer.classes.map((token) => {
+      if (typeof token !== 'string' || hasResponsivePrefix(token)) return token;
+      classesChanged = true;
+      return `${to}${token}`;
+    });
+    if (classesChanged) {
+      next = { ...next, classes };
+      changed = true;
+    }
+  } else if (typeof layer.classes === 'string') {
+    const classes = apply(layer.classes);
+    if (classes.changed && classes.value != null) {
+      next = { ...next, classes: classes.value };
+      changed = true;
+    }
+  }
+
+  const styleOverrides = apply(layer.styleOverrides?.classes);
+  if (styleOverrides.changed && next.styleOverrides) {
+    next = { ...next, styleOverrides: { ...next.styleOverrides, classes: styleOverrides.value } };
+    changed = true;
+  }
+
+  if (layer.textStyles) {
+    let textChanged = false;
+    const textStyles = { ...layer.textStyles };
+    for (const [key, style] of Object.entries(layer.textStyles)) {
+      const classes = apply(style.classes);
+      if (!classes.changed) continue;
+      textStyles[key] = { ...style, classes: classes.value };
+      textChanged = true;
+    }
+    if (textChanged) {
+      next = { ...next, textStyles };
+      changed = true;
+    }
+  }
+
+  if (layer.children?.length) {
+    const children = prefixUnprefixedLayers(layer.children, to);
+    if (children.changed) {
+      next = { ...next, children: children.layers };
+      changed = true;
+    }
+  }
+
+  return { layer: changed ? next : layer, changed };
+}
+
+export function prefixUnprefixedLayers(layers: Layer[], to: string): { layers: Layer[]; changed: boolean } {
+  if (!to) return { layers, changed: false };
+  let changed = false;
+  const next = layers.map((layer) => {
+    const prefixed = prefixUnprefixedLayer(layer, to);
+    if (prefixed.changed) changed = true;
+    return prefixed.layer;
   });
   return { layers: changed ? next : layers, changed };
 }

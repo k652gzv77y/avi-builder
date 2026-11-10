@@ -78,8 +78,10 @@ interface CanvasProps {
   onContentWidthChange?: (width: number) => void;
   /** Callback when gap is updated */
   onGapUpdate?: (layerId: string, gapValue: string) => void;
-  /** Callback when zoom gesture is detected */
-  onZoomGesture?: (delta: number) => void;
+  /** Callback when zoom gesture is detected. Origin is in parent viewport coordinates. */
+  onZoomGesture?: (delta: number, origin?: { x: number; y: number }) => void;
+  /** False on a non-selected breakpoint frame so it only paints the layout. */
+  interactive?: boolean;
   /** Callback when zoom in is triggered (Cmd++) */
   onZoomIn?: () => void;
   /** Callback when zoom out is triggered (Cmd+-) */
@@ -305,6 +307,7 @@ const Canvas = React.memo(function Canvas({
   onContentWidthChange,
   onGapUpdate,
   onZoomGesture,
+  interactive = true,
   onZoomIn,
   onZoomOut,
   onResetZoom,
@@ -815,7 +818,7 @@ const Canvas = React.memo(function Canvas({
 
   // Handle keyboard events from iframe
   useEffect(() => {
-    if (!iframeReady || !iframeRef.current) return;
+    if (!interactive || !iframeReady || !iframeRef.current) return;
 
     const doc = iframeRef.current.contentDocument;
     if (!doc) return;
@@ -921,7 +924,7 @@ const Canvas = React.memo(function Canvas({
 
     doc.addEventListener('keydown', handleKeyDown);
     return () => doc.removeEventListener('keydown', handleKeyDown);
-  }, [iframeReady, onDeleteLayer, onResetZoom, onZoomIn, onZoomOut, onZoomToFit, onAutofit, onUndo, onRedo]);
+  }, [interactive, iframeReady, onDeleteLayer, onResetZoom, onZoomIn, onZoomOut, onZoomToFit, onAutofit, onUndo, onRedo]);
 
   // Handle any click inside the iframe (capture phase to run before stopPropagation)
   useEffect(() => {
@@ -1068,7 +1071,7 @@ const Canvas = React.memo(function Canvas({
 
   // Handle zoom gestures from iframe (Ctrl+wheel, trackpad pinch)
   useEffect(() => {
-    if (!iframeReady || !iframeRef.current || !onZoomGesture) return;
+    if (!interactive || !iframeReady || !iframeRef.current || !onZoomGesture) return;
 
     const doc = iframeRef.current.contentDocument;
     if (!doc) return;
@@ -1078,9 +1081,13 @@ const Canvas = React.memo(function Canvas({
         e.preventDefault();
         e.stopPropagation();
 
-        // Positive deltaY means zoom out, negative means zoom in
+        const rect = iframeRef.current?.getBoundingClientRect();
+        const scale = zoom / 100;
         const delta = -e.deltaY;
-        onZoomGesture(delta);
+        onZoomGesture(delta, rect ? {
+          x: rect.left + e.clientX * scale,
+          y: rect.top + e.clientY * scale,
+        } : undefined);
 
         return false;
       }
@@ -1091,7 +1098,7 @@ const Canvas = React.memo(function Canvas({
     return () => {
       doc.removeEventListener('wheel', handleWheel, { capture: true });
     };
-  }, [iframeReady, onZoomGesture]);
+  }, [interactive, iframeReady, onZoomGesture, zoom]);
 
   return (
     <iframe

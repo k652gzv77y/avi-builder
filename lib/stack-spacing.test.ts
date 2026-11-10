@@ -138,7 +138,7 @@ test('tablet alignment is a breakpoint class and keeps the desktop value', () =>
     'tablet',
   );
   const child = next[0].children?.[0];
-  assert.match(String(child?.classes), /max-lg:self-end/);
+  assert.match(String(child?.classes), /max-\[1199px\]:self-end/);
   assert.equal(child?.design?.layout?.alignSelf, undefined);
   assert.match(String(next[0].classes), /flex flex-col/);
 });

@@ -659,7 +659,7 @@ test('variant property defaults replace the primary default and overrides still 
   assert.doesNotMatch(String(openInstance.classes), /bg-\[#ffffff\]/);
   assert.equal(textOf(openInstance.children?.[0]), 'Open title');
   assert.match(String(openInstance.classes), /gap-\[4px\]/);
-  assert.match(String(openInstance.classes), /max-lg:gap-\[12px\]/);
+  assert.match(String(openInstance.classes), /max-\[1199px\]:gap-\[12px\]/);
 
   const overridden = resolveComponents(
     [layer({
@@ -697,7 +697,7 @@ test('variant property defaults replace the primary default and overrides still 
   ).layers[0];
   assert.match(String(canvas?.classes), /bg-\[#111111\]/);
   assert.equal(textOf(canvas?.children?.[0]), 'Open title');
-  assert.match(String(canvas?.classes), /max-lg:gap-\[12px\]/);
+  assert.match(String(canvas?.classes), /max-\[1199px\]:gap-\[12px\]/);
 
   const canvasOverride = serializeLayers(
     [layer({

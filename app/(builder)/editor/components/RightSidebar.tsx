@@ -70,6 +70,7 @@ import { InteractionsSection } from './interactions-section';
 import OverlaySettings from './overlay-settings';
 import { InspectorSection, VariablesSection } from './inspector-section';
 import { BreakpointContextBar } from './BreakpointOverride';
+import BreakpointFramePanel from './breakpoint-frame-panel';
 import LayoutControls from './LayoutControls';
 import SelfLayoutControls from './SelfLayoutControls';
 import LayerStylesPanel from './LayerStylesPanel';
@@ -2086,18 +2087,14 @@ const RightSidebar = React.memo(function RightSidebar({
   };
 
   if (!selectedLayerId || !selectedLayer) {
-    return (
-      <div
-        className={cn(
-          'flex items-center justify-center',
-          embedded
-            ? 'flex-1 min-h-0'
-            : 'w-64 shrink-0 bg-background border-l h-screen',
-        )}
-      >
-        <span className="text-xs text-muted-foreground">Select a layer</span>
-      </div>
-    );
+    if (embedded) {
+      return (
+        <div className="flex flex-1 min-h-0 items-center justify-center">
+          <span className="text-xs text-muted-foreground">Select a layer</span>
+        </div>
+      );
+    }
+    return <BreakpointFramePanel />;
   }
 
   // Check if selected layer is a component instance

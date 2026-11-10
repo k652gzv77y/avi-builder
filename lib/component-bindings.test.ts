@@ -64,7 +64,7 @@ test('stack variables write direction, gap, padding, distribute, and align', () 
   const classes = String(applied.classes);
   assert.match(classes, /\bflex-col\b/);
   assert.match(classes, /gap-\[12px\]/);
-  assert.match(classes, /max-lg:gap-\[20px\]/);
+  assert.match(classes, /max-\[1199px\]:gap-\[20px\]/);
   assert.match(classes, /pt-\[8px\]/);
   assert.match(classes, /justify-between/);
   assert.match(classes, /items-center/);
@@ -86,7 +86,7 @@ test('one stack variable updates every bound layer and instance overrides win', 
   );
   const classes = String(overridden[0].classes);
   assert.match(classes, /gap-\[4px\]/);
-  assert.match(classes, /max-md:gap-\[2px\]/);
+  assert.match(classes, /max-\[809px\]:gap-\[2px\]/);
   assert.doesNotMatch(classes, /gap-\[32px\]/);
 });
 
