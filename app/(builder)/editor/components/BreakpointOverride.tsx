@@ -2,6 +2,7 @@
 
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useBreakpointCatalog } from '@/hooks/use-breakpoint-catalog';
 import { isBaseBreakpoint, splitResponsivePrefix } from '@/lib/breakpoint-utils';
 import { editorBreakpointLabel, stripBreakpointOverrides, toClassList } from '@/lib/layout-model';
 import { useEditorStore } from '@/stores/useEditorStore';
@@ -16,9 +17,10 @@ interface OverrideResetProps {
 /** Blue dot that clears the active breakpoint's override for one property. */
 export function OverrideReset({ isOverride, propertyLabel, onReset }: OverrideResetProps) {
   const activeBreakpoint = useEditorStore((state) => state.activeBreakpoint);
+  const { catalog } = useBreakpointCatalog();
   if (!isOverride) return null;
 
-  const breakpointLabel = editorBreakpointLabel(activeBreakpoint);
+  const breakpointLabel = editorBreakpointLabel(activeBreakpoint, catalog);
 
   return (
     <Tooltip>
@@ -52,9 +54,10 @@ interface BreakpointContextBarProps {
  */
 export function BreakpointContextBar({ layer, onLayerUpdate }: BreakpointContextBarProps) {
   const activeBreakpoint = useEditorStore((state) => state.activeBreakpoint);
-  if (!layer || isBaseBreakpoint(activeBreakpoint)) return null;
+  const { catalog } = useBreakpointCatalog();
+  if (!layer || isBaseBreakpoint(activeBreakpoint, catalog)) return null;
 
-  const breakpointLabel = editorBreakpointLabel(activeBreakpoint);
+  const breakpointLabel = editorBreakpointLabel(activeBreakpoint, catalog);
   const classes = toClassList(layer.classes);
   const hasOverride = classes.some((cls) => splitResponsivePrefix(cls).breakpoint === activeBreakpoint);
 

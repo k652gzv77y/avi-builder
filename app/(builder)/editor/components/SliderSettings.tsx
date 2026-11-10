@@ -26,11 +26,12 @@ import {
 import SettingsPanel from './SettingsPanel';
 import ToggleGroup from './ToggleGroup';
 
+import { useBreakpointCatalog } from '@/hooks/use-breakpoint-catalog';
+import { slidePrev, slideNext } from '@/hooks/use-canvas-slider';
 import { addChildToLayerTree, findAncestorByName, getCollectionVariable } from '@/lib/layer-utils';
 import { isSliderLayerName, DEFAULT_SLIDER_SETTINGS, createSlideLayer } from '@/lib/templates/utilities';
 import { EFFECTS_WITH_PER_VIEW, resolveResponsiveNumber, writeResponsiveNumber } from '@/lib/slider-utils';
 import { breakpointLabel } from '@/lib/breakpoint-utils';
-import { slidePrev, slideNext } from '@/hooks/use-canvas-slider';
 import { useEditorStore } from '@/stores/useEditorStore';
 import { usePagesStore } from '@/stores/usePagesStore';
 import { useComponentsStore } from '@/stores/useComponentsStore';
@@ -107,6 +108,7 @@ export default function SliderSettings({ layer, onLayerUpdate, allLayers, fieldG
   const updateComponentDraft = useComponentsStore((state) => state.updateComponentDraft);
   const setSelectedLayerId = useEditorStore((state) => state.setSelectedLayerId);
   const activeBreakpoint = useEditorStore((state) => state.activeBreakpoint);
+  const { catalog } = useBreakpointCatalog();
   const clearLayerData = useCollectionLayerStore((state) => state.clearLayerData);
 
   // Inner slides wrapper and the first slide inside it (the loop template when CMS-bound)
@@ -122,7 +124,7 @@ export default function SliderSettings({ layer, onLayerUpdate, allLayers, fieldG
   const settings: SliderSettingsType = { ...DEFAULT_SLIDER_SETTINGS, ...sliderLayer?.settings?.slider };
   const perViewValue = resolveResponsiveNumber(settings.groupSlide, activeBreakpoint, 1);
   const perGroupValue = Math.min(resolveResponsiveNumber(settings.slidesPerGroup, activeBreakpoint, 1), perViewValue);
-  const activeBreakpointLabel = breakpointLabel(activeBreakpoint);
+  const activeBreakpointLabel = breakpointLabel(activeBreakpoint, catalog);
 
   // Local draft state lets users freely type/clear the number inputs without the
   // controlled value snapping back; valid values commit on change, blur clamps.

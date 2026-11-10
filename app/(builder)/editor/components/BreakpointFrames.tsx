@@ -2,8 +2,11 @@
 
 import { useCallback, useRef, useState } from 'react';
 import { X } from 'lucide-react';
+import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import Icon from '@/components/ui/icon';
 import {
+  activeBreakpointAfterDelete,
+  breakpointLabel,
   clampFrameWidth,
   createBreakpoint,
   deleteBreakpoint,
@@ -42,6 +45,8 @@ export default function BreakpointFrames({
 }) {
   const { catalog, commit } = useBreakpointCatalog();
   const [dragWidths, setDragWidths] = useState<Record<string, number>>({});
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [heldDeleteName, setHeldDeleteName] = useState('');
   const resizingRef = useRef<{
     id: string;
     startX: number;
@@ -55,6 +60,10 @@ export default function BreakpointFrames({
   ));
 
   const scale = zoom / 100;
+  const pendingDelete = catalog.find((breakpoint) => breakpoint.id === pendingDeleteId) ?? null;
+  const pendingDeleteName = pendingDelete
+    ? breakpointLabel(pendingDelete.id, catalog)
+    : heldDeleteName;
   const resolvedActiveId = activeFrameId
     || frames.find((breakpoint) => breakpoint.id === active)?.id
     || frames[0]?.id
@@ -74,9 +83,10 @@ export default function BreakpointFrames({
 
   const handleDelete = useCallback((breakpointId: string) => {
     const mutation = deleteBreakpoint(catalog, breakpointId);
+    if (mutation.error) return;
     void commit(mutation);
-    if (!mutation.error && resolvedActiveId === breakpointId) {
-      const next = mutation.catalog[0];
+    if (resolvedActiveId === breakpointId) {
+      const next = activeBreakpointAfterDelete(mutation.catalog, breakpointId, resolvedActiveId);
       if (next) handleSelect(next);
     }
   }, [catalog, commit, handleSelect, resolvedActiveId]);
@@ -133,6 +143,7 @@ export default function BreakpointFrames({
         const displayWidth = breakpoint.width * scale;
         const displayHeight = Math.max(420, PREVIEW_HEIGHT * scale);
 
+        const label = breakpointLabel(breakpoint.id, catalog);
         return (
           <div key={breakpoint.id} className="relative flex flex-col items-start gap-2">
             <div className="flex w-full items-center gap-2 text-[11px] text-neutral-500 dark:text-white/40">
@@ -146,9 +157,9 @@ export default function BreakpointFrames({
                   className="size-3.5 shrink-0 self-center"
                 />
                 <span className="truncate font-medium text-neutral-800 dark:text-white/80">
-                  {breakpoint.name}
+                  {label}
                 </span>
-                {isBaseBreakpoint(breakpoint.id) && (
+                {isBaseBreakpoint(breakpoint.id, catalog) && (
                   <span className="text-[10px] uppercase tracking-wide text-neutral-400 dark:text-white/35">
                     Primary
                   </span>
@@ -159,9 +170,12 @@ export default function BreakpointFrames({
               {!breakpoint.system && frames.length > 1 && (
                 <button
                   type="button"
-                  aria-label={`Delete ${breakpoint.name}`}
+                  aria-label={`Delete ${label}`}
                   className="ml-auto rounded p-0.5 text-neutral-400 hover:bg-neutral-200/70 hover:text-neutral-700 dark:hover:bg-white/10 dark:hover:text-white/80"
-                  onClick={() => handleDelete(breakpoint.id)}
+                  onClick={() => {
+                    setPendingDeleteId(breakpoint.id);
+                    setHeldDeleteName(label);
+                  }}
                 >
                   <X className="size-3" />
                 </button>
@@ -179,7 +193,7 @@ export default function BreakpointFrames({
                   style={{ width: displayWidth, height: displayHeight }}
                 >
                   <div className="flex h-full items-center justify-center text-xs text-neutral-400">
-                    {breakpoint.name}
+                    {label}
                   </div>
                 </button>
               )}
@@ -187,7 +201,7 @@ export default function BreakpointFrames({
               <div
                 role="separator"
                 aria-orientation="vertical"
-                aria-label={`Resize ${breakpoint.name}`}
+                aria-label={`Resize ${label}`}
                 className={cn(
                   'absolute top-0 -right-1 z-10 h-full w-2 cursor-ew-resize',
                   'after:absolute after:inset-y-2 after:right-0.5 after:w-px after:bg-neutral-300/80 after:opacity-0 hover:after:opacity-100 dark:after:bg-white/30',
@@ -210,6 +224,21 @@ export default function BreakpointFrames({
       >
         <Icon name="canvas-plus" className="size-3.5" />
       </button>
+      <ConfirmDialog
+        open={pendingDeleteId != null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDeleteId(null);
+        }}
+        title={pendingDeleteName ? `Delete ${pendingDeleteName}?` : 'Delete breakpoint?'}
+        description={pendingDeleteName
+          ? `Overrides on ${pendingDeleteName} will be removed.`
+          : 'Overrides on this breakpoint will be removed.'}
+        confirmLabel="Delete"
+        confirmVariant="destructive"
+        onConfirm={() => {
+          if (pendingDeleteId) handleDelete(pendingDeleteId);
+        }}
+      />
     </div>
   );
 }

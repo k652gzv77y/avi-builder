@@ -7,8 +7,8 @@ import { Label } from '@/components/ui/label';
 import Icon from '@/components/ui/icon';
 import {
   breakpointForWidth,
+  breakpointLabel,
   createBreakpoint,
-  deleteBreakpoint,
   formatBreakpointRange,
   moveBreakpoint,
   renameBreakpoint,
@@ -22,6 +22,7 @@ interface BreakpointManagerProps {
   activeId?: string | null;
   onCommit: (mutation: BreakpointMutation) => Promise<BreakpointMutation>;
   onSelect?: (breakpoint: BreakpointDefinition) => void;
+  onDeleteRequest?: (breakpoint: BreakpointDefinition) => void;
 }
 
 export default function BreakpointManager({
@@ -29,6 +30,7 @@ export default function BreakpointManager({
   activeId,
   onCommit,
   onSelect,
+  onDeleteRequest,
 }: BreakpointManagerProps) {
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState('');
@@ -65,14 +67,17 @@ export default function BreakpointManager({
       minWidth: parsedMin,
       width: parsedWidth != null && Number.isFinite(parsedWidth) ? parsedWidth : undefined,
     });
+    if (mutation.error || !mutation.created) {
+      void apply(mutation);
+      return;
+    }
+    setName('');
+    setMinWidth('');
+    setMaxWidth('');
+    setWidth('');
+    setError(null);
     void apply(mutation).then((saved) => {
-      if (!saved.error && saved.created) {
-        setName('');
-        setMinWidth('');
-        setMaxWidth('');
-        setWidth('');
-        onSelect?.(saved.created);
-      }
+      if (!saved.error && saved.created) onSelect?.(saved.created);
     });
   };
 
@@ -96,6 +101,7 @@ export default function BreakpointManager({
             isLast={index === catalog.length - 1}
             onCommit={apply}
             onSelect={onSelect}
+            onDeleteRequest={onDeleteRequest}
           />
         ))}
       </ul>
@@ -158,6 +164,7 @@ function BreakpointRow({
   isLast,
   onCommit,
   onSelect,
+  onDeleteRequest,
 }: {
   breakpoint: BreakpointDefinition;
   catalog: BreakpointDefinition[];
@@ -166,6 +173,7 @@ function BreakpointRow({
   isLast: boolean;
   onCommit: (mutation: BreakpointMutation) => Promise<BreakpointMutation>;
   onSelect?: (breakpoint: BreakpointDefinition) => void;
+  onDeleteRequest?: (breakpoint: BreakpointDefinition) => void;
 }) {
   const [name, setName] = useState(breakpoint.name);
   const [width, setWidth] = useState(String(breakpoint.width));
@@ -219,7 +227,7 @@ function BreakpointRow({
             variant="ghost"
             size="xs"
             className="size-4 px-0"
-            aria-label={`Move ${breakpoint.name} earlier`}
+            aria-label={`Move ${breakpointLabel(breakpoint.id, catalog)} earlier`}
             disabled={isFirst}
             onClick={() => void onCommit(moveBreakpoint(catalog, breakpoint.id, -1))}
           >
@@ -230,7 +238,7 @@ function BreakpointRow({
             variant="ghost"
             size="xs"
             className="size-4 px-0"
-            aria-label={`Move ${breakpoint.name} later`}
+            aria-label={`Move ${breakpointLabel(breakpoint.id, catalog)} later`}
             disabled={isLast}
             onClick={() => void onCommit(moveBreakpoint(catalog, breakpoint.id, 1))}
           >
@@ -239,7 +247,7 @@ function BreakpointRow({
         </div>
         <Input
           value={name}
-          aria-label={`${breakpoint.name} name`}
+          aria-label={`${breakpointLabel(breakpoint.id, catalog)} name`}
           disableKeyboardStep
           onChange={(event) => setName(event.target.value)}
           onBlur={commitName}
@@ -254,8 +262,8 @@ function BreakpointRow({
             variant="ghost"
             size="xs"
             className="size-7 px-0"
-            aria-label={`Delete ${breakpoint.name}`}
-            onClick={() => void onCommit(deleteBreakpoint(catalog, breakpoint.id))}
+            aria-label={`Delete ${breakpointLabel(breakpoint.id, catalog)}`}
+            onClick={() => onDeleteRequest?.(breakpoint)}
           >
             <Icon name="trash" />
           </Button>
@@ -266,7 +274,7 @@ function BreakpointRow({
           <span className="text-[10px] text-muted-foreground">Width</span>
           <Input
             value={width}
-            aria-label={`${breakpoint.name} canvas width`}
+            aria-label={`${breakpointLabel(breakpoint.id, catalog)} canvas width`}
             inputMode="numeric"
             onChange={(event) => setWidth(event.target.value)}
             onBlur={commitRange}
@@ -276,7 +284,7 @@ function BreakpointRow({
           <span className="text-[10px] text-muted-foreground">Min</span>
           <Input
             value={minWidth}
-            aria-label={`${breakpoint.name} min width`}
+            aria-label={`${breakpointLabel(breakpoint.id, catalog)} min width`}
             inputMode="numeric"
             placeholder="—"
             onChange={(event) => setMinWidth(event.target.value)}
@@ -287,7 +295,7 @@ function BreakpointRow({
           <span className="text-[10px] text-muted-foreground">Max</span>
           <Input
             value={breakpoint.maxWidth == null ? '' : maxWidth}
-            aria-label={`${breakpoint.name} max width`}
+            aria-label={`${breakpointLabel(breakpoint.id, catalog)} max width`}
             inputMode="numeric"
             placeholder={breakpoint.maxWidth == null ? 'Primary' : undefined}
             disabled={breakpoint.maxWidth == null}
