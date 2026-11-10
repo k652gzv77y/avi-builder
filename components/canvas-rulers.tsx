@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useState } from 'react';
 
 import { useEditorStore } from '@/stores/useEditorStore';
+import { type Camera } from '@/lib/canvas-fit';
 import {
   RULER_SIZE,
   buildRulerTicks,
@@ -21,6 +22,8 @@ interface CanvasRulersProps {
   scrollRef: React.RefObject<HTMLElement | null>;
   zoom: number;
   enabled: boolean;
+  /** Editor camera. The ruler origin is read from the iframe, so pan must remeasure it. */
+  camera: Camera;
 }
 
 interface RulerLayout {
@@ -191,6 +194,7 @@ export default function CanvasRulers({
   scrollRef,
   zoom,
   enabled,
+  camera,
 }: CanvasRulersProps) {
   const selectedLayerIds = useEditorStore((state) => state.selectedLayerIds);
   const [layout, setLayout] = useState<RulerLayout | null>(null);
@@ -271,6 +275,11 @@ export default function CanvasRulers({
       mutation?.disconnect();
     };
   }, [enabled, iframeElement, measure, scrollRef, viewportRef]);
+
+  // The camera is a transform, not a scroll, so the listener above never sees a pan.
+  useLayoutEffect(() => {
+    measure();
+  }, [measure, camera.x, camera.y]);
 
   const horizontal = useMemo(
     () => (layout ? rulerTrack(layout.originX, layout.width, RULER_SIZE, layout.scale) : null),

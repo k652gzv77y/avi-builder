@@ -78,11 +78,14 @@ import {
   FRAME_ADD_BUTTON_SIZE,
   FRAME_LABEL_HEIGHT,
   centerBoardCamera,
+  createPageViewStore,
   deviceViewportHeight,
+  pageEnterView,
   resolveFrameHeight,
   zoomCamera,
   type Camera,
   type CanvasBoardFit,
+  type SavedPageView,
 } from '@/lib/canvas-fit';
 import { BREAKPOINT_FRAME_GAP, canvasFrameOrder, DEFAULT_DESKTOP_WIDTH } from '@/lib/breakpoint-utils';
 import { useBreakpointCatalog } from '@/hooks/use-breakpoint-catalog';
@@ -906,10 +909,47 @@ const CenterCanvas = React.memo(function CenterCanvas({
     1,
   );
   const [camera, setCamera] = useState<Camera>({ x: 0, y: 0 });
+  const cameraRef = useRef(camera);
+  cameraRef.current = camera;
   const userMovedCamera = useRef(false);
-  const placeBoard = useCallback((nextZoom: number) => {
+  const autoFitRef = useRef(false);
+  const appliedPageRef = useRef<string | null>(null);
+  const allowCameraFollowRef = useRef(false);
+  const seenPageSelectionRef = useRef(false);
+  const pageForSelectionRef = useRef<string | null>(null);
+  const zoomRef = useRef(100);
+  const pageIdRef = useRef(currentPageId);
+  pageIdRef.current = currentPageId;
+  const editingRef = useRef(editingComponentId);
+  editingRef.current = editingComponentId;
+  const pageViewsRef = useRef<ReturnType<typeof createPageViewStore> | null>(null);
+  const pageViews = useCallback(() => {
+    if (pageViewsRef.current) return pageViewsRef.current;
+    if (typeof window === 'undefined') return null;
+    pageViewsRef.current = createPageViewStore({
+      getItem: (key) => {
+        try {
+          return window.localStorage.getItem(key);
+        } catch {
+          return null;
+        }
+      },
+      setItem: (key, value) => {
+        window.localStorage.setItem(key, value);
+      },
+    });
+    return pageViewsRef.current;
+  }, []);
+  const saveUserView = useCallback((nextZoom: number, nextCamera: Camera = cameraRef.current) => {
+    if (autoFitRef.current || editingRef.current || !pageIdRef.current) return;
+    const view: SavedPageView = { x: nextCamera.x, y: nextCamera.y, zoom: nextZoom };
+    userMovedCamera.current = true;
+    cameraRef.current = nextCamera;
+    pageViews()?.write(pageIdRef.current, view);
+  }, [pageViews]);
+  const placeBoard = useCallback((nextZoom: number): Camera | null => {
     const viewport = scrollContainerRef.current;
-    if (!viewport || editingComponentId) return;
+    if (!viewport || editingComponentId) return null;
     const scale = nextZoom / 100;
     const frameHeight = Math.max(
       ...orderedFrames.map((breakpoint) => frameBoxHeight(
@@ -924,13 +964,16 @@ const CenterCanvas = React.memo(function CenterCanvas({
       orderedFrames.reduce((sum, breakpoint) => sum + breakpoint.width, 0)
       + BREAKPOINT_FRAME_GAP * orderedFrames.length
     ) * scale + FRAME_ADD_BUTTON_SIZE;
-    setCamera(centerBoardCamera({
+    const next = centerBoardCamera({
       viewportWidth: viewport.clientWidth,
       viewportHeight: viewport.clientHeight,
       boardWidth: boardScreenWidth,
       frameHeight,
       labelHeight: FRAME_LABEL_HEIGHT,
-    }));
+    });
+    cameraRef.current = next;
+    setCamera(next);
+    return next;
   }, [activeFrameId, editingComponentId, frameBoxHeight, orderedFrames, previewHeights, reportedContentHeight, viewportMode]);
   const boardFit = useMemo<CanvasBoardFit | null>(() => {
     if (editingComponentId) return null;
@@ -963,6 +1006,7 @@ const CenterCanvas = React.memo(function CenterCanvas({
     zoomToBoard,
     autofit,
     handleZoomGesture,
+    setZoomQuiet,
   } = useZoom({
     containerRef: canvasContainerRef,
     scrollRef: scrollContainerRef,
@@ -974,29 +1018,73 @@ const CenterCanvas = React.memo(function CenterCanvas({
     shortcutsEnabled: !isPreviewMode,
     boardFit,
     onFit: (nextZoom) => {
+      const next = placeBoard(nextZoom);
+      if (!next) return;
+      // Fit is the default view. Shift+1 drops a saved camera so the next
+      // visit fits the current viewport instead of restoring the old pan.
       userMovedCamera.current = false;
-      placeBoard(nextZoom);
+      if (!autoFitRef.current) pageViews()?.remove(pageIdRef.current ?? '');
     },
-    onAnchoredZoom: (prev, next, origin) => {
-      if (editingComponentId) return;
-      userMovedCamera.current = true;
+    onUserZoom: (nextZoom) => {
+      saveUserView(nextZoom);
+    },
+    onAnchoredZoom: (prev, nextZoom, origin) => {
+      if (editingRef.current) return;
       const viewport = scrollContainerRef.current;
       const width = viewport?.clientWidth ?? 0;
       const height = viewport?.clientHeight ?? 0;
-      setCamera((current) => zoomCamera(
-        current,
-        prev,
-        next,
-        origin?.x ?? width / 2,
-        origin?.y ?? height / 2,
-      ));
+      setCamera((current) => {
+        const next = zoomCamera(
+          current,
+          prev,
+          nextZoom,
+          origin?.x ?? width / 2,
+          origin?.y ?? height / 2,
+        );
+        saveUserView(nextZoom, next);
+        return next;
+      });
     },
   });
 
+  zoomRef.current = zoom;
+
+  // First look at a page, and every later visit that has no saved camera,
+  // uses the same fit as Shift+1. A pan or zoom is remembered per page.
   useLayoutEffect(() => {
-    if (editingComponentId || userMovedCamera.current || !isCanvasReady) return;
-    placeBoard(zoom);
-  }, [editingComponentId, isCanvasReady, placeBoard, zoom]);
+    const viewKey = editingComponentId ? null : currentPageId;
+    if (!viewKey || !isCanvasReady) {
+      if (!viewKey) appliedPageRef.current = null;
+      return;
+    }
+    const pageChanged = appliedPageRef.current !== viewKey;
+    if (pageChanged) {
+      appliedPageRef.current = viewKey;
+      allowCameraFollowRef.current = false;
+      seenPageSelectionRef.current = false;
+      pageForSelectionRef.current = viewKey;
+      const viewport = scrollContainerRef.current;
+      if (viewport) {
+        viewport.scrollLeft = 0;
+        viewport.scrollTop = 0;
+      }
+      const saved = pageViews()?.read(viewKey) ?? null;
+      if (saved) {
+        const view = pageEnterView(saved, saved);
+        userMovedCamera.current = true;
+        cameraRef.current = { x: view.x, y: view.y };
+        setCamera(cameraRef.current);
+        setZoomQuiet(view.zoom);
+        return;
+      }
+      userMovedCamera.current = false;
+    } else if (userMovedCamera.current) {
+      return;
+    }
+    autoFitRef.current = true;
+    zoomToBoard();
+    autoFitRef.current = false;
+  }, [currentPageId, editingComponentId, isCanvasReady, boardFit, pageViews, setZoomQuiet, zoomToBoard]);
 
   // Pan the canvas by dragging while holding Space or with the middle mouse button
   const { isPanGestureActive } = useCanvasPan({
@@ -1005,8 +1093,11 @@ const CenterCanvas = React.memo(function CenterCanvas({
     enabled: !isPreviewMode,
     isTextEditing,
     onCameraPan: editingComponentId ? undefined : (delta) => {
-      userMovedCamera.current = true;
-      setCamera((current) => ({ x: current.x + delta.x, y: current.y + delta.y }));
+      setCamera((current) => {
+        const next = { x: current.x + delta.x, y: current.y + delta.y };
+        saveUserView(zoomRef.current, next);
+        return next;
+      });
     },
   });
 
@@ -1183,10 +1274,13 @@ const CenterCanvas = React.memo(function CenterCanvas({
   const prevCanvasLayerIdRef = useRef<string | null>(null);
   const isInitialScrollRef = useRef(true);
 
-  const zoomRef = useRef(zoom);
   zoomRef.current = zoom;
 
   const scrollCanvasToLayer = useCallback((layerId: string, smooth: boolean, force = false) => {
+    // Body has no box (display:contents). Centering that empty rect pushes the
+    // frames off the right of the viewport. The opening selection is also left
+    // alone so the board fit can stay on screen.
+    if (!editingComponentId && (layerId === 'body' || !allowCameraFollowRef.current)) return;
     if (!canvasIframeElement) return;
 
     const iframeDoc = canvasIframeElement.contentDocument;
@@ -1231,8 +1325,11 @@ const CenterCanvas = React.memo(function CenterCanvas({
           : view.left + margin - left;
       }
       if (dx !== 0 || dy !== 0) {
-        userMovedCamera.current = true;
-        setCamera((current) => ({ x: current.x + dx, y: current.y + dy }));
+        setCamera((current) => {
+          const next = { x: current.x + dx, y: current.y + dy };
+          saveUserView(zoomRef.current, next);
+          return next;
+        });
       }
       return;
     }
@@ -1257,7 +1354,7 @@ const CenterCanvas = React.memo(function CenterCanvas({
       left: Math.max(0, nextLeft),
       behavior: smooth ? 'smooth' : 'auto',
     });
-  }, [canvasIframeElement, editingComponentId]);
+  }, [canvasIframeElement, editingComponentId, saveUserView]);
 
   // Show a crosshair cursor inside the canvas while the AI composer is in
   // "reference a layer" mode (the scroll container handles the area around it).
@@ -1275,6 +1372,13 @@ const CenterCanvas = React.memo(function CenterCanvas({
   scrollCanvasToLayerRef.current = scrollCanvasToLayer;
 
   useEffect(() => {
+    if (pageForSelectionRef.current !== currentPageId) {
+      pageForSelectionRef.current = currentPageId;
+      seenPageSelectionRef.current = false;
+      allowCameraFollowRef.current = false;
+      prevCanvasLayerIdRef.current = null;
+    }
+
     if (!selectedLayerId) {
       prevCanvasLayerIdRef.current = null;
       return;
@@ -1282,8 +1386,18 @@ const CenterCanvas = React.memo(function CenterCanvas({
 
     if (!canvasIframeElement || !isCanvasReady) return;
 
+    // The layer that is already selected when a page opens should not pan the
+    // board. That pan is what left the frames off to the right of Shift+1.
+    if (!editingComponentId && !seenPageSelectionRef.current) {
+      seenPageSelectionRef.current = true;
+      prevCanvasLayerIdRef.current = selectedLayerId;
+      isInitialScrollRef.current = false;
+      return;
+    }
+
     if (prevCanvasLayerIdRef.current === selectedLayerId) return;
     prevCanvasLayerIdRef.current = selectedLayerId;
+    if (!editingComponentId) allowCameraFollowRef.current = true;
 
     const isInitial = isInitialScrollRef.current;
     isInitialScrollRef.current = false;
@@ -1317,7 +1431,7 @@ const CenterCanvas = React.memo(function CenterCanvas({
     return () => {
       if (timeoutId !== undefined) clearTimeout(timeoutId);
     };
-  }, [selectedLayerId, canvasIframeElement, isCanvasReady, scrollCanvasToLayer]);
+  }, [selectedLayerId, canvasIframeElement, isCanvasReady, scrollCanvasToLayer, currentPageId, editingComponentId]);
 
   // Re-scroll when content height changes during initial load (images loading shifts layout)
   const canvasReadyTimeRef = useRef<number | null>(null);
@@ -2792,6 +2906,7 @@ const CenterCanvas = React.memo(function CenterCanvas({
             selectedLayerIds={selectedLayerIds}
             parentLayerId={parentLayerId}
             zoom={zoom}
+            camera={camera}
             activeSublayerIndex={activeSublayerIndex}
             activeListItemIndex={activeListItemIndex}
             onLayerUpdate={handleCanvasLayerUpdate}
@@ -2804,6 +2919,7 @@ const CenterCanvas = React.memo(function CenterCanvas({
             iframeElement={canvasIframeElement}
             containerElement={scrollContainerRef.current}
             zoom={zoom}
+            camera={camera}
           />
         )}
 
@@ -2811,13 +2927,18 @@ const CenterCanvas = React.memo(function CenterCanvas({
         {!isPreviewMode && <DragCaptureOverlay />}
 
         {/* Element picker SVG connector overlay */}
-        <ElementPickerOverlay iframeElement={canvasIframeElement} zoom={zoom} />
+        <ElementPickerOverlay
+          iframeElement={canvasIframeElement}
+          zoom={zoom}
+          camera={camera}
+        />
 
         <CanvasRulers
           iframeElement={canvasIframeElement}
           viewportRef={canvasContainerRef}
           scrollRef={scrollContainerRef}
           zoom={zoom}
+          camera={camera}
           enabled={showRulers && !isPreviewMode && isCanvasReady && !isComponentCanvasSettling}
         />
 

@@ -4,13 +4,18 @@ import test from 'node:test';
 import {
   FRAME_ADD_BUTTON_SIZE,
   FRAME_LABEL_HEIGHT,
+  PAGE_CAMERA_STORAGE_KEY,
   PHONE_VIEWPORT_HEIGHT,
   centerBoardCamera,
   centerScrollOffset,
+  createPageViewStore,
   deviceViewportHeight,
   fitBoardZoom,
+  layerOverlayBox,
   layoutPublishedFrame,
+  pageEnterView,
   panCamera,
+  parseSavedPageViews,
   resolveFrameHeight,
   wheelPanDelta,
   zoomCamera,
@@ -172,6 +177,92 @@ test('zoom keeps the point under the cursor fixed', () => {
   const after = (50 - next.x) / 2;
   assert.equal(before, after);
   assert.equal((40 - camera.y) / 1, (40 - next.y) / 2);
+});
+
+test('selection overlay and badge move by the same delta as the camera', () => {
+  const container = { left: 20, top: 40 };
+  const element = { left: 8, top: 12, width: 200, height: 80 };
+  const before = layerOverlayBox(
+    { left: 120, top: 160, width: 500, height: 300 },
+    container,
+    element,
+    0.5,
+  );
+  const cameraDx = -48;
+  const cameraDy = 30;
+  const after = layerOverlayBox(
+    { left: 120 + cameraDx, top: 160 + cameraDy, width: 500, height: 300 },
+    container,
+    element,
+    0.5,
+  );
+
+  assert.equal(after.left - before.left, cameraDx);
+  assert.equal(after.top - before.top, cameraDy);
+  assert.equal(after.width, before.width);
+  assert.equal(after.height, before.height);
+  assert.equal(before.left, 120 - 20 + 8 * 0.5);
+  assert.equal(before.width, 100);
+});
+
+test('the body outline covers the frame, which moves with the camera', () => {
+  const before = layerOverlayBox(
+    { left: 80, top: 60, width: 400, height: 700 },
+    { left: 10, top: 16 },
+    null,
+    1,
+  );
+  const after = layerOverlayBox(
+    { left: 80 + 25, top: 60 - 10, width: 400, height: 700 },
+    { left: 10, top: 16 },
+    null,
+    1,
+  );
+  assert.deepEqual(before, { left: 70, top: 44, width: 400, height: 700 });
+  assert.equal(after.left - before.left, 25);
+  assert.equal(after.top - before.top, -10);
+});
+
+test('a page opens on the fitted board unless that page has a saved camera', () => {
+  const fitted = { x: 12, y: -4, zoom: 42 };
+  assert.deepEqual(pageEnterView(null, fitted), fitted);
+
+  const saved = { x: 300, y: 40, zoom: 80 };
+  assert.deepEqual(pageEnterView(saved, fitted), saved);
+});
+
+test('saved page cameras round-trip and ignore invalid entries', () => {
+  const storage = new Map<string, string>();
+  const store = createPageViewStore({
+    getItem: (key) => storage.get(key) ?? null,
+    setItem: (key, value) => {
+      storage.set(key, value);
+    },
+  });
+
+  store.write('page-a', { x: 10, y: 20, zoom: 55 });
+  store.write('page-b', { x: -5, y: 8, zoom: 100 });
+  store.remove('page-a');
+  assert.equal(store.read('page-a'), null);
+  assert.deepEqual(store.read('page-b'), { x: -5, y: 8, zoom: 100 });
+  store.write('page-a', { x: 10, y: 20, zoom: 55 });
+  assert.deepEqual(store.read('page-a'), { x: 10, y: 20, zoom: 55 });
+  assert.deepEqual(store.read('page-b'), { x: -5, y: 8, zoom: 100 });
+  assert.equal(store.read('missing'), null);
+  assert.equal(store.read(''), null);
+
+  storage.set(PAGE_CAMERA_STORAGE_KEY, JSON.stringify({
+    bad: { x: 'no', y: 1, zoom: 1 },
+    zero: { x: 1, y: 2, zoom: 0 },
+    nan: { x: Number.NaN, y: 1, zoom: 1 },
+    ok: { x: 3, y: 4, zoom: 25 },
+  }));
+  assert.deepEqual(store.read('ok'), { x: 3, y: 4, zoom: 25 });
+  assert.equal(store.read('bad'), null);
+  assert.equal(store.read('zero'), null);
+  assert.equal(store.read('nan'), null);
+  assert.deepEqual(parseSavedPageViews('not json'), {});
+  assert.deepEqual(parseSavedPageViews(null), {});
 });
 
 test('wheel deltaY pans vertically, deltaX horizontally, and shift+wheel pans horizontally', () => {

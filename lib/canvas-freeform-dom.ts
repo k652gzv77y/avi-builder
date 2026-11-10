@@ -5,14 +5,17 @@
  * by `getIframeScale` before passing them to the pure geometry helpers, which
  * keeps zoom and Safari's transformed iframe in the same space as offsetLeft.
  *
- * Alignment guides are `position: fixed` on the iframe document element.
- * A line inside the positioned parent is clipped by overflow and removed
- * the next time React reconciles that parent.
+ * Alignment guides live in the iframe document, absolutely positioned.
+ * `position: fixed` sticks to the screen when a transformed ancestor (the
+ * canvas camera) becomes their containing block, so a pan leaves the line
+ * behind the element. A line inside the positioned parent is clipped by
+ * overflow and removed the next time React reconciles that parent.
  */
 
 import type { Layer } from '@/types';
 import {
   collectSnapLines,
+  snapGuideDocumentBox,
   type FreeformBox,
   type SnapGuide,
   type SnapLabeler,
@@ -244,20 +247,37 @@ export function scheduleFreeformRelease(el: HTMLElement) {
 const GUIDE_COLOR = '#ff2bd6';
 let lastGuideElement: HTMLElement | null = null;
 
+function guideCss(box: { left: number; top: number; width: number; height: number }, position: 'absolute' | 'fixed'): string {
+  return `position:${position};left:${box.left}px;top:${box.top}px;width:${box.width}px;height:${box.height}px;background:${GUIDE_COLOR};pointer-events:none;`;
+}
+
 function guideStyle(el: HTMLElement, guide: SnapGuide): string {
-  const root = el.ownerDocument.documentElement;
+  const doc = el.ownerDocument;
+  const root = doc.documentElement;
+  // Fixed layers are positioned against the iframe viewport. Their guides
+  // stay fixed inside that same viewport. Everything else is written in
+  // document pixels so the camera translate carries the line with the element.
   if (usesViewportSpace(el)) {
-    return guide.axis === 'x'
-      ? `position:fixed;left:${guide.at}px;top:0;width:1px;height:${root.clientHeight}px;background:${GUIDE_COLOR};pointer-events:none;`
-      : `position:fixed;top:${guide.at}px;left:0;height:1px;width:${root.clientWidth}px;background:${GUIDE_COLOR};pointer-events:none;`;
+    return guideCss(snapGuideDocumentBox(
+      guide,
+      { x: 0, y: 0 },
+      { width: root.clientWidth, height: root.clientHeight },
+      { x: 0, y: 0 },
+    ), 'fixed');
   }
 
   const space = el.offsetParent as HTMLElement;
   const origin = paddingOrigin(space);
-  if (guide.axis === 'x') {
-    return `position:fixed;left:${origin.x + guide.at}px;top:${origin.y}px;width:1px;height:${space.clientHeight}px;background:${GUIDE_COLOR};pointer-events:none;`;
-  }
-  return `position:fixed;top:${origin.y + guide.at}px;left:${origin.x}px;height:1px;width:${space.clientWidth}px;background:${GUIDE_COLOR};pointer-events:none;`;
+  const scroll = {
+    x: root.scrollLeft || doc.body?.scrollLeft || 0,
+    y: root.scrollTop || doc.body?.scrollTop || 0,
+  };
+  return guideCss(snapGuideDocumentBox(
+    guide,
+    origin,
+    { width: space.clientWidth, height: space.clientHeight },
+    scroll,
+  ), 'absolute');
 }
 
 export function removeSnapGuideNodes(el: HTMLElement | null) {
@@ -277,7 +297,7 @@ function paintSnapGuideNodes(el: HTMLElement, guides: SnapGuide[]) {
     host = doc.createElement('div');
     host.setAttribute(GUIDE_ATTR, 'true');
     host.setAttribute('aria-hidden', 'true');
-    host.style.cssText = 'position:fixed;inset:0;pointer-events:none;z-index:2147483646;overflow:visible;';
+    host.style.cssText = 'position:absolute;left:0;top:0;width:0;height:0;pointer-events:none;z-index:2147483646;overflow:visible;';
     doc.documentElement.appendChild(host);
   }
   const lines = guides.map((guide) => {

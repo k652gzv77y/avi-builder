@@ -43,6 +43,9 @@ test('minor ticks drop out when zoom would pack them tighter than 6 screen pixel
 test('page pixels map through zoom and the iframe scroll', () => {
   assert.equal(canvasToScreen(50, 20, 2), 120);
   assert.equal(rulerOrigin(120, 20, 10, 2), 80);
+  const before = rulerOrigin(120, 20, 0, 1);
+  const afterPan = rulerOrigin(120 + 35, 20 - 12, 0, 1);
+  assert.equal(afterPan - before, 47);
   assert.deepEqual(rulerTrack(20, 800, 20, 1), {
     origin: 0,
     length: 780,

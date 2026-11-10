@@ -44,6 +44,33 @@ export interface SnapGuide {
   targets: SnapGuideTarget[];
 }
 
+export interface SnapGuideBox {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Snap-guide box in iframe document pixels.
+ * `viewportOrigin` and `at` come from the iframe document, which does not
+ * include the editor camera. Painting the line in this space (absolute, not
+ * fixed) keeps it on the element when the camera pans.
+ */
+export function snapGuideDocumentBox(
+  guide: Pick<SnapGuide, 'axis' | 'at'>,
+  viewportOrigin: { x: number; y: number },
+  size: { width: number; height: number },
+  scroll: { x: number; y: number },
+): SnapGuideBox {
+  const x = viewportOrigin.x + scroll.x;
+  const y = viewportOrigin.y + scroll.y;
+  if (guide.axis === 'x') {
+    return { left: x + guide.at, top: y, width: 1, height: size.height };
+  }
+  return { left: x, top: y + guide.at, width: size.width, height: 1 };
+}
+
 export interface SnapLine {
   at: number;
   target: SnapGuideTarget;
