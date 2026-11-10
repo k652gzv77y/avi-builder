@@ -74,7 +74,8 @@ import { asLayerArray, getCollectionVariable, canDeleteLayer, findLayerById, fin
 import { variablesForVariant } from '@/lib/component-properties';
 import { insertComponentOnCanvas } from '@/lib/insert-component-on-canvas';
 import { CANVAS_BORDER, CANVAS_PADDING, updateViewportOverrides } from '@/lib/canvas-utils';
-import { BREAKPOINT_FRAME_GAP, DEFAULT_DESKTOP_WIDTH } from '@/lib/breakpoint-utils';
+import { FRAME_ADD_BUTTON_SIZE, FRAME_LABEL_HEIGHT, type CanvasBoardFit } from '@/lib/canvas-fit';
+import { BREAKPOINT_FRAME_GAP, canvasFrameOrder, DEFAULT_DESKTOP_WIDTH } from '@/lib/breakpoint-utils';
 import { useBreakpointCatalog } from '@/hooks/use-breakpoint-catalog';
 import { buildFieldGroupsForLayer, flattenFieldGroups, filterFieldGroupsByType, SIMPLE_TEXT_FIELD_TYPES } from '@/lib/collection-field-utils';
 import { getPaginationLayerKind, PAGINATION_VARIABLE_LABELS, type PaginationVariableKey } from '@/lib/pagination-text-utils';
@@ -882,14 +883,27 @@ const CenterCanvas = React.memo(function CenterCanvas({
 
   const pageFrameHeight = editingComponentId
     ? iframeContentHeight
-    : Math.max(reportedContentHeight || 0, 480);
-  const boardWidth = Math.max(
-    catalog.reduce((sum, breakpoint) => sum + breakpoint.width, 0)
-      + BREAKPOINT_FRAME_GAP * Math.max(0, catalog.length - 1)
-      + 64,
-    effectiveCanvasWidth,
-  );
-  const boardHeight = Math.max(pageFrameHeight, ...Object.values(previewHeights), 480) + 48;
+    : (reportedContentHeight > 0 ? reportedContentHeight : 480);
+  const orderedFrames = useMemo(() => canvasFrameOrder(catalog), [catalog]);
+  const boardPageWidth = orderedFrames.reduce((sum, breakpoint) => sum + breakpoint.width, 0)
+    + BREAKPOINT_FRAME_GAP * orderedFrames.length;
+  const boardWidth = Math.max(boardPageWidth, effectiveCanvasWidth);
+  const boardHeight = Math.max(pageFrameHeight, ...Object.values(previewHeights), 1);
+  const boardFit = useMemo<CanvasBoardFit | null>(() => {
+    if (editingComponentId) return null;
+    return {
+      frameWidths: orderedFrames.map((breakpoint) => breakpoint.width),
+      frameHeights: orderedFrames.map((breakpoint) => (
+        breakpoint.id === (activeFrameId || viewportMode)
+          ? pageFrameHeight
+          : (previewHeights[breakpoint.id] || pageFrameHeight)
+      )),
+      gap: BREAKPOINT_FRAME_GAP,
+      labelHeight: FRAME_LABEL_HEIGHT,
+      trailingScreenWidth: FRAME_ADD_BUTTON_SIZE,
+      padding: CANVAS_BORDER,
+    };
+  }, [activeFrameId, editingComponentId, orderedFrames, pageFrameHeight, previewHeights, viewportMode]);
 
   // Initialize zoom hook
   const {
@@ -912,6 +926,7 @@ const CenterCanvas = React.memo(function CenterCanvas({
     maxZoom: 1000,
     zoomStep: 10,
     shortcutsEnabled: !isPreviewMode,
+    boardFit,
   });
 
   // Pan the canvas by dragging while holding Space or with the middle mouse button
@@ -943,16 +958,12 @@ const CenterCanvas = React.memo(function CenterCanvas({
     iframeRef,
   });
 
-  // Size the iframe element to exactly fill the visible canvas area at the
-  // current zoom. The iframe's native scrolling then handles document content
-  // taller than this — giving a single, properly-bounded scrollbar inside the
-  // canvas instead of an (invisible) outer container scroll. Content height
-  // (iframeContentHeight) still drives Fit Height zoom calc separately.
+  // Each breakpoint frame is as tall as its page. The canvas around the
+  // frames is what pans; the iframe itself does not scroll.
   const finalIframeHeight = useMemo(() => {
     if (editingComponentId) return iframeContentHeight;
-    // The frame hugs the page. The canvas around it is what pans.
-    return Math.max(reportedContentHeight || 0, 480);
-  }, [iframeContentHeight, reportedContentHeight, editingComponentId]);
+    return pageFrameHeight;
+  }, [iframeContentHeight, pageFrameHeight, editingComponentId]);
 
   // Same logic as finalIframeHeight, applied to the preview iframe. Sizing the
   // wrapper to the measured scrollHeight is unstable on pages that pin absolute
@@ -1099,38 +1110,58 @@ const CenterCanvas = React.memo(function CenterCanvas({
   const prevCanvasLayerIdRef = useRef<string | null>(null);
   const isInitialScrollRef = useRef(true);
 
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
+
   const scrollCanvasToLayer = useCallback((layerId: string, smooth: boolean, force = false) => {
     if (!canvasIframeElement) return;
 
     const iframeDoc = canvasIframeElement.contentDocument;
-    const iframeWin = canvasIframeElement.contentWindow;
-    if (!iframeDoc || !iframeWin) return;
+    if (!iframeDoc) return;
 
     const el = iframeDoc.querySelector(`[data-layer-id="${layerId}"]`) as HTMLElement;
     if (!el) return;
 
-    // Scrolling happens inside the iframe (the iframe element is sized to the
-    // visible canvas area; its own document handles overflow). All coordinates
-    // here are in the iframe's coordinate system, so zoom doesn't apply.
-    const scrollEl = iframeDoc.scrollingElement || iframeDoc.documentElement;
+    // The frame shows the whole page, so a layer below the fold is brought
+    // into view by panning the canvas, not by scrolling inside the iframe.
+    const scroller = scrollContainerRef.current;
+    if (!scroller) return;
+
+    const scale = Math.max(zoomRef.current, 1) / 100;
+    const iframeRect = canvasIframeElement.getBoundingClientRect();
     const elRect = el.getBoundingClientRect();
-    const currentScroll = scrollEl.scrollTop;
-    const viewHeight = scrollEl.clientHeight;
+    const view = scroller.getBoundingClientRect();
+    const top = iframeRect.top + elRect.top * scale;
+    const bottom = iframeRect.top + elRect.bottom * scale;
+    const left = iframeRect.left + elRect.left * scale;
+    const right = iframeRect.left + elRect.right * scale;
+    const margin = 24;
 
-    const elTopInDoc = currentScroll + elRect.top;
-    const elBottomInDoc = elTopInDoc + elRect.height;
-    const viewTop = currentScroll;
-    const viewBottom = viewTop + viewHeight;
+    if (!force && top >= view.top + margin && bottom <= view.bottom - margin
+      && left >= view.left + margin && right <= view.right - margin) {
+      return;
+    }
 
-    if (!force && elTopInDoc >= viewTop && elBottomInDoc <= viewBottom) return;
+    let nextTop = scroller.scrollTop;
+    let nextLeft = scroller.scrollLeft;
+    const elHeight = bottom - top;
+    const elWidth = right - left;
+    if (force || top < view.top + margin || bottom > view.bottom - margin) {
+      nextTop += elHeight <= view.height - margin * 2
+        ? (top + bottom) / 2 - (view.top + view.bottom) / 2
+        : top - view.top - margin;
+    }
+    if (force || left < view.left + margin || right > view.right - margin) {
+      nextLeft += elWidth <= view.width - margin * 2
+        ? (left + right) / 2 - (view.left + view.right) / 2
+        : left - view.left - margin;
+    }
 
-    const fitsInView = elRect.height <= viewHeight;
-    const targetScroll = fitsInView
-      ? elTopInDoc - viewHeight / 2 + elRect.height / 2
-      : elTopInDoc;
-    // scrollEl.scrollTo starts the animation more reliably than iframeWin.scrollTo
-    // across browsers, which avoids a noticeable lag before smooth scrolling begins.
-    scrollEl.scrollTo({ top: Math.max(0, targetScroll), behavior: smooth ? 'smooth' : 'auto' });
+    scroller.scrollTo({
+      top: Math.max(0, nextTop),
+      left: Math.max(0, nextLeft),
+      behavior: smooth ? 'smooth' : 'auto',
+    });
   }, [canvasIframeElement]);
 
   // Show a crosshair cursor inside the canvas while the AI composer is in
@@ -2729,29 +2760,32 @@ const CenterCanvas = React.memo(function CenterCanvas({
 
           {/* Editor mode: Scaled canvas with zoom controls - always in DOM, never resized */}
           <div
-            style={{
+            style={editingComponentId ? {
               position: 'relative',
               minWidth: '100%',
               minHeight: '100%',
-              // When editing a component, center the canvas inside the scroll area.
-              // Rely on minHeight (not a fixed height) so the container grows with
-              // tall content — a fixed height:100% would keep the centered child
-              // overflowing past the unreachable top edge (flexbox centering clip).
-              // Page editing keeps default block flow so absolute overlays anchor at the top.
-              ...(editingComponentId
-                ? { display: 'flex', alignItems: 'center', justifyContent: 'center' }
-                : null),
+              // Center the component canvas without a fixed height, so a tall
+              // component can still scroll back to its top edge.
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            } : {
+              // Grow with the frames, and center them when they fit. A fixed
+              // viewport-sized flex box would clip the primary frame on the left.
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxSizing: 'border-box',
+              minWidth: '100%',
+              minHeight: '100%',
+              width: 'max-content',
+              height: 'max-content',
             }}
           >
               <div
-                style={{
-                  // Let BreakpointFrames (Desktop / Tablet / Phone) define the
-                  // board width so the scroll area can pan across all frames.
+                style={editingComponentId ? {
                   width: 'max-content',
                   minWidth: '100%',
-                  // Height: scaled iframe size + canvas padding. finalIframeHeight is
-                  // already stretched to fill the viewport at any zoom level, so the
-                  // white canvas always fills the available height.
                   height: `${finalIframeHeight * (zoom / 100) + CANVAS_PADDING + 36}px`,
                   display: 'flex',
                   alignItems: 'flex-start',
@@ -2760,6 +2794,8 @@ const CenterCanvas = React.memo(function CenterCanvas({
                   paddingLeft: `${CANVAS_BORDER}px`,
                   paddingRight: `${CANVAS_BORDER}px`,
                   position: 'relative',
+                } : {
+                  padding: `${CANVAS_BORDER}px`,
                 }}
               >
                 <BreakpointFrames

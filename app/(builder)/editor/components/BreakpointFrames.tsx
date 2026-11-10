@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef, useState, type PointerEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import {
   ContextMenu,
@@ -39,8 +39,6 @@ import { useBreakpointCatalog } from '@/hooks/use-breakpoint-catalog';
 import { cn } from '@/lib/utils';
 import type { Breakpoint } from '@/types';
 
-const MIN_FRAME_HEIGHT = 320;
-
 export default function BreakpointFrames({
   active,
   activeFrameId,
@@ -71,6 +69,9 @@ export default function BreakpointFrames({
   const [heldDeleteName, setHeldDeleteName] = useState('');
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const renameInputRef = useRef<HTMLInputElement>(null);
+  const renameOnCloseRef = useRef(false);
+  const ignoreCloseBlur = useRef(false);
   const resizingRef = useRef<{
     id: string;
     edge: 'left' | 'right';
@@ -101,13 +102,28 @@ export default function BreakpointFrames({
 
   const handleAdd = useCallback((preset: BreakpointPresetKey) => {
     const mutation = addBreakpointPreset(catalog, preset);
-    void commit(mutation).then((saved) => {
-      const created = saved.created
-        ? saved.catalog.find((breakpoint) => breakpoint.id === saved.created?.id) ?? saved.created
-        : undefined;
-      if (created) handleSelect(created);
-    });
+    const created = mutation.created;
+    if (mutation.error || !created) return;
+    void commit(mutation);
+    if (preset === 'custom') {
+      renameOnCloseRef.current = true;
+      ignoreCloseBlur.current = true;
+      setRenamingId(created.id);
+      setRenameValue(created.name);
+      handleSelect(created);
+      return;
+    }
+    handleSelect(created);
   }, [catalog, commit, handleSelect]);
+
+  useEffect(() => {
+    if (!renamingId) return;
+    const frame = window.requestAnimationFrame(() => {
+      renameInputRef.current?.focus();
+      renameInputRef.current?.select();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [renamingId]);
 
   const handleDelete = useCallback((breakpointId: string) => {
     const mutation = deleteBreakpoint(catalog, breakpointId);
@@ -119,10 +135,14 @@ export default function BreakpointFrames({
     }
   }, [catalog, commit, handleSelect, resolvedActiveId]);
 
-  const startRename = (breakpoint: BreakpointDefinition) => {
+  const beginRename = (breakpoint: BreakpointDefinition, name: string) => {
     setRenamingId(breakpoint.id);
-    setRenameValue(breakpointLabel(breakpoint.id, catalog));
+    setRenameValue(name);
     handleSelect(breakpoint);
+  };
+
+  const startRename = (breakpoint: BreakpointDefinition) => {
+    beginRename(breakpoint, breakpointLabel(breakpoint.id, catalog));
   };
 
   const commitRename = () => {
@@ -192,16 +212,16 @@ export default function BreakpointFrames({
   return (
     <div
       className="flex items-start"
-      style={{ gap: BREAKPOINT_FRAME_GAP }}
+      style={{ gap: BREAKPOINT_FRAME_GAP * scale }}
     >
       {frames.map((breakpoint) => {
         const isActive = breakpoint.id === resolvedActiveId
           || (active === 'all' && breakpoint.id === 'desktop');
         const label = breakpointLabel(breakpoint.id, catalog);
-        const unscaledHeight = Math.max(
-          previewHeights?.[breakpoint.id] ?? previewHeight,
-          MIN_FRAME_HEIGHT,
-        );
+        const measuredHeight = previewHeights?.[breakpoint.id];
+        const unscaledHeight = measuredHeight && measuredHeight > 0
+          ? measuredHeight
+          : Math.max(previewHeight, 1);
         const isRenaming = renamingId === breakpoint.id;
 
         return (
@@ -222,13 +242,27 @@ export default function BreakpointFrames({
                 >
                   {isRenaming ? (
                     <Input
+                      ref={renameInputRef}
                       value={renameValue}
                       aria-label={`${label} name`}
                       autoFocus
                       disableKeyboardStep
                       className="h-6 w-28 px-1.5 text-[11px]"
                       onChange={(event) => setRenameValue(event.target.value)}
-                      onBlur={commitRename}
+                      onBlur={(event) => {
+                        // The add menu moves focus as it closes. That blur is
+                        // not the user leaving the name field.
+                        if (ignoreCloseBlur.current && event.relatedTarget) {
+                          ignoreCloseBlur.current = false;
+                          window.requestAnimationFrame(() => {
+                            renameInputRef.current?.focus();
+                            renameInputRef.current?.select();
+                          });
+                          return;
+                        }
+                        ignoreCloseBlur.current = false;
+                        commitRename();
+                      }}
                       onKeyDown={(event) => {
                         if (event.key === 'Enter') event.currentTarget.blur();
                         if (event.key === 'Escape') {
@@ -353,7 +387,15 @@ export default function BreakpointFrames({
             <Icon name="plus" className="size-3.5" />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-44">
+        <DropdownMenuContent
+          align="start"
+          className="w-44"
+          onCloseAutoFocus={(event) => {
+            if (!renameOnCloseRef.current) return;
+            renameOnCloseRef.current = false;
+            event.preventDefault();
+          }}
+        >
           <DropdownMenuItem
             disabled={tabletTaken}
             onSelect={() => handleAdd('tablet')}

@@ -20,7 +20,7 @@ import LayerRenderer from '@/components/LayerRenderer';
 import InteractionActionRuntime from '@/components/InteractionActionRuntime';
 import { serializeLayers, getClassesString } from '@/lib/layer-utils';
 import { collectEditorHiddenLayerIds } from '@/lib/animation-utils';
-import { getCanvasIframeHtml, updateViewportOverrides, measureContentExtent, isNonContentLayer, getClippedLayerRect } from '@/lib/canvas-utils';
+import { getCanvasIframeHtml, updateViewportOverrides, measureFrameContentHeight, isNonContentLayer, getClippedLayerRect } from '@/lib/canvas-utils';
 import { CanvasPortalProvider } from '@/lib/canvas-portal-context';
 import { cn } from '@/lib/utils';
 import { loadSwiperCss } from '@/lib/slider-utils';
@@ -958,6 +958,22 @@ const Canvas = React.memo(function Canvas({
     lastReportedHeightRef.current = 0;
 
     let shrinkTimer: ReturnType<typeof setTimeout> | undefined;
+    let observer: MutationObserver | null = null;
+
+    const watchDocument = () => {
+      if (!observer) return;
+      observer.observe(doc.body, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+      });
+      if (doc.head) {
+        observer.observe(doc.head, {
+          childList: true,
+          subtree: true,
+        });
+      }
+    };
 
     const reportHeight = (height: number) => {
       clearTimeout(shrinkTimer);
@@ -976,6 +992,20 @@ const Canvas = React.memo(function Canvas({
     };
 
     const measureContent = () => {
+      const body = doc.body;
+      if (!body) return;
+
+      // Measuring relaxes html/body styles. Disconnect first so those writes
+      // don't schedule another pass.
+      observer?.disconnect();
+      try {
+        measureContentNow();
+      } finally {
+        watchDocument();
+      }
+    };
+
+    const measureContentNow = () => {
       const body = doc.body;
       if (!body) return;
 
@@ -1019,9 +1049,10 @@ const Canvas = React.memo(function Canvas({
         updateViewportOverrides(doc, referenceViewportHeight);
       }
 
-      // Page mode: use content extent (actual child bounds) rather than
-      // scrollHeight, which inflates when body h-full fills the iframe.
-      const extent = measureContentExtent(doc);
+      // Page mode: the frame grows to the page. Measuring only the root box
+      // stops at the iframe height when that root is `h-full`, which leaves
+      // the rest of the page scrolling inside a short strip.
+      const extent = measureFrameContentHeight(doc);
       if (extent > 0) {
         reportHeight(extent);
       }
@@ -1037,28 +1068,17 @@ const Canvas = React.memo(function Canvas({
 
     // Debounce observer to avoid measuring during transient DOM states
     let observerTimer: ReturnType<typeof setTimeout> | undefined;
-    const observer = new MutationObserver(() => {
+    observer = new MutationObserver(() => {
       clearTimeout(observerTimer);
       observerTimer = setTimeout(() => {
         requestAnimationFrame(measureContent);
       }, 80);
     });
 
-    observer.observe(doc.body, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-    });
-
-    // Also watch <head> for Tailwind CDN style injections that change layout
+    // Also watch <head> for Tailwind CDN style injections that change layout.
     // Without this, the initial measurement fires before CSS is applied,
     // and no body mutation triggers a re-measure after styles settle.
-    if (doc.head) {
-      observer.observe(doc.head, {
-        childList: true,
-        subtree: true,
-      });
-    }
+    watchDocument();
 
     return () => {
       clearTimeout(timeoutId);
@@ -1107,6 +1127,7 @@ const Canvas = React.memo(function Canvas({
         'w-full h-full border-0',
         editingComponentId ? 'bg-transparent' : 'bg-white'
       )}
+      scrolling="no"
       title="Canvas Editor"
       tabIndex={-1}
     />

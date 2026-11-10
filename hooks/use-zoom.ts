@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useLayoutEffect, useRef } from 'react';
+import { centerScrollOffset, fitBoardZoom, type CanvasBoardFit } from '@/lib/canvas-fit';
 import { CANVAS_PADDING } from '@/lib/canvas-utils';
 
 export type ZoomMode = 'custom' | 'fit' | 'autofit';
@@ -16,6 +17,11 @@ interface UseZoomOptions {
   iframeRef?: React.RefObject<HTMLIFrameElement | null>;
   /** Scrollable canvas. Wheel zoom keeps the point under the cursor fixed. */
   scrollRef?: React.RefObject<HTMLElement | null>;
+  /**
+   * Breakpoint board. Shift+1 fits these frames in the scrollport, which is
+   * the visible canvas with the side panels already excluded.
+   */
+  boardFit?: CanvasBoardFit | null;
 }
 
 interface ZoomOrigin {
@@ -37,6 +43,11 @@ function scrollZoomAnchor(element: HTMLElement, anchor: ZoomAnchor) {
   const ratio = anchor.next / anchor.prev;
   element.scrollLeft = (element.scrollLeft + localX) * ratio - localX;
   element.scrollTop = (element.scrollTop + localY) * ratio - localY;
+}
+
+function centerScroller(element: HTMLElement) {
+  element.scrollLeft = centerScrollOffset(element.scrollWidth, element.clientWidth);
+  element.scrollTop = centerScrollOffset(element.scrollHeight, element.clientHeight);
 }
 
 interface UseZoomResult {
@@ -64,10 +75,12 @@ export function useZoom({
   shortcutsEnabled = true,
   iframeRef,
   scrollRef,
+  boardFit,
 }: UseZoomOptions): UseZoomResult {
   const [zoom, setZoom] = useState(100);
   const [zoomMode, setZoomMode] = useState<ZoomMode>('autofit'); // Default to autofit
   const zoomAnchor = useRef<ZoomAnchor | null>(null);
+  const [boardFitNonce, setBoardFitNonce] = useState(0);
 
   const rememberAnchor = useCallback((origin: ZoomOrigin | undefined, prev: number, next: number) => {
     const scroller = scrollRef?.current;
@@ -143,14 +156,29 @@ export function useZoom({
     setZoomMode('fit');
   }, [calculateZoomToFit]);
 
-  // Fit every breakpoint frame in the viewport (Shift+1).
+  // Fit every breakpoint frame in the visible canvas (Shift+1).
   const zoomToBoard = useCallback(() => {
+    const viewport = scrollRef?.current ?? containerRef.current;
+    if (boardFit && viewport && viewport.clientWidth > 0 && viewport.clientHeight > 0) {
+      const next = fitBoardZoom(
+        boardFit,
+        viewport.clientWidth,
+        viewport.clientHeight,
+        minZoom,
+        maxZoom,
+      );
+      setZoom(next);
+      setZoomMode('custom');
+      setBoardFitNonce((nonce) => nonce + 1);
+      return;
+    }
     const heightZoom = calculateZoomToFit();
     const widthZoom = calculateAutofit();
     if (heightZoom === null || widthZoom === null) return;
     setZoom(Math.min(heightZoom, widthZoom));
     setZoomMode('custom');
-  }, [calculateAutofit, calculateZoomToFit]);
+    setBoardFitNonce((nonce) => nonce + 1);
+  }, [boardFit, calculateAutofit, calculateZoomToFit, containerRef, maxZoom, minZoom, scrollRef]);
 
   // Autofit (horizontal)
   const autofit = useCallback(() => {
@@ -181,6 +209,16 @@ export function useZoom({
     zoomAnchor.current = null;
     scrollZoomAnchor(scroller, pending);
   }, [zoom, scrollRef]);
+
+  // Shift+1 centers the board after the zoomed layout has been measured.
+  // The nonce changes even when the zoom value does not, so a second fit
+  // still recenters a board the user has panned away from.
+  useLayoutEffect(() => {
+    if (boardFitNonce === 0) return;
+    const scroller = scrollRef?.current;
+    if (!scroller) return;
+    centerScroller(scroller);
+  }, [boardFitNonce, scrollRef]);
 
   // Lock current zoom to custom mode (prevents auto-recalculation)
   const lockZoomMode = useCallback(() => {
