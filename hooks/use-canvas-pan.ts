@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
+import { wheelPanDelta } from '@/lib/canvas-fit';
 
 interface UseCanvasPanOptions {
   /** The scrollable canvas container whose scroll offset gets adjusted while panning */
@@ -91,19 +92,19 @@ export function useCanvasPan({
       state.lastX = e.screenX;
       state.lastY = e.screenY;
 
-      // Horizontal overflow lives on the outer container.
+      // The board pans as one surface. A frame is as tall as its page, so
+      // vertical movement stays on the outer canvas. Component editing still
+      // falls back to the iframe when the outer canvas cannot scroll.
       scrollEl.scrollLeft -= dx;
 
-      // Vertical overflow usually scrolls inside the iframe (it's sized to the
-      // visible area, scrolling its own taller content). Fall back to the outer
-      // container when the iframe can't scroll (e.g. component editing).
+      const outerCanScrollY = scrollEl.scrollHeight > scrollEl.clientHeight + 1;
       let scroller: Element | null = null;
       try {
         scroller = iframeDoc?.scrollingElement ?? iframeDoc?.documentElement ?? null;
       } catch {
         scroller = null;
       }
-      if (scroller && scroller.scrollHeight > scroller.clientHeight) {
+      if (!outerCanScrollY && scroller && scroller.scrollHeight > scroller.clientHeight + 1) {
         scroller.scrollTop -= dy;
       } else {
         scrollEl.scrollTop -= dy;
@@ -186,11 +187,14 @@ export function useCanvasPan({
 
     const handleWheel = (event: WheelEvent) => {
       if (event.ctrlKey || event.metaKey) return;
+      const pan = wheelPanDelta(event.deltaX, event.deltaY, event.shiftKey);
+      if (pan.x === 0 && pan.y === 0) return;
       event.preventDefault();
-      scrollEl.scrollLeft += event.deltaX;
-      scrollEl.scrollTop += event.deltaY;
+      scrollEl.scrollLeft += pan.x;
+      scrollEl.scrollTop += pan.y;
     };
 
+    scrollEl.addEventListener('wheel', handleWheel, { passive: false, capture: true });
     scrollEl.addEventListener('mousedown', startPan, true);
     scrollEl.addEventListener('click', handleClick, true);
     scrollEl.addEventListener('mouseenter', markOver);
@@ -210,6 +214,7 @@ export function useCanvasPan({
     }
 
     return () => {
+      scrollEl.removeEventListener('wheel', handleWheel, true);
       scrollEl.removeEventListener('mousedown', startPan, true);
       scrollEl.removeEventListener('click', handleClick, true);
       scrollEl.removeEventListener('mouseenter', markOver);
