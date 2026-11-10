@@ -14,7 +14,7 @@ import { projectsPath } from '@/lib/project-url';
  */
 
 // 1. React/Next.js
-import React, { useEffect, useRef, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useMemo, useState, useCallback } from 'react';
 
 // 2. External libraries
 import { ArrowLeft } from 'lucide-react';
@@ -74,7 +74,16 @@ import { asLayerArray, getCollectionVariable, canDeleteLayer, findLayerById, fin
 import { variablesForVariant } from '@/lib/component-properties';
 import { insertComponentOnCanvas } from '@/lib/insert-component-on-canvas';
 import { CANVAS_BORDER, CANVAS_PADDING, updateViewportOverrides } from '@/lib/canvas-utils';
-import { FRAME_ADD_BUTTON_SIZE, FRAME_LABEL_HEIGHT, type CanvasBoardFit } from '@/lib/canvas-fit';
+import {
+  FRAME_ADD_BUTTON_SIZE,
+  FRAME_LABEL_HEIGHT,
+  centerBoardCamera,
+  deviceViewportHeight,
+  resolveFrameHeight,
+  zoomCamera,
+  type Camera,
+  type CanvasBoardFit,
+} from '@/lib/canvas-fit';
 import { BREAKPOINT_FRAME_GAP, canvasFrameOrder, DEFAULT_DESKTOP_WIDTH } from '@/lib/breakpoint-utils';
 import { useBreakpointCatalog } from '@/hooks/use-breakpoint-catalog';
 import { buildFieldGroupsForLayer, flattenFieldGroups, filterFieldGroupsByType, SIMPLE_TEXT_FIELD_TYPES } from '@/lib/collection-field-utils';
@@ -881,29 +890,66 @@ const CenterCanvas = React.memo(function CenterCanvas({
   // This allows "Fit height" to zoom based on document content, not viewport
   const zoomContentHeight = iframeContentHeight;
 
+  const orderedFrames = useMemo(() => canvasFrameOrder(catalog), [catalog]);
+  const frameBoxHeight = useCallback((width: number, measured?: number) => (
+    resolveFrameHeight(measured && measured > 0 ? measured : 0, width)
+  ), []);
   const pageFrameHeight = editingComponentId
     ? iframeContentHeight
-    : (reportedContentHeight > 0 ? reportedContentHeight : 480);
-  const orderedFrames = useMemo(() => canvasFrameOrder(catalog), [catalog]);
+    : frameBoxHeight(activeCanvasWidth || fallbackCanvasWidth, reportedContentHeight);
   const boardPageWidth = orderedFrames.reduce((sum, breakpoint) => sum + breakpoint.width, 0)
     + BREAKPOINT_FRAME_GAP * orderedFrames.length;
   const boardWidth = Math.max(boardPageWidth, effectiveCanvasWidth);
-  const boardHeight = Math.max(pageFrameHeight, ...Object.values(previewHeights), 1);
+  const boardHeight = Math.max(
+    pageFrameHeight,
+    ...orderedFrames.map((breakpoint) => frameBoxHeight(breakpoint.width, previewHeights[breakpoint.id])),
+    1,
+  );
+  const [camera, setCamera] = useState<Camera>({ x: 0, y: 0 });
+  const userMovedCamera = useRef(false);
+  const placeBoard = useCallback((nextZoom: number) => {
+    const viewport = scrollContainerRef.current;
+    if (!viewport || editingComponentId) return;
+    const scale = nextZoom / 100;
+    const frameHeight = Math.max(
+      ...orderedFrames.map((breakpoint) => frameBoxHeight(
+        breakpoint.width,
+        breakpoint.id === (activeFrameId || viewportMode)
+          ? reportedContentHeight
+          : previewHeights[breakpoint.id],
+      )),
+      1,
+    ) * scale;
+    const boardScreenWidth = (
+      orderedFrames.reduce((sum, breakpoint) => sum + breakpoint.width, 0)
+      + BREAKPOINT_FRAME_GAP * orderedFrames.length
+    ) * scale + FRAME_ADD_BUTTON_SIZE;
+    setCamera(centerBoardCamera({
+      viewportWidth: viewport.clientWidth,
+      viewportHeight: viewport.clientHeight,
+      boardWidth: boardScreenWidth,
+      frameHeight,
+      labelHeight: FRAME_LABEL_HEIGHT,
+    }));
+  }, [activeFrameId, editingComponentId, frameBoxHeight, orderedFrames, previewHeights, reportedContentHeight, viewportMode]);
   const boardFit = useMemo<CanvasBoardFit | null>(() => {
     if (editingComponentId) return null;
     return {
       frameWidths: orderedFrames.map((breakpoint) => breakpoint.width),
       frameHeights: orderedFrames.map((breakpoint) => (
-        breakpoint.id === (activeFrameId || viewportMode)
-          ? pageFrameHeight
-          : (previewHeights[breakpoint.id] || pageFrameHeight)
+        frameBoxHeight(
+          breakpoint.width,
+          breakpoint.id === (activeFrameId || viewportMode)
+            ? reportedContentHeight
+            : (previewHeights[breakpoint.id] || reportedContentHeight),
+        )
       )),
       gap: BREAKPOINT_FRAME_GAP,
       labelHeight: FRAME_LABEL_HEIGHT,
       trailingScreenWidth: FRAME_ADD_BUTTON_SIZE,
       padding: CANVAS_BORDER,
     };
-  }, [activeFrameId, editingComponentId, orderedFrames, pageFrameHeight, previewHeights, viewportMode]);
+  }, [activeFrameId, editingComponentId, frameBoxHeight, orderedFrames, previewHeights, reportedContentHeight, viewportMode]);
 
   // Initialize zoom hook
   const {
@@ -927,7 +973,30 @@ const CenterCanvas = React.memo(function CenterCanvas({
     zoomStep: 10,
     shortcutsEnabled: !isPreviewMode,
     boardFit,
+    onFit: (nextZoom) => {
+      userMovedCamera.current = false;
+      placeBoard(nextZoom);
+    },
+    onAnchoredZoom: (prev, next, origin) => {
+      if (editingComponentId) return;
+      userMovedCamera.current = true;
+      const viewport = scrollContainerRef.current;
+      const width = viewport?.clientWidth ?? 0;
+      const height = viewport?.clientHeight ?? 0;
+      setCamera((current) => zoomCamera(
+        current,
+        prev,
+        next,
+        origin?.x ?? width / 2,
+        origin?.y ?? height / 2,
+      ));
+    },
   });
+
+  useLayoutEffect(() => {
+    if (editingComponentId || userMovedCamera.current || !isCanvasReady) return;
+    placeBoard(zoom);
+  }, [editingComponentId, isCanvasReady, placeBoard, zoom]);
 
   // Pan the canvas by dragging while holding Space or with the middle mouse button
   const { isPanGestureActive } = useCanvasPan({
@@ -935,6 +1004,10 @@ const CenterCanvas = React.memo(function CenterCanvas({
     iframeElement: canvasIframeElement,
     enabled: !isPreviewMode,
     isTextEditing,
+    onCameraPan: editingComponentId ? undefined : (delta) => {
+      userMovedCamera.current = true;
+      setCamera((current) => ({ x: current.x + delta.x, y: current.y + delta.y }));
+    },
   });
 
   // Independent zoom for the preview (second useZoom instance, active only in preview mode)
@@ -1142,6 +1215,28 @@ const CenterCanvas = React.memo(function CenterCanvas({
       return;
     }
 
+    if (!editingComponentId) {
+      let dx = 0;
+      let dy = 0;
+      const elHeight = bottom - top;
+      const elWidth = right - left;
+      if (force || top < view.top + margin || bottom > view.bottom - margin) {
+        dy = elHeight <= view.height - margin * 2
+          ? (view.top + view.bottom) / 2 - (top + bottom) / 2
+          : view.top + margin - top;
+      }
+      if (force || left < view.left + margin || right > view.right - margin) {
+        dx = elWidth <= view.width - margin * 2
+          ? (view.left + view.right) / 2 - (left + right) / 2
+          : view.left + margin - left;
+      }
+      if (dx !== 0 || dy !== 0) {
+        userMovedCamera.current = true;
+        setCamera((current) => ({ x: current.x + dx, y: current.y + dy }));
+      }
+      return;
+    }
+
     let nextTop = scroller.scrollTop;
     let nextLeft = scroller.scrollLeft;
     const elHeight = bottom - top;
@@ -1162,7 +1257,7 @@ const CenterCanvas = React.memo(function CenterCanvas({
       left: Math.max(0, nextLeft),
       behavior: smooth ? 'smooth' : 'auto',
     });
-  }, [canvasIframeElement]);
+  }, [canvasIframeElement, editingComponentId]);
 
   // Show a crosshair cursor inside the canvas while the AI composer is in
   // "reference a layer" mode (the scroll container handles the area around it).
@@ -2739,7 +2834,7 @@ const CenterCanvas = React.memo(function CenterCanvas({
         <div
           ref={scrollContainerRef}
           className={cn(
-            'absolute inset-0 z-0 overflow-auto',
+            editingComponentId ? 'absolute inset-0 z-0 overflow-auto' : 'absolute inset-0 z-0 overflow-hidden',
             (elementPicker?.active || isAiLayerPicking) && 'cursor-crosshair'
           )}
           style={{
@@ -2770,14 +2865,9 @@ const CenterCanvas = React.memo(function CenterCanvas({
               alignItems: 'center',
               justifyContent: 'center',
             } : {
-              // Grow with the frames, and center them when they fit. A fixed
-              // viewport-sized flex box would clip the primary frame on the left.
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxSizing: 'border-box',
-              minWidth: '100%',
-              minHeight: '100%',
+              // Camera translate, not scroll. Panning works when the frames
+              // already fit, and Shift+1 can center them on both axes.
+              transform: `translate(${camera.x}px, ${camera.y}px)`,
               width: 'max-content',
               height: 'max-content',
             }}
@@ -2794,20 +2884,27 @@ const CenterCanvas = React.memo(function CenterCanvas({
                   paddingLeft: `${CANVAS_BORDER}px`,
                   paddingRight: `${CANVAS_BORDER}px`,
                   position: 'relative',
-                } : {
-                  padding: `${CANVAS_BORDER}px`,
-                }}
+                } : undefined}
               >
                 <BreakpointFrames
                   active={viewportMode}
                   activeFrameId={activeFrameId}
                   zoom={zoom}
                   previewHeight={finalIframeHeight}
-                  previewHeights={previewHeights}
+                  previewHeights={Object.fromEntries(orderedFrames.map((breakpoint) => [
+                    breakpoint.id,
+                    frameBoxHeight(
+                      breakpoint.width,
+                      breakpoint.id === (activeFrameId || viewportMode)
+                        ? reportedContentHeight
+                        : previewHeights[breakpoint.id],
+                    ),
+                  ]))}
                   onSelect={(breakpoint) => {
                     setActiveFrameId(breakpoint.id);
                     setActiveCanvasWidth(breakpoint.width);
                     setViewportMode(breakpoint.id);
+                    useEditorStore.getState().setActiveBreakpoint(breakpoint.id);
                     clearSelection();
                   }}
                   onActiveWidthChange={setActiveCanvasWidth}
@@ -2837,20 +2934,21 @@ const CenterCanvas = React.memo(function CenterCanvas({
                         ));
                       }}
                       zoom={zoom}
-                      referenceViewportHeight={defaultCanvasHeight}
+                      referenceViewportHeight={deviceViewportHeight(breakpoint.width)}
                     />
                   )}
                 >
                 {/* Sizer: occupies the SCALED footprint so the scroll area,
                     centering, and drop shadow match the visible canvas size. */}
                 <div
-                  className={editingComponentId ? 'relative' : 'bg-white shadow-3xl relative'}
+                  className={editingComponentId ? 'relative' : 'relative shadow-3xl overflow-hidden'}
                   style={{
                     width: `${effectiveCanvasWidth * (zoom / 100)}px`,
                     height: `${finalIframeHeight * (zoom / 100)}px`,
                     flexShrink: 0, // Prevent shrinking - maintain fixed size
-                    // Clip overflow when canvas is smaller than iframe (component editing)
-                    overflow: editingComponentId ? 'hidden' : undefined,
+                    // Clip a subpixel sliver of the frame edge (the white line
+                    // left on Desktop after another frame is deleted).
+                    overflow: 'hidden',
                   }}
                 >
                   {/* Stage: natural (unscaled) size, scaled with CSS transform from
@@ -2926,7 +3024,7 @@ const CenterCanvas = React.memo(function CenterCanvas({
                         editingComponentVariables={editingComponentVariables}
                         forceVisibleLayerIds={activeInteractionTriggerLayerId ? activeInteractionTargetLayerIds : undefined}
                         zoom={zoom}
-                        referenceViewportHeight={defaultCanvasHeight}
+                        referenceViewportHeight={deviceViewportHeight(effectiveCanvasWidth)}
                       />
 
                       {/* Drop indicator overlay - subscribes to store directly */}

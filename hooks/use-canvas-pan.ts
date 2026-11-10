@@ -10,6 +10,11 @@ interface UseCanvasPanOptions {
   enabled?: boolean;
   /** When true, the spacebar is reserved for typing and won't arm panning */
   isTextEditing?: boolean;
+  /**
+   * When set, wheel and drag move this camera instead of the scroll offset.
+   * The canvas can then pan even when the board fits inside the viewport.
+   */
+  onCameraPan?: (delta: { x: number; y: number }) => void;
 }
 
 interface UseCanvasPanResult {
@@ -40,6 +45,7 @@ export function useCanvasPan({
   iframeElement,
   enabled = true,
   isTextEditing = false,
+  onCameraPan,
 }: UseCanvasPanOptions): UseCanvasPanResult {
   const stateRef = useRef({
     isPanning: false,
@@ -50,9 +56,13 @@ export function useCanvasPan({
     lastY: 0,
   });
   const isTextEditingRef = useRef(isTextEditing);
+  const onCameraPanRef = useRef(onCameraPan);
   useEffect(() => {
     isTextEditingRef.current = isTextEditing;
   }, [isTextEditing]);
+  useEffect(() => {
+    onCameraPanRef.current = onCameraPan;
+  }, [onCameraPan]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -91,6 +101,13 @@ export function useCanvasPan({
       const dy = e.screenY - state.lastY;
       state.lastX = e.screenX;
       state.lastY = e.screenY;
+
+      // The breakpoint board uses a free camera so panning works when the
+      // frames already fit. Component editing still scrolls.
+      if (onCameraPanRef.current) {
+        onCameraPanRef.current({ x: dx, y: dy });
+        return;
+      }
 
       // The board pans as one surface. A frame is as tall as its page, so
       // vertical movement stays on the outer canvas. Component editing still
@@ -190,6 +207,10 @@ export function useCanvasPan({
       const pan = wheelPanDelta(event.deltaX, event.deltaY, event.shiftKey);
       if (pan.x === 0 && pan.y === 0) return;
       event.preventDefault();
+      if (onCameraPanRef.current) {
+        onCameraPanRef.current({ x: -pan.x, y: -pan.y });
+        return;
+      }
       scrollEl.scrollLeft += pan.x;
       scrollEl.scrollTop += pan.y;
     };
