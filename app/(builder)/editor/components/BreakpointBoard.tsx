@@ -2,6 +2,7 @@
 
 import { Button } from '@/components/ui/button';
 import { useBreakpointCatalog } from '@/hooks/use-breakpoint-catalog';
+import { breakpointLabel } from '@/lib/breakpoint-utils';
 import type { Breakpoint } from '@/types';
 
 export default function BreakpointBoard({
@@ -23,6 +24,7 @@ export default function BreakpointBoard({
       <div className="flex min-h-full items-start justify-center gap-8 px-10 py-8">
         {catalog.map((frame) => {
           const scale = frame.width >= 1000 ? 0.42 : frame.width >= 700 ? 0.52 : 0.72;
+          const label = breakpointLabel(frame.id, catalog);
           return (
             <button
               key={frame.id}
@@ -31,7 +33,7 @@ export default function BreakpointBoard({
               className="group flex flex-col items-start gap-2 text-left"
             >
               <div className="flex items-baseline gap-2 text-[11px] text-neutral-500 dark:text-white/45">
-                <span className="font-medium text-neutral-800 dark:text-white/80">{frame.name}</span>
+                <span className="font-medium text-neutral-800 dark:text-white/80">{label}</span>
                 <span>{frame.width}</span>
               </div>
               <div
@@ -40,7 +42,7 @@ export default function BreakpointBoard({
               >
                 {previewUrl ? (
                   <iframe
-                    title={frame.name}
+                    title={label}
                     src={previewUrl}
                     className="origin-top-left border-0 bg-white pointer-events-none"
                     style={{
@@ -51,7 +53,7 @@ export default function BreakpointBoard({
                   />
                 ) : (
                   <div className="flex h-full items-center justify-center text-xs text-neutral-400">
-                    {frame.name}
+                    {label}
                   </div>
                 )}
               </div>
@@ -60,7 +62,7 @@ export default function BreakpointBoard({
                 variant="ghost"
                 className="h-6 px-2 text-[11px] text-neutral-500"
               >
-                Edit {frame.name}
+                Edit {label}
               </Button>
             </button>
           );

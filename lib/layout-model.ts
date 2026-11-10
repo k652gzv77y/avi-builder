@@ -8,7 +8,12 @@
  */
 
 import type { Breakpoint, DesignProperties, Layer, UIState } from '@/types';
-import { breakpointLabel, isBaseBreakpoint, splitResponsivePrefix } from '@/lib/breakpoint-utils';
+import {
+  breakpointLabel,
+  isBaseBreakpoint,
+  splitResponsivePrefix,
+  type BreakpointDefinition,
+} from '@/lib/breakpoint-utils';
 import { buildStyledUpdate } from '@/lib/layer-style-utils';
 import {
   getInheritedValue,
@@ -51,8 +56,11 @@ export function isBreakpointOverride(source: Breakpoint | null, active: Breakpoi
   return !isBaseBreakpoint(active) && source === active;
 }
 
-export function editorBreakpointLabel(breakpoint: Breakpoint): string {
-  return breakpointLabel(breakpoint);
+export function editorBreakpointLabel(
+  breakpoint: Breakpoint,
+  catalog?: BreakpointDefinition[],
+): string {
+  return breakpointLabel(breakpoint, catalog);
 }
 
 /**

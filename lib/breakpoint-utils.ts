@@ -156,6 +156,30 @@ export function breakpointLabel(id: string, catalog: BreakpointDefinition[] = ge
   return id;
 }
 
+/** Desktop, the cascade base. Custom breakpoints never take this role. */
+export function baseBreakpoint(catalog: BreakpointDefinition[]): BreakpointDefinition | null {
+  return catalog.find((breakpoint) => breakpoint.id === 'desktop')
+    ?? catalog.find((breakpoint) => breakpoint.maxWidth == null)
+    ?? catalog[0]
+    ?? null;
+}
+
+/**
+ * Breakpoint to select after a deletion.
+ * Removing the active breakpoint falls back to Desktop.
+ * Removing any other breakpoint keeps the current selection.
+ */
+export function activeBreakpointAfterDelete(
+  catalog: BreakpointDefinition[],
+  deletedId: string,
+  activeId: string | null | undefined,
+): BreakpointDefinition | null {
+  if (activeId && activeId !== deletedId) {
+    return catalog.find((breakpoint) => breakpoint.id === activeId) ?? baseBreakpoint(catalog);
+  }
+  return baseBreakpoint(catalog);
+}
+
 export function clampFrameWidth(width: number): number {
   return Math.round(Math.min(MAX_CANVAS_WIDTH, Math.max(MIN_CANVAS_WIDTH, width)));
 }

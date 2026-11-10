@@ -2,8 +2,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Layer } from '@/types';
 import { getInheritedValue, setBreakpointClass } from '@/lib/tailwind-class-mapper';
+import { editorBreakpointLabel } from '@/lib/layout-model';
 import {
+  activeBreakpointAfterDelete,
   breakpointForWidth,
+  breakpointLabel,
   cascadeOrder,
   createBreakpoint,
   defaultBreakpointCatalog,
@@ -162,6 +165,82 @@ test('range edits rewrite stored classes and leave other breakpoints alone', () 
   assert.equal(rewritten.layers[0].textStyles?.bold.classes, 'max-[1100px]:text-[20px]');
   assert.equal(rewritten.layers[0].styleOverrides?.classes, 'max-[1100px]:p-[8px]');
   assert.deepEqual(rewritten.layers[0].children?.[0].classes, ['max-md:hidden', 'max-[1100px]:grid']);
+});
+
+test('renaming a breakpoint updates every label looked up by id', () => {
+  const created = createBreakpoint(defaultBreakpointCatalog(), {
+    name: 'QA Wide',
+    maxWidth: 1400,
+    width: 1400,
+  });
+  const id = created.created!.id;
+  const capturedName = created.created!.name;
+  setClientBreakpointCatalog(created.catalog);
+  try {
+    assert.equal(breakpointLabel(id), 'QA Wide');
+    assert.equal(editorBreakpointLabel(id), 'QA Wide');
+
+    const renamed = renameBreakpoint(created.catalog, id, 'QA Wide 2');
+    assert.equal(renamed.error, undefined);
+    assert.equal(renamed.catalog.find((breakpoint) => breakpoint.id === id)?.name, 'QA Wide 2');
+    assert.equal(capturedName, 'QA Wide');
+    assert.equal(breakpointLabel(id, renamed.catalog), 'QA Wide 2');
+    assert.equal(editorBreakpointLabel(id, renamed.catalog), 'QA Wide 2');
+    assert.notEqual(breakpointLabel(id, renamed.catalog), capturedName);
+
+    // A previously published catalog must not win when the caller passes the renamed one.
+    assert.equal(breakpointLabel(id), 'QA Wide');
+    assert.equal(editorBreakpointLabel(id, renamed.catalog), 'QA Wide 2');
+
+    setClientBreakpointCatalog(renamed.catalog);
+    assert.equal(breakpointLabel(id), 'QA Wide 2');
+    assert.equal(editorBreakpointLabel(id), 'QA Wide 2');
+    assert.equal(
+      renamed.catalog.map((breakpoint) => breakpointLabel(breakpoint.id, renamed.catalog)).join('|'),
+      renamed.catalog.map((breakpoint) => breakpoint.name).join('|'),
+    );
+  } finally {
+    restoreCatalog();
+  }
+});
+
+test('deleting the active custom breakpoint falls back to desktop', () => {
+  const created = createBreakpoint(defaultBreakpointCatalog(), {
+    name: 'QA Wide',
+    maxWidth: 1400,
+    width: 1400,
+  });
+  const id = created.created!.id;
+  const reordered = moveBreakpoint(created.catalog, 'desktop', 1).catalog;
+  assert.equal(reordered[0]?.id, 'tablet');
+  assert.equal(reordered.some((breakpoint) => breakpoint.id === id), true);
+
+  const removed = deleteBreakpoint(reordered, id);
+  assert.equal(removed.error, undefined);
+  assert.equal(removed.catalog.some((breakpoint) => breakpoint.id === id), false);
+  assert.equal(removed.catalog.some((breakpoint) => breakpoint.id === 'tablet'), true);
+  assert.equal(removed.catalog.some((breakpoint) => breakpoint.id === 'mobile'), true);
+  assert.equal(removed.catalog.some((breakpoint) => breakpoint.id === 'desktop'), true);
+  assert.notEqual(removed.catalog[0]?.id, 'desktop');
+
+  const next = activeBreakpointAfterDelete(removed.catalog, id, id);
+  assert.equal(next?.id, 'desktop');
+  assert.equal(next?.name, 'Desktop');
+
+  const renamedBase = renameBreakpoint(removed.catalog, 'desktop', 'Primary screen').catalog;
+  const namedNext = activeBreakpointAfterDelete(renamedBase, id, id);
+  assert.equal(namedNext?.id, 'desktop');
+  assert.equal(breakpointLabel(namedNext!.id, renamedBase), 'Primary screen');
+
+  const kept = activeBreakpointAfterDelete(removed.catalog, id, 'tablet');
+  assert.equal(kept?.id, 'tablet');
+  assert.equal(breakpointLabel(kept!.id, removed.catalog), 'Tablet');
+
+  const preset = deleteBreakpoint(created.catalog, 'tablet');
+  assert.match(preset.error ?? '', /stay in the project/);
+  assert.equal(preset.catalog.length, created.catalog.length);
+  assert.equal(preset.catalog.some((breakpoint) => breakpoint.id === 'tablet'), true);
+  assert.equal(preset.catalog.some((breakpoint) => breakpoint.id === 'desktop'), true);
 });
 
 test('custom breakpoint overrides inherit from wider ranges and round-trip through classes', () => {
