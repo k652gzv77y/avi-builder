@@ -170,3 +170,129 @@ export function wheelPanDelta(
   }
   return { x: deltaX, y: deltaY };
 }
+
+export interface OverlayBox {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Screen box of a selection outline, hover outline, or on-canvas badge.
+ * `iframe` and `container` are viewport rects. The iframe rect already
+ * includes the camera translate, so this must be recomputed on every camera
+ * change. `element` is the layer rect inside the iframe (unscaled). Null
+ * covers the whole frame, which is how the Body layer is drawn.
+ */
+export function layerOverlayBox(
+  iframe: OverlayBox,
+  container: { left: number; top: number },
+  element: OverlayBox | null,
+  scale: number,
+): OverlayBox {
+  if (!element) {
+    return {
+      left: iframe.left - container.left,
+      top: iframe.top - container.top,
+      width: iframe.width,
+      height: iframe.height,
+    };
+  }
+  const safe = scale > 0 && Number.isFinite(scale) ? scale : 1;
+  return {
+    left: iframe.left - container.left + element.left * safe,
+    top: iframe.top - container.top + element.top * safe,
+    width: element.width * safe,
+    height: element.height * safe,
+  };
+}
+
+/** Camera plus zoom remembered for one page. */
+export interface SavedPageView {
+  x: number;
+  y: number;
+  zoom: number;
+}
+
+export const PAGE_CAMERA_STORAGE_KEY = 'avi.canvasPageCameras';
+
+function normalizeSavedPageView(value: unknown): SavedPageView | null {
+  if (!value || typeof value !== 'object') return null;
+  const view = value as Record<string, unknown>;
+  const x = view.x;
+  const y = view.y;
+  const zoom = view.zoom;
+  if (typeof x !== 'number' || typeof y !== 'number' || typeof zoom !== 'number') return null;
+  if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(zoom) || zoom <= 0) return null;
+  return { x, y, zoom };
+}
+
+export function parseSavedPageViews(raw: string | null): Record<string, SavedPageView> {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== 'object') return {};
+    const views: Record<string, SavedPageView> = {};
+    for (const [pageId, value] of Object.entries(parsed as Record<string, unknown>)) {
+      const view = normalizeSavedPageView(value);
+      if (view) views[pageId] = view;
+    }
+    return views;
+  } catch {
+    return {};
+  }
+}
+
+export function serializeSavedPageViews(views: Record<string, SavedPageView>): string {
+  return JSON.stringify(views);
+}
+
+/**
+ * Opening a page uses the fitted board unless that page already has a camera.
+ * The fitted view is what Shift+1 produces.
+ */
+export function pageEnterView(saved: SavedPageView | null, fitted: SavedPageView): SavedPageView {
+  return saved ?? fitted;
+}
+
+export interface PageViewStorage {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+}
+
+export function createPageViewStore(storage: PageViewStorage) {
+  return {
+    read(pageId: string): SavedPageView | null {
+      if (!pageId) return null;
+      try {
+        return parseSavedPageViews(storage.getItem(PAGE_CAMERA_STORAGE_KEY))[pageId] ?? null;
+      } catch {
+        return null;
+      }
+    },
+    write(pageId: string, view: SavedPageView) {
+      if (!pageId) return;
+      const next = normalizeSavedPageView(view);
+      if (!next) return;
+      try {
+        const views = parseSavedPageViews(storage.getItem(PAGE_CAMERA_STORAGE_KEY));
+        views[pageId] = next;
+        storage.setItem(PAGE_CAMERA_STORAGE_KEY, serializeSavedPageViews(views));
+      } catch {
+        // Private mode and blocked storage still keep the in-memory camera.
+      }
+    },
+    remove(pageId: string) {
+      if (!pageId) return;
+      try {
+        const views = parseSavedPageViews(storage.getItem(PAGE_CAMERA_STORAGE_KEY));
+        if (!views[pageId]) return;
+        delete views[pageId];
+        storage.setItem(PAGE_CAMERA_STORAGE_KEY, serializeSavedPageViews(views));
+      } catch {
+        // Ignore blocked storage.
+      }
+    },
+  };
+}

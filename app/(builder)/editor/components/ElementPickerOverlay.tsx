@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useLayoutEffect, useState, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 import { useEditorStore } from '@/stores/useEditorStore';
+import type { Camera } from '@/lib/canvas-fit';
 
 interface HoveredElement {
   layerId: string;
@@ -13,9 +14,10 @@ interface HoveredElement {
 interface ElementPickerOverlayProps {
   iframeElement: HTMLIFrameElement | null;
   zoom: number;
+  camera: Camera;
 }
 
-export default function ElementPickerOverlay({ iframeElement, zoom }: ElementPickerOverlayProps) {
+export default function ElementPickerOverlay({ iframeElement, zoom, camera }: ElementPickerOverlayProps) {
   const elementPicker = useEditorStore((state) => state.elementPicker);
   const stopElementPicker = useEditorStore((state) => state.stopElementPicker);
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
@@ -170,6 +172,35 @@ export default function ElementPickerOverlay({ iframeElement, zoom }: ElementPic
       setHoveredElement(null);
     }
   }, [elementPicker?.active]);
+
+  const hoveredLayerId = hoveredElement?.layerId ?? null;
+  // The highlight rect is screen space. Re-read it when the camera moves
+  // without waiting for another mousemove.
+  useLayoutEffect(() => {
+    if (!hoveredLayerId || !iframeElement) return;
+    const doc = iframeElement.contentDocument;
+    if (!doc) return;
+    const escaped = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(hoveredLayerId) : hoveredLayerId;
+    const el = doc.querySelector(`[data-layer-id="${escaped}"]`);
+    if (!el) return;
+    const localRect = el.getBoundingClientRect();
+    const iframeRect = iframeElement.getBoundingClientRect();
+    const screenRect = {
+      left: iframeRect.left + localRect.left * scale,
+      top: iframeRect.top + localRect.top * scale,
+      width: localRect.width * scale,
+      height: localRect.height * scale,
+    };
+    setHoveredElement((current) => {
+      if (!current || current.layerId !== hoveredLayerId) return current;
+      const same = current.rect.left === screenRect.left
+        && current.rect.top === screenRect.top
+        && current.rect.width === screenRect.width
+        && current.rect.height === screenRect.height;
+      if (same) return current;
+      return { ...current, rect: screenRect };
+    });
+  }, [camera.x, camera.y, hoveredLayerId, iframeElement, scale]);
 
   if (!elementPicker?.active || !origin || !mousePos) return null;
 

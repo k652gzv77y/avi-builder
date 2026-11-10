@@ -26,6 +26,8 @@ interface UseZoomOptions {
   onFit?: (zoom: number) => void;
   /** Cursor-anchored zoom. Origin is in viewport coordinates. */
   onAnchoredZoom?: (prev: number, next: number, origin: { x: number; y: number } | null) => void;
+  /** Discrete zoom changes from the keyboard or zoom menu. Not wheel zoom. */
+  onUserZoom?: (zoom: number) => void;
 }
 
 interface ZoomOrigin {
@@ -67,6 +69,8 @@ interface UseZoomResult {
   autofit: () => void;
   handleZoomGesture: (delta: number, origin?: ZoomOrigin) => void;
   lockZoomMode: () => void; // Lock current zoom to custom mode
+  /** Set zoom without telling `onUserZoom`. Used when restoring a saved camera. */
+  setZoomQuiet: (zoom: number) => void;
 }
 
 export function useZoom({
@@ -82,6 +86,7 @@ export function useZoom({
   boardFit,
   onFit,
   onAnchoredZoom,
+  onUserZoom,
 }: UseZoomOptions): UseZoomResult {
   const [zoom, setZoom] = useState(100);
   const [zoomMode, setZoomMode] = useState<ZoomMode>('autofit'); // Default to autofit
@@ -89,10 +94,14 @@ export function useZoom({
   const [boardFitNonce, setBoardFitNonce] = useState(0);
   const onFitRef = useRef(onFit);
   const onAnchoredZoomRef = useRef(onAnchoredZoom);
-  useEffect(() => {
+  const onUserZoomRef = useRef(onUserZoom);
+  // Layout, and registered before the canvas page-enter effect, so the first
+  // fit sees the callbacks from this render.
+  useLayoutEffect(() => {
     onFitRef.current = onFit;
     onAnchoredZoomRef.current = onAnchoredZoom;
-  }, [onFit, onAnchoredZoom]);
+    onUserZoomRef.current = onUserZoom;
+  }, [onFit, onAnchoredZoom, onUserZoom]);
 
   const rememberAnchor = useCallback((origin: ZoomOrigin | undefined, prev: number, next: number) => {
     const scroller = scrollRef?.current;
@@ -146,36 +155,52 @@ export function useZoom({
     return Math.min(Math.max(horizontalZoom, minZoom), 100);
   }, [containerRef, contentWidth, minZoom]);
 
+  const applyZoom = useCallback((nextZoom: number, mode: ZoomMode, notify: boolean) => {
+    const next = Math.min(Math.max(nextZoom, minZoom), maxZoom);
+    if (notify) onUserZoomRef.current?.(next);
+    setZoom(next);
+    setZoomMode(mode);
+  }, [minZoom, maxZoom]);
+
   // Framer doubles or halves the zoom on each keyboard step.
   const zoomIn = useCallback(() => {
-    setZoom((current) => Math.min(current * 2, maxZoom));
+    setZoom((current) => {
+      const next = Math.min(current * 2, maxZoom);
+      onUserZoomRef.current?.(next);
+      return next;
+    });
     setZoomMode('custom');
   }, [maxZoom]);
 
   const zoomOut = useCallback(() => {
-    setZoom((current) => Math.max(current / 2, minZoom));
+    setZoom((current) => {
+      const next = Math.max(current / 2, minZoom);
+      onUserZoomRef.current?.(next);
+      return next;
+    });
     setZoomMode('custom');
   }, [minZoom]);
 
   // Set specific zoom
   const setZoomTo = useCallback((newZoom: number) => {
-    setZoom(Math.min(Math.max(newZoom, minZoom), maxZoom));
-    setZoomMode('custom');
-  }, [minZoom, maxZoom]);
+    applyZoom(newZoom, 'custom', true);
+  }, [applyZoom]);
+
+  const setZoomQuiet = useCallback((newZoom: number) => {
+    applyZoom(newZoom, 'custom', false);
+  }, [applyZoom]);
 
   // Reset to 100%
   const resetZoom = useCallback(() => {
-    setZoom(100);
-    setZoomMode('custom');
-  }, []);
+    applyZoom(100, 'custom', true);
+  }, [applyZoom]);
 
   // Zoom to fit (vertical)
   const zoomToFit = useCallback(() => {
     const newZoom = calculateZoomToFit();
     if (newZoom === null) return; // Container hidden, preserve current zoom
-    setZoom(newZoom);
-    setZoomMode('fit');
-  }, [calculateZoomToFit]);
+    applyZoom(newZoom, 'fit', true);
+  }, [applyZoom, calculateZoomToFit]);
 
   // Fit every breakpoint frame in the visible canvas (Shift+1).
   const zoomToBoard = useCallback(() => {
@@ -206,9 +231,8 @@ export function useZoom({
   const autofit = useCallback(() => {
     const newZoom = calculateAutofit();
     if (newZoom === null) return; // Container hidden, preserve current zoom
-    setZoom(newZoom);
-    setZoomMode('autofit');
-  }, [calculateAutofit]);
+    applyZoom(newZoom, 'autofit', true);
+  }, [applyZoom, calculateAutofit]);
 
   // Handle zoom gesture (from iframe or external source)
   const handleZoomGesture = useCallback((delta: number, origin?: ZoomOrigin) => {
@@ -247,9 +271,11 @@ export function useZoom({
     setZoomMode('custom');
   }, []);
 
-  // Recalculate zoom when mode is fit/autofit and container resizes or content dimensions change
+  // Recalculate zoom when mode is fit/autofit and container resizes or content dimensions change.
+  // The breakpoint board fits itself with `zoomToBoard`; this pass would
+  // replace that camera with a single-frame autofit.
   useEffect(() => {
-    if (!containerRef.current || zoomMode === 'custom') return;
+    if (boardFit || !containerRef.current || zoomMode === 'custom') return;
 
     const handleResize = () => {
       // Don't calculate if content dimensions aren't ready yet
@@ -273,7 +299,7 @@ export function useZoom({
     return () => {
       resizeObserver.disconnect();
     };
-  }, [containerRef, zoomMode, calculateZoomToFit, calculateAutofit, contentWidth, contentHeight]);
+  }, [boardFit, containerRef, zoomMode, calculateZoomToFit, calculateAutofit, contentWidth, contentHeight]);
 
   // Keyboard shortcuts - capture at window level with high priority
   useEffect(() => {
@@ -464,5 +490,6 @@ export function useZoom({
     autofit,
     handleZoomGesture,
     lockZoomMode,
+    setZoomQuiet,
   };
 }

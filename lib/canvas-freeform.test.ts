@@ -12,6 +12,7 @@ import {
   respectShiftLock,
   resizedBox,
   screenDeltaToCanvas,
+  snapGuideDocumentBox,
   snapResizedBox,
   snapTranslation,
   type FreeformBox,
@@ -378,4 +379,20 @@ test('arrow nudge uses the measured box and falls back to stored px pins', () =>
 
   const unpinned = layer({ id: 'plain', classes: 'relative' });
   assert.equal(nudgeFreeformLayer(unpinned, 1, 0, null), null);
+});
+
+test('snap guides stay in iframe document space when the camera pans', () => {
+  const origin = { x: 4, y: 8 };
+  const size = { width: 200, height: 100 };
+  const scroll = { x: 3, y: 5 };
+  const horizontal = snapGuideDocumentBox({ axis: 'y', at: 16 }, origin, size, scroll);
+  const vertical = snapGuideDocumentBox({ axis: 'x', at: 40 }, origin, size, scroll);
+
+  assert.deepEqual(horizontal, { left: 7, top: 29, width: 200, height: 1 });
+  assert.deepEqual(vertical, { left: 47, top: 13, width: 1, height: 100 });
+
+  // A camera pan changes the iframe's screen origin, not these iframe-local
+  // numbers. The line is painted in the document, so it rides along with the frame.
+  const panned = snapGuideDocumentBox({ axis: 'x', at: 40 }, origin, size, scroll);
+  assert.deepEqual(panned, vertical);
 });

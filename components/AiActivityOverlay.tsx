@@ -11,8 +11,9 @@
  * bounding box inside the iframe (scaled by the current zoom).
  */
 
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 
+import { layerOverlayBox, type Camera } from '@/lib/canvas-fit';
 import { useEditorStore } from '@/stores/useEditorStore';
 
 interface AiActivityOverlayProps {
@@ -22,6 +23,8 @@ interface AiActivityOverlayProps {
   containerElement: HTMLElement | null;
   /** Current zoom level (percentage) */
   zoom: number;
+  /** Editor camera. Outlines are recomputed when it changes so they stay on the layer. */
+  camera: Camera;
 }
 
 const OUTLINE_CLASS = 'absolute ai-activity-outline pointer-events-none';
@@ -30,6 +33,7 @@ export function AiActivityOverlay({
   iframeElement,
   containerElement,
   zoom,
+  camera,
 }: AiActivityOverlayProps) {
   const activeLayerIds = useEditorStore((state) => state.aiActiveLayerIds);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -82,21 +86,22 @@ export function AiActivityOverlay({
     }
 
     targets.forEach((target, idx) => {
-      const rect = target.getBoundingClientRect();
+      const box = layerOverlayBox(iframeRect, containerRect, target.getBoundingClientRect(), scale);
       const child = container.children[idx] as HTMLElement;
       child.className = OUTLINE_CLASS;
       child.style.display = 'block';
-      child.style.top = `${iframeRect.top - containerRect.top + rect.top * scale}px`;
-      child.style.left = `${iframeRect.left - containerRect.left + rect.left * scale}px`;
-      child.style.width = `${rect.width * scale}px`;
-      child.style.height = `${rect.height * scale}px`;
+      child.style.top = `${box.top}px`;
+      child.style.left = `${box.left}px`;
+      child.style.width = `${box.width}px`;
+      child.style.height = `${box.height}px`;
     });
   }, [iframeElement, containerElement, zoom]);
 
-  // Reposition whenever the active set, iframe, container, or zoom changes.
-  useEffect(() => {
+  // Reposition whenever the active set, iframe, container, zoom, or camera changes.
+  // Layout so a pan does not paint the outline at the previous screen position.
+  useLayoutEffect(() => {
     updateOutlines();
-  }, [updateOutlines, activeLayerIds]);
+  }, [updateOutlines, activeLayerIds, camera.x, camera.y]);
 
   // Track scroll / resize / canvas mutations so the outlines stay glued to the
   // layers as the agent edits the tree and the layout shifts underneath them.

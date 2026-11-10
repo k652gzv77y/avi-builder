@@ -13,7 +13,7 @@
  * so a resize keeps a full-screen shield in this document until pointerup.
  */
 
-import React, { useEffect, useRef, useCallback, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useCallback, useState } from 'react';
 import { useEditorStore } from '@/stores/useEditorStore';
 import { usePagesStore } from '@/stores/usePagesStore';
 import { useComponentsStore } from '@/stores/useComponentsStore';
@@ -39,6 +39,7 @@ import {
   siblingSnapTargets,
 } from '@/lib/canvas-freeform-dom';
 import { snapLabelerFor } from '@/lib/snap-guide-labels';
+import { layerOverlayBox, type Camera } from '@/lib/canvas-fit';
 import type { Layer } from '@/types';
 
 interface HandleFrame {
@@ -80,12 +81,7 @@ function placeGroupOutlines(
     if (!el) continue;
     const rect = el.getBoundingClientRect();
     if (rect.width < 1 && rect.height < 1) continue;
-    rects.push({
-      left: iframeRect.left - containerRect.left + rect.left * scale,
-      top: iframeRect.top - containerRect.top + rect.top * scale,
-      width: rect.width * scale,
-      height: rect.height * scale,
-    });
+    rects.push(layerOverlayBox(iframeRect, containerRect, rect, scale));
   }
   if (rects.length < 2) {
     container.style.display = 'none';
@@ -196,6 +192,11 @@ interface SelectionOverlayProps {
   parentLayerId: string | null;
   /** Current zoom level (percentage) */
   zoom: number;
+  /**
+   * Editor camera. The outline is measured from the iframe's screen rect,
+   * which includes this translate, so it has to be read again on every change.
+   */
+  camera: Camera;
   /** Active sublayer index within a richText element (null = highlight whole layer) */
   activeSublayerIndex?: number | null;
   /** Active list item index within a list (null = highlight whole list block) */
@@ -211,6 +212,7 @@ export function SelectionOverlay({
   selectedLayerIds = EMPTY_SELECTION,
   parentLayerId,
   zoom,
+  camera,
   activeSublayerIndex,
   activeListItemIndex,
   onLayerUpdate,
@@ -349,23 +351,12 @@ export function SelectionOverlay({
     targetElements.forEach((targetElement, idx) => {
       const child = container.children[idx] as HTMLElement;
 
-      let top: number;
-      let left: number;
-      let width: number;
-      let height: number;
-      if (isBody) {
-        // Body outline always covers the full visible canvas (iframe area).
-        top = iframeRect.top - containerRect.top;
-        left = iframeRect.left - containerRect.left;
-        width = iframeRect.width;
-        height = iframeRect.height;
-      } else {
-        const elementRect = targetElement.getBoundingClientRect();
-        top = iframeRect.top - containerRect.top + (elementRect.top * scale);
-        left = iframeRect.left - containerRect.left + (elementRect.left * scale);
-        width = elementRect.width * scale;
-        height = elementRect.height * scale;
-      }
+      const elementRect = isBody ? null : targetElement.getBoundingClientRect();
+      const box = layerOverlayBox(iframeRect, containerRect, elementRect, scale);
+      const top = box.top;
+      const left = box.left;
+      const width = box.width;
+      const height = box.height;
 
       child.className = `absolute ${outlineClass}`;
       child.style.display = 'block';
@@ -468,7 +459,10 @@ export function SelectionOverlay({
   // first measurement would land on the element's stale (hidden) rect. Re-run on
   // the next frame and once more shortly after so the outline tracks the revealed
   // element.
-  useEffect(() => {
+  // Layout, not paint: a wheel pan commits the camera translate and this
+  // measurement in the same frame, so the outline never sits still while the
+  // frame moves underneath it.
+  useLayoutEffect(() => {
     updateAllOutlines();
     const rafId = requestAnimationFrame(() => updateAllOutlines());
     const timeoutId = setTimeout(() => updateAllOutlines(), 120);
@@ -476,7 +470,7 @@ export function SelectionOverlay({
       cancelAnimationFrame(rafId);
       clearTimeout(timeoutId);
     };
-  }, [updateAllOutlines]);
+  }, [updateAllOutlines, camera.x, camera.y]);
 
   // Subscribe to hoveredLayerId changes without re-rendering. Uses a
   // leading + trailing throttle around `updateHoveredOutline` (the cheap
