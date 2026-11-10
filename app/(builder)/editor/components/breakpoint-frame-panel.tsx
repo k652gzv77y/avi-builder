@@ -8,7 +8,7 @@ import { breakpointLabel, resizeBreakpointWidth } from '@/lib/breakpoint-utils';
 import { useEditorStore } from '@/stores/useEditorStore';
 
 /** Width of the selected breakpoint frame. Shown when no layer is selected. */
-export default function BreakpointFramePanel() {
+export default function BreakpointFramePanel({ embedded = false }: { embedded?: boolean }) {
   const activeBreakpoint = useEditorStore((state) => state.activeBreakpoint);
   const { catalog, commit } = useBreakpointCatalog();
   const breakpoint = catalog.find((item) => item.id === activeBreakpoint)
@@ -33,7 +33,11 @@ export default function BreakpointFramePanel() {
   };
 
   return (
-    <div className="flex w-64 shrink-0 flex-col gap-3 border-l bg-background p-4 h-full">
+    <div
+      className={embedded
+        ? 'flex flex-1 min-h-0 flex-col gap-3 p-4'
+        : 'flex h-full w-64 shrink-0 flex-col gap-3 border-l bg-background p-4'}
+    >
       <div className="flex items-baseline justify-between gap-2">
         <p className="truncate text-xs font-medium">{label}</p>
         {breakpoint.primary && (

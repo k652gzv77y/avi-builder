@@ -98,12 +98,6 @@
   min-height: 100%;
 }
 
-/* Breakpoint frames show the whole page. The canvas pans; the frame does not scroll. */
-html,
-body {
-  overflow: hidden;
-}
-
 /* Gap indicator styles */
 .gap-indicator-overlay {
   position: fixed;

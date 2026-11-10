@@ -2087,14 +2087,7 @@ const RightSidebar = React.memo(function RightSidebar({
   };
 
   if (!selectedLayerId || !selectedLayer) {
-    if (embedded) {
-      return (
-        <div className="flex flex-1 min-h-0 items-center justify-center">
-          <span className="text-xs text-muted-foreground">Select a layer</span>
-        </div>
-      );
-    }
-    return <BreakpointFramePanel />;
+    return <BreakpointFramePanel embedded={embedded} />;
   }
 
   // Check if selected layer is a component instance

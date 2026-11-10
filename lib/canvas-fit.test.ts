@@ -4,9 +4,16 @@ import test from 'node:test';
 import {
   FRAME_ADD_BUTTON_SIZE,
   FRAME_LABEL_HEIGHT,
+  PHONE_VIEWPORT_HEIGHT,
+  centerBoardCamera,
   centerScrollOffset,
+  deviceViewportHeight,
   fitBoardZoom,
+  layoutPublishedFrame,
+  panCamera,
+  resolveFrameHeight,
   wheelPanDelta,
+  zoomCamera,
   type CanvasBoardFit,
 } from '@/lib/canvas-fit';
 
@@ -95,6 +102,76 @@ test('centerScrollOffset centers overflow and stays at the origin when content f
   assert.equal(centerScrollOffset(1400, 800), 300);
   assert.equal(centerScrollOffset(800, 800), 0);
   assert.equal(centerScrollOffset(500, 800), 0);
+});
+
+test('kolbo homepage row keeps every card and at least the device height', () => {
+  const collapsedCard = 140;
+  const frame = layoutPublishedFrame({
+    breakpointWidth: 1249,
+    cards: [
+      { title: 'Happiness', height: collapsedCard },
+      { title: 'Focus', height: collapsedCard },
+      { title: 'Calm', height: collapsedCard },
+    ],
+  });
+
+  assert.deepEqual(frame.titles, ['Happiness', 'Focus', 'Calm']);
+  assert.equal(frame.viewport, deviceViewportHeight(1249));
+  assert.equal(frame.height, resolveFrameHeight(collapsedCard, 1249));
+  assert.ok(frame.height > collapsedCard);
+  assert.equal(deviceViewportHeight(390), PHONE_VIEWPORT_HEIGHT);
+  assert.equal(deviceViewportHeight(810), 1080);
+});
+
+test('a page taller than the device grows the frame', () => {
+  const frame = layoutPublishedFrame({
+    breakpointWidth: 390,
+    cards: [{ title: 'Happiness', height: 1800 }],
+  });
+  assert.deepEqual(frame.titles, ['Happiness']);
+  assert.equal(frame.height, 1800);
+});
+
+test('centerBoardCamera centers frames on both axes', () => {
+  const camera = centerBoardCamera({
+    viewportWidth: 1000,
+    viewportHeight: 800,
+    boardWidth: 600,
+    frameHeight: 200,
+    labelHeight: 32,
+  });
+  assert.equal(camera.x, 200);
+  assert.equal(camera.y, (800 - 200) / 2 - 32);
+});
+
+test('wheel pans the camera even when the board fits the viewport', () => {
+  const fitted = centerBoardCamera({
+    viewportWidth: 1000,
+    viewportHeight: 800,
+    boardWidth: 600,
+    frameHeight: 200,
+    labelHeight: 32,
+  });
+  const vertical = panCamera(fitted, 0, 48, false);
+  assert.equal(vertical.x, fitted.x);
+  assert.equal(vertical.y, fitted.y - 48);
+
+  const horizontal = panCamera(fitted, -12, 0, false);
+  assert.equal(horizontal.x, fitted.x + 12);
+  assert.equal(horizontal.y, fitted.y);
+
+  const shifted = panCamera(fitted, 0, 30, true);
+  assert.equal(shifted.x, fitted.x - 30);
+  assert.equal(shifted.y, fitted.y);
+});
+
+test('zoom keeps the point under the cursor fixed', () => {
+  const camera = { x: 100, y: 80 };
+  const next = zoomCamera(camera, 100, 200, 50, 40);
+  const before = (50 - camera.x) / 1;
+  const after = (50 - next.x) / 2;
+  assert.equal(before, after);
+  assert.equal((40 - camera.y) / 1, (40 - next.y) / 2);
 });
 
 test('wheel deltaY pans vertically, deltaX horizontally, and shift+wheel pans horizontally', () => {

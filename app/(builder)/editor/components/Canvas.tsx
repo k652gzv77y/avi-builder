@@ -942,6 +942,18 @@ const Canvas = React.memo(function Canvas({
     return () => doc.removeEventListener('click', handleClick, true);
   }, [iframeReady, onCanvasClick]);
 
+  // Pin the document viewport to the device height. Fill and vh then match a
+  // published page at this breakpoint, while content past that height still
+  // extends the frame. Setting height to auto instead collapses h-full stacks.
+  useEffect(() => {
+    if (!iframeReady || !iframeRef.current || !referenceViewportHeight) return;
+    const doc = iframeRef.current.contentDocument;
+    if (!doc?.body) return;
+    const viewport = `${referenceViewportHeight}px`;
+    doc.documentElement.style.height = viewport;
+    doc.body.style.minHeight = viewport;
+  }, [iframeReady, referenceViewportHeight]);
+
   // Content size reporting (height always, width when callback provided)
   // Uses a stabilization delay for height decreases to prevent transient
   // drops (e.g. iframe reloads inside the canvas) from causing scroll jumps.
@@ -1124,8 +1136,7 @@ const Canvas = React.memo(function Canvas({
     <iframe
       ref={iframeRef}
       className={cn(
-        'w-full h-full border-0',
-        editingComponentId ? 'bg-transparent' : 'bg-white'
+        'w-full h-full border-0 bg-transparent'
       )}
       scrolling="no"
       title="Canvas Editor"

@@ -22,6 +22,10 @@ interface UseZoomOptions {
    * the visible canvas with the side panels already excluded.
    */
   boardFit?: CanvasBoardFit | null;
+  /** Called with the fitted zoom so the board camera can center. */
+  onFit?: (zoom: number) => void;
+  /** Cursor-anchored zoom. Origin is in viewport coordinates. */
+  onAnchoredZoom?: (prev: number, next: number, origin: { x: number; y: number } | null) => void;
 }
 
 interface ZoomOrigin {
@@ -76,15 +80,32 @@ export function useZoom({
   iframeRef,
   scrollRef,
   boardFit,
+  onFit,
+  onAnchoredZoom,
 }: UseZoomOptions): UseZoomResult {
   const [zoom, setZoom] = useState(100);
   const [zoomMode, setZoomMode] = useState<ZoomMode>('autofit'); // Default to autofit
   const zoomAnchor = useRef<ZoomAnchor | null>(null);
   const [boardFitNonce, setBoardFitNonce] = useState(0);
+  const onFitRef = useRef(onFit);
+  const onAnchoredZoomRef = useRef(onAnchoredZoom);
+  useEffect(() => {
+    onFitRef.current = onFit;
+    onAnchoredZoomRef.current = onAnchoredZoom;
+  }, [onFit, onAnchoredZoom]);
 
   const rememberAnchor = useCallback((origin: ZoomOrigin | undefined, prev: number, next: number) => {
     const scroller = scrollRef?.current;
-    if (!origin || !scroller || prev === next || prev <= 0) return;
+    if (prev === next || prev <= 0) return;
+    if (onAnchoredZoomRef.current) {
+      if (!origin || !scroller) {
+        onAnchoredZoomRef.current(prev, next, null);
+        return;
+      }
+      const rect = scroller.getBoundingClientRect();
+      onAnchoredZoomRef.current(prev, next, { x: origin.x - rect.left, y: origin.y - rect.top });
+    }
+    if (!origin || !scroller) return;
     const rect = scroller.getBoundingClientRect();
     const inside = origin.x >= rect.left && origin.x <= rect.right && origin.y >= rect.top && origin.y <= rect.bottom;
     if (!inside) return;
@@ -170,6 +191,7 @@ export function useZoom({
       setZoom(next);
       setZoomMode('custom');
       setBoardFitNonce((nonce) => nonce + 1);
+      onFitRef.current?.(next);
       return;
     }
     const heightZoom = calculateZoomToFit();

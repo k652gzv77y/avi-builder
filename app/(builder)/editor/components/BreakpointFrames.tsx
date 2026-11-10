@@ -328,7 +328,7 @@ export default function BreakpointFrames({
             >
               {isActive ? children : (
                 <div
-                  className="overflow-hidden rounded-[10px] bg-white shadow-[0_18px_40px_rgba(0,0,0,0.08)] outline outline-black/5 dark:bg-[#111] dark:outline-white/10"
+                  className="overflow-hidden rounded-[10px] bg-transparent shadow-[0_18px_40px_rgba(0,0,0,0.08)]"
                   style={{ width: breakpoint.width * scale, height: unscaledHeight * scale }}
                 >
                   <div

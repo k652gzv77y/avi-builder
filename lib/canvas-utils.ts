@@ -222,26 +222,6 @@ export function measureContentExtent(doc: Document): number {
   return Math.max(maxBottom, 0);
 }
 
-interface BoxSnapshot {
-  height: string;
-  minHeight: string;
-  overflow: string;
-}
-
-function snapshotBox(el: HTMLElement): BoxSnapshot {
-  return {
-    height: el.style.height,
-    minHeight: el.style.minHeight,
-    overflow: el.style.overflow,
-  };
-}
-
-function restoreBox(el: HTMLElement, snap: BoxSnapshot) {
-  el.style.height = snap.height;
-  el.style.minHeight = snap.minHeight;
-  el.style.overflow = snap.overflow;
-}
-
 /**
  * Absolute layers whose containing block is the iframe viewport. Including
  * them in the frame height feeds back: the frame grows, the layer (anchored
@@ -255,12 +235,11 @@ function isViewportAnchored(node: HTMLElement, body: HTMLElement): boolean {
 /**
  * Height of the page inside a breakpoint frame.
  *
- * A root with `h-full` is only as tall as the iframe, so measuring that box
- * keeps the frame a short strip and the rest of the page scrolls inside it.
- * Relax html/body to auto first so percentage heights resolve against the
- * content, then walk every layer. Fixed layers and viewport-anchored
- * absolutes are skipped. Overflow-hidden ancestors still clip, so a closed
- * panel does not stretch the frame.
+ * Do not set html/body height to auto. A fill-height stack (`h-full`) would
+ * then collapse to its content, and a horizontal collection row renders as
+ * one centered item in a short strip. Percentage fills stay resolved against
+ * the device viewport pinned on the document. In-flow layers and scrollHeight
+ * still extend the frame when the page is taller than that viewport.
  */
 export function measureFrameContentHeight(doc: Document): number {
   const body = doc.body;
@@ -268,34 +247,19 @@ export function measureFrameContentHeight(doc: Document): number {
   const win = doc.defaultView;
   if (!body || !html || !win) return 0;
 
-  const htmlSnap = snapshotBox(html);
-  const bodySnap = snapshotBox(body);
-  html.style.height = 'auto';
-  html.style.minHeight = '0px';
-  html.style.overflow = 'visible';
-  body.style.height = 'auto';
-  body.style.minHeight = '0px';
-  body.style.overflow = 'visible';
-  void body.offsetHeight;
+  const bodyRect = body.getBoundingClientRect();
+  const scrollTop = body.scrollTop || html.scrollTop || 0;
+  let maxBottom = Math.max(body.scrollHeight, html.scrollHeight, measureContentExtent(doc));
 
-  let maxBottom = 0;
-  try {
-    const bodyRect = body.getBoundingClientRect();
-    const scrollTop = body.scrollTop || html.scrollTop || 0;
-    body.querySelectorAll<HTMLElement>('[data-layer-id]').forEach((node) => {
-      if (node.id === 'canvas-body') return;
-      const style = win.getComputedStyle(node);
-      if (style.display === 'none' || style.display === 'contents' || style.position === 'fixed') return;
-      if (style.position === 'absolute' && isViewportAnchored(node, body)) return;
-      const clipped = getClippedLayerRect(node, body, win);
-      if (clipped.width <= 0 || clipped.height <= 0) return;
-      maxBottom = Math.max(maxBottom, clipped.bottom - bodyRect.top + scrollTop);
-    });
-    maxBottom = Math.max(maxBottom, measureContentExtent(doc));
-  } finally {
-    restoreBox(html, htmlSnap);
-    restoreBox(body, bodySnap);
-  }
+  body.querySelectorAll<HTMLElement>('[data-layer-id]').forEach((node) => {
+    if (node.id === 'canvas-body') return;
+    const style = win.getComputedStyle(node);
+    if (style.display === 'none' || style.display === 'contents' || style.position === 'fixed') return;
+    if (style.position === 'absolute' && isViewportAnchored(node, body)) return;
+    const rect = node.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+    maxBottom = Math.max(maxBottom, rect.bottom - bodyRect.top + scrollTop);
+  });
 
   return Math.max(0, Math.ceil(maxBottom));
 }
@@ -387,10 +351,6 @@ export function getCanvasIframeHtml(mountId: string = 'canvas-mount'): string {
     /* Font CSS (Google @import + custom @font-face) injected dynamically */
   </style>
   <style>
-    /* The frame is as tall as the page. Pan the canvas instead of scrolling inside it. */
-    html, body {
-      overflow: hidden;
-    }
     /* Custom dropdown chevron for select elements (native arrow removed by form reset) */
     select {
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23737373' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
@@ -399,7 +359,7 @@ export function getCanvasIframeHtml(mountId: string = 'canvas-mount'): string {
       background-size: 16px 16px !important;
     }
   </style>
-  <link rel="stylesheet" href="/canvas.css?v=0.2.1.5">
+  <link rel="stylesheet" href="/canvas.css?v=0.2.1.6">
   <style id="ycode-viewport-overrides">
     /* Dynamically populated: overrides vh/svh/dvh/lvh with fixed px values */
   </style>
