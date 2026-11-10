@@ -184,6 +184,13 @@ export function useCanvasPan({
     const markOver = () => { state.overCanvas = true; };
     const markOut = () => { state.overCanvas = false; };
 
+    const handleWheel = (event: WheelEvent) => {
+      if (event.ctrlKey || event.metaKey) return;
+      event.preventDefault();
+      scrollEl.scrollLeft += event.deltaX;
+      scrollEl.scrollTop += event.deltaY;
+    };
+
     scrollEl.addEventListener('mousedown', startPan, true);
     scrollEl.addEventListener('click', handleClick, true);
     scrollEl.addEventListener('mouseenter', markOver);
@@ -193,6 +200,7 @@ export function useCanvasPan({
     window.addEventListener('keyup', handleKeyUp, true);
     try {
       iframeDoc?.addEventListener('mousedown', startPan, true);
+      iframeDoc?.addEventListener('wheel', handleWheel, { passive: false, capture: true });
       iframeDoc?.addEventListener('click', handleClick, true);
       iframeDoc?.addEventListener('mousemove', markOver);
       iframeDoc?.addEventListener('keydown', handleKeyDown, true);
@@ -211,6 +219,7 @@ export function useCanvasPan({
       window.removeEventListener('keyup', handleKeyUp, true);
       try {
         iframeDoc?.removeEventListener('mousedown', startPan, true);
+        iframeDoc?.removeEventListener('wheel', handleWheel, true);
         iframeDoc?.removeEventListener('click', handleClick, true);
         iframeDoc?.removeEventListener('mousemove', markOver);
         iframeDoc?.removeEventListener('keydown', handleKeyDown, true);

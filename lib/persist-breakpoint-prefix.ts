@@ -1,6 +1,12 @@
 import { pageLayersApi } from '@/lib/api';
 import { projectsPath } from '@/lib/project-url';
-import { rewriteClassText, rewriteLayers, rewriteVariantOverrides } from '@/lib/breakpoint-utils';
+import {
+  prefixUnprefixedLayers,
+  prefixUnprefixedText,
+  rewriteClassText,
+  rewriteLayers,
+  rewriteVariantOverrides,
+} from '@/lib/breakpoint-utils';
 import { useComponentsStore } from '@/stores/useComponentsStore';
 import { useLayerStylesStore } from '@/stores/useLayerStylesStore';
 import { usePagesStore } from '@/stores/usePagesStore';
@@ -66,6 +72,114 @@ function draftsFor(
     changed = true;
   }
   return { drafts, changed };
+}
+
+/**
+ * Move classes that had no breakpoint prefix onto the previous primary's
+ * new query. Runs before prefix rewrites so the new primary can drop its
+ * old prefix without those classes being prefixed again.
+ */
+export async function persistBreakpointBaseDemotion(to: string): Promise<void> {
+  if (!to) return;
+
+  const pages = usePagesStore.getState();
+  const nextDrafts = { ...pages.draftsByPageId };
+  const changedPageIds: string[] = [];
+  for (const [pageId, draft] of Object.entries(pages.draftsByPageId)) {
+    if (!draft?.layers) continue;
+    const prefixed = prefixUnprefixedLayers(draft.layers, to);
+    if (!prefixed.changed) continue;
+    nextDrafts[pageId] = { ...draft, layers: prefixed.layers };
+    changedPageIds.push(pageId);
+  }
+  if (changedPageIds.length > 0) {
+    usePagesStore.setState({ draftsByPageId: nextDrafts });
+    for (const pageId of changedPageIds) {
+      const layers = nextDrafts[pageId]?.layers;
+      if (!layers) continue;
+      await pageLayersApi.updateDraft(pageId, layers);
+    }
+  }
+
+  const componentsState = useComponentsStore.getState();
+  const nextComponents: Component[] = [];
+  const nextComponentDrafts = { ...componentsState.componentDrafts };
+  const dirtyIds: string[] = [];
+  for (const component of componentsState.components) {
+    const layers = component.layers?.length ? prefixUnprefixedLayers(component.layers, to) : { layers: component.layers, changed: false };
+    let changed = layers.changed;
+    let next = layers.changed ? { ...component, layers: layers.layers } : component;
+    if (component.variants?.length) {
+      let variantsChanged = false;
+      const variants = component.variants.map((variant) => {
+        if (!variant.layers?.length) return variant;
+        const variantLayers = prefixUnprefixedLayers(variant.layers, to);
+        if (!variantLayers.changed) return variant;
+        variantsChanged = true;
+        return { ...variant, layers: variantLayers.layers };
+      });
+      if (variantsChanged) {
+        next = { ...next, variants };
+        changed = true;
+      }
+    }
+    const drafts = componentsState.componentDrafts[component.id];
+    if (drafts) {
+      let draftsChanged = false;
+      const nextDraftsForComponent = { ...drafts };
+      for (const [variantId, variantLayers] of Object.entries(drafts)) {
+        const prefixed = prefixUnprefixedLayers(variantLayers, to);
+        if (!prefixed.changed) continue;
+        nextDraftsForComponent[variantId] = prefixed.layers;
+        draftsChanged = true;
+      }
+      if (draftsChanged) {
+        nextComponentDrafts[component.id] = nextDraftsForComponent;
+        changed = true;
+      }
+    }
+    nextComponents.push(next);
+    if (changed) dirtyIds.push(component.id);
+  }
+  if (dirtyIds.length > 0) {
+    useComponentsStore.setState({
+      components: nextComponents,
+      componentDrafts: nextComponentDrafts,
+      componentDraftDirty: {
+        ...componentsState.componentDraftDirty,
+        ...Object.fromEntries(dirtyIds.map((id) => [id, true])),
+      },
+    });
+    for (const componentId of dirtyIds) {
+      const drafts = useComponentsStore.getState().componentDrafts[componentId];
+      if (drafts && Object.keys(drafts).length > 0) {
+        await useComponentsStore.getState().saveComponentDraft(componentId);
+        continue;
+      }
+      const component = useComponentsStore.getState().components.find((item) => item.id === componentId);
+      if (!component?.variants?.length) continue;
+      await fetch(projectsPath(`/api/components/${componentId}`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ variants: component.variants }),
+      });
+    }
+  }
+
+  const styles = useLayerStylesStore.getState().styles;
+  const changedStyles = styles.flatMap((style) => {
+    const classes = prefixUnprefixedText(style.classes || '', to);
+    return classes === (style.classes || '') ? [] : [{ ...style, classes }];
+  });
+  if (changedStyles.length > 0) {
+    const byId = new Map(changedStyles.map((style) => [style.id, style]));
+    useLayerStylesStore.setState({
+      styles: styles.map((style) => byId.get(style.id) ?? style),
+    });
+    for (const style of changedStyles) {
+      await useLayerStylesStore.getState().updateStyle(style.id, { classes: style.classes });
+    }
+  }
 }
 
 /**

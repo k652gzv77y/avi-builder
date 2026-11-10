@@ -57,7 +57,9 @@ export function BreakpointContextBar({ layer, onLayerUpdate }: BreakpointContext
   const { catalog } = useBreakpointCatalog();
   if (!layer || isBaseBreakpoint(activeBreakpoint, catalog)) return null;
 
-  const breakpointLabel = editorBreakpointLabel(activeBreakpoint, catalog);
+  const label = editorBreakpointLabel(activeBreakpoint, catalog);
+  const primary = catalog.find((item) => item.primary);
+  const primaryName = primary ? editorBreakpointLabel(primary.id, catalog) : 'Desktop';
   const classes = toClassList(layer.classes);
   const hasOverride = classes.some((cls) => splitResponsivePrefix(cls).breakpoint === activeBreakpoint);
 
@@ -69,7 +71,7 @@ export function BreakpointContextBar({ layer, onLayerUpdate }: BreakpointContext
   return (
     <div className="flex flex-col gap-2 px-0 py-3">
       <p className="text-[11px] leading-snug text-muted-foreground">
-        Editing {breakpointLabel}. Desktop is primary and cascades here. Changes on {breakpointLabel} are overrides.
+        Editing {label}. {primaryName} is primary and cascades here. Changes on {label} are overrides.
       </p>
       {hasOverride && (
         <Button
@@ -79,7 +81,7 @@ export function BreakpointContextBar({ layer, onLayerUpdate }: BreakpointContext
           className="h-7 self-start px-2 text-[11px]"
           onClick={handleReset}
         >
-          Reset {breakpointLabel} overrides
+          Reset {label} overrides
         </Button>
       )}
     </div>
